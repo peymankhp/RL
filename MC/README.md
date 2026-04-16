@@ -1,6 +1,6 @@
 # 🎲 Monte Carlo RL Explorer
 
-An interactive visual mini-textbook for all major Monte Carlo methods in Reinforcement Learning.
+A simple, interactive visual mini textbook covering all major Monte Carlo methods in reinforcement learning designed purely for learning.
 
 ## Methods Covered
 
