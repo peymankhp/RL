@@ -1012,10 +1012,15 @@ def main():
                 Early algorithms needed "exploring starts" — the agent must try every (s,a) pair as a starting
                 point. This is impractical in the real world. **ε-greedy** solves it:
 
-                $$\pi(a \mid s) = \begin{cases}
+                """)
+                st.latex(r"""
+                \pi(a \mid s) =
+                \begin{cases}
                 1 - \varepsilon + \dfrac{\varepsilon}{|A(s)|} & \text{if } a = \arg\max_{a'} Q(s,a') \\[6pt]
                 \dfrac{\varepsilon}{|A(s)|} & \text{otherwise}
-                \end{cases}$$
+                \end{cases}
+                """)
+                st.markdown(r"""
 
                 Every non-greedy action gets a floor probability of **ε / |A(s)|**, guaranteeing all
                 state-action pairs are eventually visited. The best known action gets the rest:
@@ -1158,9 +1163,13 @@ def main():
 
                 Given a trajectory $A_t, S_{t+1}, A_{t+1}, \ldots, S_T$ starting from state $S_t$:
 
-                $$\rho_{t:T-1} \doteq \frac{\prod_{k=t}^{T-1}\pi(A_k|S_k)\,p(S_{k+1}|S_k,A_k)}
+                """)
+                st.latex(r"""
+                \rho_{t:T-1} \doteq \frac{\prod_{k=t}^{T-1}\pi(A_k|S_k)\,p(S_{k+1}|S_k,A_k)}
                 {\prod_{k=t}^{T-1}b(A_k|S_k)\,p(S_{k+1}|S_k,A_k)}
-                = \prod_{k=t}^{T-1}\frac{\pi(A_k|S_k)}{b(A_k|S_k)}$$
+                = \prod_{k=t}^{T-1}\frac{\pi(A_k|S_k)}{b(A_k|S_k)}
+                """)
+                st.markdown(r"""
 
                 The environment dynamics $p(S_{k+1}|S_k,A_k)$ cancel — IS only depends on the policies,
                 not the transition model. This is crucial: MC off-policy evaluation is **model-free**.
@@ -1171,8 +1180,12 @@ def main():
 
                 Simply multiply each return by its IS ratio, then average:
 
-                $$V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}\, G_t}
-                {|\mathcal{T}(s)|}$$
+                """)
+                st.latex(r"""
+                V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}\, G_t}
+                {|\mathcal{T}(s)|}
+                """)
+                st.markdown(r"""
 
                 ✅ **Unbiased** — correct in expectation  
                 ❌ **Unbounded variance** — if ρ can be 10×, the estimate can be 10× the actual return
@@ -1183,8 +1196,12 @@ def main():
 
                 Use IS weights as a weighted denominator instead:
 
-                $$V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}\, G_t}
-                {\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}}$$
+                """)
+                st.latex(r"""
+                V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}\, G_t}
+                {\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}}
+                """)
+                st.markdown(r"""
 
                 The weight on any single return is **at most 1** (the max weight cancels in numerator/denominator).
 
@@ -1196,7 +1213,9 @@ def main():
                 #### Coverage Requirement
 
                 Off-policy IS requires **coverage**: every action taken under π must also be possible under b.
-                $$\pi(a|s) > 0 \implies b(a|s) > 0$$
+                """)
+                st.latex(r"\pi(a|s) > 0 \implies b(a|s) > 0")
+                st.markdown(r"""
 
                 In this gridworld: the behavior policy is uniform random (all actions equally likely),
                 satisfying coverage for any deterministic target policy.
@@ -1452,8 +1471,12 @@ def main():
                 So future ratios are irrelevant for past rewards. We write the return as a sum of
                 individually IS-corrected rewards:
 
-                $$\hat{V}^{PD}(s_t) = \sum_{k=t}^{T-1} \gamma^{k-t}
-                \underbrace{\left(\prod_{j=t}^{k}\rho_j\right)}_{\text{only ratios up to step }k} R_{k+1}$$
+                """)
+                st.latex(r"""
+                \hat{V}^{PD}(s_t) = \sum_{k=t}^{T-1} \gamma^{k-t}
+                \underbrace{\left(\prod_{j=t}^{k}\rho_j\right)}_{\text{only ratios up to step }k} R_{k+1}
+                """)
+                st.markdown(r"""
 
                 This is **provably unbiased** and has **lower variance** than ordinary IS,
                 because each reward uses only the ratios it actually needs.
@@ -1465,12 +1488,16 @@ def main():
                 When $\gamma < 1$, the discounted return can be rewritten as a weighted sum of
                 **flat (undiscounted) partial returns** $\bar{G}_{t:h}$:
 
-                $$G_t = (1-\gamma)\sum_{h=t}^{T-1} \gamma^{h-t} \bar{G}_{t:h} + \gamma^{T-t} \bar{G}_{t:T}$$
+                """)
+                st.latex(r"G_t = (1-\gamma)\sum_{h=t}^{T-1} \gamma^{h-t} \bar{G}_{t:h} + \gamma^{T-t} \bar{G}_{t:T}")
+                st.markdown(r"""
 
                 Each partial return $\bar{G}_{t:h}$ only needs IS ratios up to horizon $h$, not the full
                 episode. The IS weight for each partial return is then:
 
-                $$\rho_{t:h} = \prod_{k=t}^{h} \rho_k \quad (\text{length } h-t+1, \text{ not } T-t)$$
+                """)
+                st.latex(r"\rho_{t:h} = \prod_{k=t}^{h} \rho_k \quad (\text{length } h-t+1, \text{ not } T-t)")
+                st.markdown(r"""
 
                 Since $\gamma < 1$ discounts distant horizons, those long IS products have lower influence.
                 Result: **shortest effective IS products → lowest variance of all estimators**.
@@ -1481,8 +1508,9 @@ def main():
 
                 #### Variance Hierarchy
 
-                $$\text{Var}[\text{Disc. IS}] \;\leq\; \text{Var}[\text{Per-Decision IS}]
-                \;\leq\; \text{Var}[\text{Weighted IS}] \;\leq\; \text{Var}[\text{Ordinary IS}]$$
+                """)
+                st.latex(r"\text{Var}[\text{Disc. IS}] \;\leq\; \text{Var}[\text{Per-Decision IS}] \;\leq\; \text{Var}[\text{Weighted IS}] \;\leq\; \text{Var}[\text{Ordinary IS}]")
+                st.markdown(r"""
 
                 | Method | IS product length | Variance |
                 |--------|-----------------|---------|
