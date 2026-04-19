@@ -332,6 +332,75 @@ def mc_weighted_is(env: GridWorld, target_policy, behavior_policy, n_episodes: i
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# OFF-POLICY MC CONTROL  (Section 5.7, Sutton & Barto)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def mc_off_policy_control(env: GridWorld, n_episodes: int, eps_behavior: float, gamma: float):
+    """
+    Off-policy MC Control with weighted IS — the textbook algorithm from S&B Ch.5.
+
+    Target policy  π : deterministic greedy w.r.t. Q  → can converge to true π*
+    Behavior policy b : ε-soft (guarantees coverage of all state-action pairs)
+
+    Key update rule (incremental weighted IS for Q):
+        C(s,a) ← C(s,a) + W
+        Q(s,a) ← Q(s,a) + W/C(s,a) · [G − Q(s,a)]
+
+    CRITICAL: we only update states from the END of the episode (greedy tail).
+    As soon as a non-greedy action is encountered walking backward, we STOP —
+    because W = π(a|s)/b(a|s) = 0 for a non-greedy action under deterministic π.
+    """
+    Q = defaultdict(lambda: np.zeros(4))
+    C = defaultdict(lambda: np.zeros(4))   # per (s,a) cumulative IS weight
+
+    episode_rewards    = []
+    greedy_len_history = []   # fraction of episode covered by greedy tail
+
+    for ep in range(n_episodes):
+        # Rebuild ε-soft behavior policy from current Q each episode
+        b_policy = env.eps_greedy_policy(Q, eps_behavior)
+        episode  = env.generate_episode(b_policy)
+
+        total_r = sum(r for _, _, r in episode)
+        episode_rewards.append(total_r)
+
+        G = 0.0
+        W = 1.0
+        greedy_steps = 0
+
+        # Walk backward through the episode
+        for s, a, r in reversed(episode):
+            G = gamma * G + r
+
+            # Incremental weighted-IS update for Q(s,a)
+            C[s][a] += W
+            Q[s][a] += (W / C[s][a]) * (G - Q[s][a])
+
+            # Greedy action under current Q
+            a_star = int(np.argmax(Q[s]))
+
+            if a != a_star:
+                # Non-greedy action → importance weight for all earlier steps = 0 → stop
+                break
+
+            greedy_steps += 1
+            # π(a|s) = 1 (deterministic greedy), so ρ = 1 / b(a|s)
+            b_prob = float(b_policy[s][a])
+            W *= 1.0 / max(b_prob, 1e-12)
+
+            if W > 1e8:   # numerical safety cap
+                break
+
+        greedy_len_history.append(greedy_steps / max(len(episode), 1))
+
+    # Extract final deterministic target policy
+    pi_star = {env.i2s(i): int(np.argmax(Q[env.i2s(i)])) for i in range(env.n_states)}
+    V_star  = {s: float(np.max(Q[s])) for s in Q}
+
+    return Q, pi_star, V_star, episode_rewards, greedy_len_history
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # INCREMENTAL MC  (Section 5.6)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -593,18 +662,22 @@ def run_all_methods(env, n_episodes, gamma, epsilon, seed):
     V_ev, hist_ev = mc_every_visit(env, b_policy, n_episodes, gamma)
 
     # 2. On-policy control → gives us a good Q to build a target policy
-    Q_on, pi_on, ep_rewards = mc_control_on_policy(env, n_episodes, epsilon, gamma)
+    Q_on, pi_on, ep_rewards_on = mc_control_on_policy(env, n_episodes, epsilon, gamma)
     V_on   = {s: float(np.max(Q_on[s])) for s in Q_on}
-    pi_det = env.greedy_policy(Q_on)   # deterministic target policy for off-policy
+    pi_det = env.greedy_policy(Q_on)   # deterministic target policy for off-policy eval
 
-    # 3. Off-policy IS (target=greedy from Q_on, behavior=random)
+    # 3. Off-policy IS evaluation (target=greedy from Q_on, behavior=random)
     V_ois = mc_ordinary_is(env, pi_det, b_policy, n_episodes, gamma)
     V_wis = mc_weighted_is(env, pi_det, b_policy, n_episodes, gamma)
 
-    # 4. Incremental MC
+    # 4. Off-policy MC Control (learns its OWN Q toward π*)
+    Q_off, pi_off, V_off, ep_rewards_off, greedy_hist = mc_off_policy_control(
+        env, n_episodes, epsilon, gamma)
+
+    # 5. Incremental MC
     V_inc, var_hist = mc_incremental(env, b_policy, n_episodes, gamma)
 
-    # 5. Advanced IS (cap at 500 for speed)
+    # 6. Advanced IS (cap at 500 for speed)
     n_adv  = min(n_episodes, 500)
     V_pd   = mc_per_decision_is(env, pi_det, b_policy, n_adv, gamma)
     V_da   = mc_discounting_aware_is(env, pi_det, b_policy, n_adv, gamma)
@@ -612,12 +685,42 @@ def run_all_methods(env, n_episodes, gamma, epsilon, seed):
     return dict(
         V_fv=V_fv, hist_fv=hist_fv,
         V_ev=V_ev, hist_ev=hist_ev,
-        Q_on=Q_on, V_on=V_on, pi_on=pi_on, pi_det=pi_det, ep_rewards=ep_rewards,
+        Q_on=Q_on, V_on=V_on, pi_on=pi_on, pi_det=pi_det, ep_rewards_on=ep_rewards_on,
         V_ois=V_ois, V_wis=V_wis,
+        Q_off=Q_off, pi_off=pi_off, V_off=V_off,
+        ep_rewards_off=ep_rewards_off, greedy_hist=greedy_hist,
         V_inc=V_inc, var_hist=var_hist,
         V_pd=V_pd, V_da=V_da,
         b_policy=b_policy,
     )
+
+
+
+def _card(color, icon, title, body):
+    """Reusable coloured teaching card."""
+    return f"""
+    <div style="background:{color}18; border-left:4px solid {color};
+                padding:1rem 1.2rem; border-radius:0 10px 10px 0; margin-bottom:1rem">
+    <b>{icon} {title}</b><br>{body}
+    </div>"""
+
+
+def _tip(text):
+    return f'<div style="background:#1a2a1a; border-left:3px solid #4caf50; padding:.6rem 1rem; border-radius:0 6px 6px 0; margin:.5rem 0; font-size:.93rem">{text}</div>'
+
+
+def _warn(text):
+    return f'<div style="background:#2a1a1a; border-left:3px solid #ef5350; padding:.6rem 1rem; border-radius:0 6px 6px 0; margin:.5rem 0; font-size:.93rem">{text}</div>'
+
+
+def _formula_box(title, formula_md):
+    """A highlighted formula box with title."""
+    return f"""
+    <div style="background:#1a1a30; border:1px solid #3a3a5e; border-radius:8px;
+                padding:.8rem 1.2rem; margin:.6rem 0">
+    <span style="color:#9c9cf0; font-size:.85rem; font-weight:700">{title}</span><br>
+    {formula_md}
+    </div>"""
 
 
 def main():
@@ -627,172 +730,180 @@ def main():
                 padding:2rem 2.5rem; border-radius:14px; margin-bottom:1.5rem">
         <h1 style="color:white;margin:0;font-size:2.4rem">🎲 Monte Carlo RL Explorer</h1>
         <p style="color:#b0bec5;margin-top:.5rem;font-size:1.05rem">
-            An interactive visual textbook — from MC Prediction to Discounting-Aware Importance Sampling
+            An interactive visual textbook — 9 methods, every formula explained, every chart decoded
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── What is Monte Carlo? — always-visible intro ───────────────────────────
-    with st.expander("🎓 New here? Start with this — What is Monte Carlo Reinforcement Learning?", expanded=False):
-        st.markdown("""
-        <div style="background:#12121f; border-radius:12px; padding:1.4rem 1.6rem; border:1px solid #2a2a3e">
+    # ── Global intro ─────────────────────────────────────────────────────────
+    with st.expander("🎓 New here? — What is Monte Carlo Reinforcement Learning?", expanded=False):
+        st.markdown(r"""
+        <div style="background:#12121f; border-radius:12px; padding:1.4rem 1.8rem; border:1px solid #2a2a3e">
 
-        ### 🤔 The Core Problem: How Does an Agent Learn Good Behaviour?
+        ### 🤔 The Core Problem
 
-        Imagine you drop a robot into a maze it has never seen.  It doesn't know the map.
-        It can't ask anyone.  It can only *try things* and *observe what happens*.
+        Imagine a robot dropped into a maze it has never seen. It has no map, no instructions — only the
+        ability to move and observe what happens. How does it learn to reach the exit?
 
-        > **Reinforcement Learning (RL)** is the family of algorithms that let an agent learn
-        > from its own experience — exactly like a child learning to walk by falling and trying again.
-
-        ---
-
-        ### 🎲 So What is "Monte Carlo" in RL?
-
-        The name comes from the famous Monaco casino — a nod to *randomness*.
-
-        A **Monte Carlo method** learns by playing complete games (called *episodes*) from start to finish,
-        then looking back at what happened and updating its beliefs.
-
-        Think of it like a chess player who:
-        1. Plays a full game
-        2. At the end, replays the game in their head
-        3. Asks *"which moves led to my win or loss?"*
-        4. Updates their strategy for next time
-
-        **Key insight:** MC methods never guess or extrapolate — they only learn from *actual observed outcomes*.
-        This makes them **unbiased** but potentially **slow** (they need complete episodes).
+        > **Reinforcement Learning (RL)** is the science of learning from experience through trial and error —
+        > like a child learning to walk by falling and getting up again.
 
         ---
 
-        ### 🆚 What Problem Is Each Method Solving?
+        ### 🎲 What Makes It "Monte Carlo"?
 
-        | Method | The Problem It Solves |
-        |--------|-----------------------|
-        | **MC Prediction** | *"How good is it to be in state S under this fixed policy?"* |
-        | **MC Control** | *"What is the best action to take in each state — and how do I find it?"* |
-        | **Off-policy IS** | *"I collected data with a random exploration strategy — can I still evaluate a smarter strategy from that same data?"* |
-        | **Incremental MC** | *"I don't have memory to store thousands of past returns — how do I update efficiently?"* |
-        | **Per-Decision IS** | *"Importance sampling weights explode for long episodes — how do I reduce variance?"* |
-        | **Discounting-Aware IS** | *"When future rewards matter less (γ < 1), can I exploit that structure to reduce noise even further?"* |
+        The name comes from the Monaco casino — a symbol of randomness and probability.
+        In RL, **Monte Carlo methods** learn by playing many complete games (called **episodes**),
+        then looking backward to figure out which decisions were responsible for the outcome.
+
+        **The chess analogy:** After finishing a game, a chess player replays every move and asks
+        *"did this move lead to my win or loss?"* MC does the same — but with math, and thousands of games.
 
         ---
 
-        ### 🔑 Three Concepts You Need to Understand Everything Else
+        ### 🔑 Three Concepts You Must Know
 
-        **1. Return (G)** — The total reward collected from a point in time until the end of the episode.
-        Not just the immediate reward — all future rewards, discounted by γ.
-        *Think: total career earnings of a chess move, not just the points it scores right now.*
+        | Concept | Plain English | Math symbol |
+        |---------|--------------|-------------|
+        | **Return G** | Total reward from a moment until the game ends — including future rewards, scaled by γ | $G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \ldots$ |
+        | **Value V(s)** | The *average* return you expect starting from position s — how good is it to be here? | $V(s) \approx \mathbb{E}[G_t \mid S_t = s]$ |
+        | **Policy π** | The agent's decision rule — given position s, which action to take | $\pi(a \mid s) = \Pr[\text{take action } a \mid \text{in state } s]$ |
 
-        **2. Value V(s)** — The *average* return the agent expects if it starts from state s and follows its policy.
-        *Think: average exam score you expect from a particular study method.*
+        ---
 
-        **3. Policy (π)** — The agent's decision rule: "given I'm in state s, what action should I take?"
-        *Think: a recipe or strategy guide.*
+        ### 📍 The 9 Methods at a Glance
 
-        > **This entire app** builds these three concepts up from scratch across 8 methods,
-        > each solving a slightly harder problem than the last.
+        | # | Method | The Question It Answers |
+        |---|--------|------------------------|
+        | 1 | **MC Prediction (First-Visit)** | How good is each state under a fixed policy? |
+        | 2 | **MC Prediction (Every-Visit)** | Same, but use every visit — more data, slight correlation |
+        | 3 | **On-policy MC Control** | What's the best action in each state — learn and improve simultaneously |
+        | 4 | **Off-policy IS Evaluation** | Can I evaluate policy π using data collected by policy b? |
+        | 5 | **Off-policy MC Control** | Can I find the true optimal π* while exploring with a different policy? |
+        | 6 | **Incremental MC** | Can I update efficiently without storing every past return? |
+        | 7 | **Per-Decision IS** | Can I cut IS variance by breaking the weight into per-step pieces? |
+        | 8 | **Discounting-Aware IS** | Can I exploit γ < 1 to reduce variance even further? |
+
+        > **All MC methods share three DNA strands:**  
+        > ① Model-free — no knowledge of $p(s'|s,a)$ needed  
+        > ② Episode-based — must wait until the game ends  
+        > ③ Unbiased prediction — use real outcomes, never guesses
 
         </div>
         """, unsafe_allow_html=True)
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.header("⚙️ Experiment Settings")
-        st.caption("Adjust these and re-run to see how each method responds.")
-        n_episodes = st.slider("Episodes", 100, 3000, 800, 100,
-            help="How many complete game runs (start→end) the agent plays. More = better estimates, slower run.")
-        gamma      = st.slider("Discount γ", 0.80, 1.00, 0.99, 0.01,
-            help="How much the agent values future rewards vs immediate ones. γ=1 means future matters equally; γ=0.9 means rewards 10 steps away are worth only 35% of immediate ones.")
-        epsilon    = st.slider("ε (epsilon-greedy)", 0.01, 0.50, 0.10, 0.01,
-            help="The exploration rate. ε=0.1 means the agent picks a random action 10% of the time. Without exploration the agent gets stuck in a rut.")
-        slip_prob  = st.slider("Slip Probability", 0.0, 0.30, 0.10, 0.05,
-            help="Chance that the agent's chosen action is replaced by a random one — simulating a slippery floor or noisy motors. Makes the environment stochastic (unpredictable).")
-        seed       = st.number_input("Random Seed", 0, 9999, 42,
-            help="Fixing the seed makes results reproducible. Change it to see different random runs.")
+        st.header("⚙️ Settings")
+        st.caption("Change these and click **Run** to see how each method responds.")
 
-        run_btn = st.button("🚀 Run All Methods", type="primary", use_container_width=True)
+        n_episodes = st.slider("Episodes", 100, 3000, 800, 100,
+            help="One episode = one complete game (Start→Goal or Trap). More episodes = better estimates but slower. Try 200 for speed, 2000 for accuracy.")
+        gamma = st.slider("Discount γ", 0.80, 1.00, 0.99, 0.01,
+            help="How much future rewards matter. γ=0.99: reward 100 steps away is worth 0.99^100≈37% of immediate reward. γ=1.0: future matters as much as now.")
+        epsilon = st.slider("ε (exploration rate)", 0.01, 0.50, 0.10, 0.01,
+            help="Fraction of time the agent picks a RANDOM action instead of its best known one. ε=0.1 means 10% random. Too low = gets stuck; too high = never learns.")
+        slip_prob = st.slider("Slip probability", 0.0, 0.30, 0.10, 0.05,
+            help="Chance the environment ignores the chosen action and does something random. Models noisy motors, wind, or slippery floors.")
+        seed = st.number_input("Random seed", 0, 9999, 42,
+            help="Same seed = same random numbers = reproducible results. Change it to see a different run.")
+
+        run_btn = st.button("🚀 Run All 9 Methods", type="primary", use_container_width=True)
 
         st.divider()
         st.markdown("""
-        **5×5 Gridworld**
-        | Symbol | Meaning |
-        |--------|---------|
+        **5×5 Gridworld legend**
+        | Symbol | Cell type |
+        |--------|-----------|
         | ● | Start (0,0) |
         | ★ | Goal (4,4) +10 |
         | ✗ | Trap (2,2) −5 |
-        | ■ | Wall (bounce) |
-        | — | Step cost −0.1 |
-        """)
-        st.divider()
-        st.markdown("""
-        **MC Pipeline:**
+        | ■ | Wall (bounce back) |
+        | — | Step penalty −0.1 |
+
+        **9 Methods covered:**
         ```
-        Prediction
-          ├─ First-Visit MC
-          └─ Every-Visit MC
-        Control
-          └─ On-policy ε-greedy
-        Off-policy
+        MC Prediction
+          ├─ First-Visit
+          └─ Every-Visit
+        MC Control
+          ├─ On-policy ε-greedy
+          └─ Off-policy (target π*)
+        Off-policy IS
           ├─ Ordinary IS
-          ├─ Weighted IS
+          └─ Weighted IS
+        Incremental MC
+        Advanced IS
           ├─ Per-Decision IS
           └─ Discounting-Aware IS
-        Incremental MC
         ```
         """)
 
     env = GridWorld(size=5, slip_prob=slip_prob)
 
-    # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_env, tab_pred, tab_ctrl, tab_offpol, tab_incr, tab_adv, tab_dash, tab_guide = st.tabs([
+    # ── Tab definitions ───────────────────────────────────────────────────────
+    tab_env, tab_pred, tab_ctrl, tab_offpol, tab_offctrl, tab_incr, tab_adv, tab_dash, tab_guide = st.tabs([
         "🗺️ Environment",
         "📊 MC Prediction",
         "🎯 On-policy Control",
         "⚖️ Off-policy IS",
+        "🎲 Off-policy Control",
         "⚡ Incremental MC",
         "🔬 Advanced IS",
         "📈 Dashboard",
         "📚 Method Guide",
     ])
 
-    # ── Tab 0: Environment ────────────────────────────────────────────────────
+    # ═════════════════════════════════════════════════════════════════════════
+    # TAB 0 — ENVIRONMENT
+    # ═════════════════════════════════════════════════════════════════════════
     with tab_env:
-        st.markdown("""
-        <div style="background:#0d1b2a; border-left:4px solid #42a5f5; padding:1rem 1.2rem;
-                    border-radius:0 10px 10px 0; margin-bottom:1rem">
-        <b>🧩 What problem does this tab solve?</b><br>
-        Before any MC algorithm can run, we need an <em>environment</em> — a world with states, actions,
-        and rewards. This tab shows you the exact world all 8 methods will navigate.
-        Understanding the environment is the first step to understanding why the methods behave differently.
-        </div>
-        """, unsafe_allow_html=True)
-        st.subheader("🗺️ The 5×5 Gridworld")
-        c1, c2 = st.columns([1.1, 0.9])
+        st.markdown(_card("#42a5f5","🗺️","Why do we need an environment?",
+            """Every RL algorithm needs a world to act in. Our environment defines the <em>states</em>
+            (positions), <em>actions</em> (moves), <em>rewards</em> (outcomes), and <em>terminal conditions</em>
+            (when the game ends). All 9 MC methods in this app interact with the same 5×5 Gridworld —
+            which lets you directly compare how differently each method responds to the <em>same</em> world."""),
+            unsafe_allow_html=True)
 
+        st.subheader("🗺️ The 5×5 Stochastic Gridworld")
+        c1, c2 = st.columns([1.2, 0.8])
         with c1:
             st.markdown("""
-            The agent moves on a 5×5 grid.  Terminal states end the episode immediately.
+            #### What is the agent's task?
+            The agent starts at the **top-left corner (0,0)** and must navigate to the **bottom-right
+            goal (4,4)** while avoiding the **trap at (2,2)**. Four walls block direct paths, forcing
+            the agent to find alternative routes.
 
-            **Why this environment for MC?**
-            - MC requires **complete episodes** (must reach a terminal state)
-            - Multiple paths → on-policy vs off-policy behavior differs meaningfully
-            - Trap forces variance in returns — good for IS comparisons
-            - Walls create asymmetric navigation — policy arrows become informative
+            #### Why is this environment good for MC?
+            Three specific design choices make MC methods interesting here:
 
-            **Reward structure:**
-            | Event | Reward |
-            |-------|--------|
-            | Reach Goal | +10.0 |
-            | Reach Trap | −5.0  |
-            | Each step   | −0.1  |
-            
-            **Stochastic slip**: with probability *p* the chosen action is  
-            replaced by a uniform-random action — tests robustness of learned policies.
+            **① Multiple paths to the goal** — The walls create at least two viable routes
+            (top-right arc vs bottom-left arc). Different policies take different paths, and MC
+            must learn which path is better purely from sampled experience.
+
+            **② A dangerous trap** — Any method that doesn't learn to avoid (2,2) will
+            collect strongly negative returns. This creates high variance in early episodes,
+            which is exactly the phenomenon IS methods are designed to handle.
+
+            **③ Stochastic slip** — With probability `slip_prob`, the environment *ignores*
+            the agent's chosen action and picks a random one instead. This tests whether learned
+            policies are robust to noise — critical for real-world robotics.
+
+            #### Reward structure explained
+            | Event | Reward | Why this value? |
+            |-------|--------|-----------------|
+            | Reach Goal ★ | **+10.0** | Large positive — the primary objective |
+            | Reach Trap ✗ | **−5.0** | Negative but not catastrophic — avoidable risk |
+            | Each step | **−0.1** | Small penalty — encourages shorter paths |
+            | Wall bounce | **0.0** | No penalty — but you waste a step |
+
+            The step penalty (−0.1) is crucial: without it, a wandering agent that eventually
+            reaches the goal by luck would look as good as a smart agent. The penalty ensures
+            *efficiency* matters, not just *success*.
             """)
 
         with c2:
-            st.caption("📖 **How to read this diagram:** Each cell is a grid square the agent can stand on. Colours identify special cells. The agent starts top-left and tries to reach bottom-right without falling into the trap.")
+            st.caption("📖 **How to read this map:** Row 0 is the top; row 4 is the bottom. The agent starts at (0,0) — top-left — and must reach (4,4) — bottom-right. Walls (■) are impassable: the agent bounces back to its previous position.")
             fig, ax, _ = make_fig(1, 1, 5, 5)
             ax.set_xlim(-0.5, 4.5); ax.set_ylim(-0.5, 4.5); ax.set_aspect("equal")
             ax.set_facecolor(DARK_BG)
@@ -806,151 +917,243 @@ def main():
                     elif s == env.start: c, lbl = color_map["start"], f"●START\n({i},{j})"
                     else:                c, lbl = color_map["normal"], f"({i},{j})"
                     ax.add_patch(plt.Rectangle((j-0.5,i-0.5),1,1,color=c,ec="#2a2a3e",lw=1.5))
-                    ax.text(j, i, lbl, ha="center", va="center", fontsize=7,
-                            color="white", fontweight="bold")
+                    ax.text(j, i, lbl, ha="center", va="center", fontsize=7, color="white", fontweight="bold")
             ax.set_xticks(range(5)); ax.set_yticks(range(5))
             ax.tick_params(colors="#9e9ebb")
             ax.invert_yaxis()
             ax.set_title("Gridworld Layout", color="white", fontweight="bold")
             for sp in ax.spines.values(): sp.set_edgecolor(GRID_COLOR)
-            plt.tight_layout()
-            st.pyplot(fig); plt.close()
+            plt.tight_layout(); st.pyplot(fig); plt.close()
 
-        # Sample episode
-        st.markdown("---")
-        st.subheader("🎬 Sample Episode (random policy)")
+        st.divider()
+        st.subheader("🎬 What does one episode look like?")
         st.markdown("""
-        > **What is an episode?** One full run of the game — from Start to a terminal state (Goal or Trap).
-        > MC methods can *only learn after a complete episode ends*, because they need the final outcome to
-        > calculate the return G. This is the fundamental difference from TD (Temporal-Difference) methods,
-        > which can learn after every single step.
-        >
-        > The path below shows one random episode — notice how chaotic a random policy is.
-        > MC's job is to make sense of hundreds of these chaotic runs and extract something useful.
+        An **episode** is one complete game — from Start to a terminal state. MC methods are
+        fundamentally episode-based: they cannot update any estimate until the game is over,
+        because they need the *final total reward* G to learn from.
+
+        This is the key difference from **TD (Temporal-Difference) methods** like Q-learning,
+        which can update after *every single step* using a partial estimate. MC waits for the
+        truth; TD guesses along the way.
         """)
         np.random.seed(seed)
         ep_sample = env.generate_episode(env.uniform_policy(), max_steps=50)
-        path_str = " → ".join(f"{s}" for s, a, r in ep_sample)
-        total_r  = sum(r for _, _, r in ep_sample)
-        st.caption("📖 How to read this output — **Length**: how many steps before hitting a terminal state. **Return**: total reward collected (negative = mostly step-costs and possibly the trap; near +10 = reached the goal efficiently). **Path**: the exact sequence of (row, col) grid squares visited in order.")
-        st.code(f"Length : {len(ep_sample)} steps\nReturn : {total_r:.2f}\nPath   : {path_str}", language="")
+        path_str  = " → ".join(f"{s}" for s, a, r in ep_sample)
+        total_r   = sum(r for _, _, r in ep_sample)
+        acts_str  = " ".join(env.SYMBOLS[a] for _, a, _ in ep_sample)
+        rew_str   = " ".join(f"{r:+.1f}" for _, _, r in ep_sample)
 
-    # ── Run all methods ───────────────────────────────────────────────────────
+        st.caption("📖 **Three rows below:** 'Path' = grid squares visited. 'Actions' = moves chosen (↑↓←→). 'Rewards' = reward received at each step. Read them together: each column is one step of the game. The final return G is the sum of all rewards (with γ discounting).")
+        st.code(
+            f"Length  : {len(ep_sample)} steps       Return G : {total_r:.2f}\n"
+            f"Path    : {path_str}\n"
+            f"Actions : {acts_str}\n"
+            f"Rewards : {rew_str}",
+            language=""
+        )
+
+        # Return calculation walkthrough
+        with st.expander("🔢 Step-by-step: How is the return G calculated from this episode?"):
+            st.markdown(r"""
+            The **return** $G_t$ at step $t$ is the discounted sum of all future rewards:
+
+            $$G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots + \gamma^{T-t-1} R_T$$
+
+            **Symbol decoder:**
+            - $R_{t+1}$ = reward received *after* taking action at step $t$
+            - $\gamma$ (gamma) = your discount setting — currently **""" + f"{gamma:.2f}" + r"""**
+            - $T$ = length of the episode (last step)
+
+            MC computes this **backward** through the episode — a computational trick:
+            starting from the final step with G=0, then at each previous step:
+
+            $$G_{\text{new}} = R_{\text{current step}} + \gamma \cdot G_{\text{previous}}$$
+
+            **Worked example** (using the first 5 steps of the episode above):
+            """)
+            g = 0.0
+            rows = []
+            for i, (s, a, r) in enumerate(reversed(ep_sample[:5])):
+                g = r + gamma * g
+                rows.append({"Step (backward)": i+1, "State": str(s),
+                             "Reward R": f"{r:+.2f}",
+                             "G after update": f"{g:.4f}",
+                             "Formula": f"G = {r:+.2f} + {gamma:.2f}×{(g-r)/gamma:.4f}"})
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.markdown(f"""
+            After processing all {len(ep_sample)} steps this way, the final G (for state (0,0)) = **{total_r:.4f}**.
+            MC records this G and repeats for hundreds of episodes, then averages all G values per state.
+            """)
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # RUN ALL METHODS
+    # ═════════════════════════════════════════════════════════════════════════
     if run_btn or "results" in st.session_state:
         if run_btn:
-            with st.spinner("Running all 8 MC methods… (this takes a few seconds)"):
+            with st.spinner("Running all 9 MC methods… (a few seconds)"):
                 res = run_all_methods(env, n_episodes, gamma, epsilon, seed)
             st.session_state["results"] = res
-            st.sidebar.success("✅ Done!")
+            st.sidebar.success("✅ Done! Explore the tabs.")
 
         res = st.session_state["results"]
 
-        # ── Tab 1: MC Prediction ──────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 1 — MC PREDICTION
+        # ═════════════════════════════════════════════════════════════════════
         with tab_pred:
-            st.markdown("""
-            <div style="background:#1a0a2e; border-left:4px solid #7c4dff; padding:1rem 1.2rem;
-                        border-radius:0 10px 10px 0; margin-bottom:1rem">
-            <b>🧩 What problem does MC Prediction solve?</b><br>
-            Imagine you have a <em>fixed strategy</em> (policy) — say, "always try to go right, then down."
-            Before improving it, you first need to know: <em>how good is each grid square under this strategy?</em>
-            That number — how much total reward you expect from a given position — is called the <b>state value V(s)</b>.<br><br>
-            MC Prediction answers: <em>"Given the agent keeps following this exact policy forever,
-            what is the average total reward it will collect starting from each state?"</em><br><br>
-            <b>Why do we need this?</b> Knowing which states are valuable and which are dangerous is the
-            foundation for improving the policy later. You can't get better without first knowing how good you already are.
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(_card("#7c4dff","📊","What does MC Prediction solve?",
+                """<b>The problem:</b> Before improving a policy, you must know how good it already is.
+                MC Prediction answers: <em>"If the agent follows this exact policy forever, what total
+                reward does it expect from each grid square?"</em><br><br>
+                <b>Why this matters:</b> This estimated goodness score — called <b>V(s), the state value</b> —
+                is the foundation for every improvement algorithm. You can't make decisions better
+                without first knowing how good the current decisions are.<br><br>
+                <b>The method:</b> Play many episodes. After each one, look backward and record what
+                total reward followed each visited state. Average all those totals. That average <em>is</em> V(s)."""),
+                unsafe_allow_html=True)
+
             st.subheader("📊 MC Prediction — First-Visit vs Every-Visit")
-            st.markdown("""
-            Both methods estimate **V(s)** under the uniform random behavior policy.  
-            The only difference: when a state appears **multiple times** in an episode,  
-            First-Visit counts it **once**; Every-Visit counts it **every time**.
 
-            **Intuition for non-scientists:**
-            Suppose the agent visits square (2,3) five times in a single episode, then reaches the goal.
-            - **First-Visit MC:** only records the return from the *first* visit to (2,3). Cleaner math, fewer samples.
-            - **Every-Visit MC:** records five separate returns from (2,3) — one per visit. More data per episode,
-              but those 5 samples are correlated (they're from the same game).
-            """)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("""
+                #### First-Visit MC
+                In each episode, if state **s** appears multiple times, **only the first occurrence**
+                contributes a return sample to V(s).
 
-            # ── Theory panel ─────────────────────────────────────────────────
-            with st.expander("📐 Theory & Formulas — MC Prediction", expanded=False):
+                **Why?** Each first-visit return is statistically independent from other episodes'
+                first-visit returns. This gives clean, unbiased estimates.
+
+                **Analogy:** You visit a coffee shop 3 times in one day. First-Visit records only
+                your satisfaction after the *first* coffee of the day.
+                """)
+            with c2:
+                st.markdown("""
+                #### Every-Visit MC
+                **Every occurrence** of state s in every episode contributes a return sample.
+
+                **Why use it?** More data per episode → faster convergence in practice. The samples
+                within one episode are correlated (they're from the same game), introducing slight
+                bias, but this vanishes as episodes → ∞.
+
+                **Analogy:** You record your satisfaction after *every* coffee, including the 2nd
+                and 3rd of the day — more data but they're not independent.
+                """)
+
+            with st.expander("📐 Theory & Formulas — MC Prediction (click to expand)", expanded=False):
                 st.markdown(r"""
-                #### The Core Idea
+                #### Core Definition — What is V(s)?
 
-                The **value of a state** is the expected total reward from that state onward:
+                $$\boxed{v_\pi(s) \doteq \mathbb{E}_\pi\bigl[G_t \mid S_t = s\bigr]}$$
 
-                $$v_\pi(s) \doteq \mathbb{E}_\pi\bigl[G_t \mid S_t = s\bigr]$$
+                **Symbol decoder:**
+                - $v_\pi(s)$ — the true value of state $s$ under policy $\pi$ (what we're estimating)
+                - $\mathbb{E}_\pi[\cdot]$ — expected value (average over infinitely many episodes)
+                - $G_t$ — the return starting at time $t$
+                - $S_t = s$ — "given that the agent is at state $s$ at time $t$"
 
-                where the **return** $G_t$ is the discounted sum of future rewards:
+                #### The Return — What MC Actually Computes
 
                 $$G_t \doteq R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}$$
 
-                MC Prediction estimates $v_\pi(s)$ by simply **averaging observed returns**:
+                **Symbol decoder:**
+                - $R_{t+k+1}$ — reward received $k+1$ steps after time $t$
+                - $\gamma$ (gamma) — discount factor (0 to 1). If γ=0.99, a reward 10 steps away is worth $0.99^{10} \approx 0.90$ of its face value
+                - The infinite sum terminates at episode end (terminal state has reward 0)
 
-                $$V(s) \approx \frac{1}{N(s)} \sum_{i=1}^{N(s)} G_t^{(i)}$$
+                #### The MC Estimate
 
-                ---
+                $$\hat{V}(s) = \frac{1}{N(s)} \sum_{i=1}^{N(s)} G_t^{(i)}$$
 
-                #### First-Visit vs Every-Visit
+                **Symbol decoder:**
+                - $\hat{V}(s)$ — our current estimate of $v_\pi(s)$
+                - $N(s)$ — how many times state $s$ has been visited (first-visit: per episode; every-visit: total)
+                - $G_t^{(i)}$ — the return from the $i$-th visit to state $s$
 
-                Let $\mathcal{T}(s)$ be the set of time steps at which state $s$ is visited across all episodes.
+                #### Convergence Guarantee
 
-                | Method | Which visits count | Bias | Variance | Convergence rate |
-                |--------|--------------------|------|----------|-----------------|
-                | **First-Visit** | Only the first visit per episode | **Unbiased** | Lower | Error ∝ 1/√n |
-                | **Every-Visit** | Every visit in every episode | Slightly biased (correlated) | Higher | Faster in practice |
+                By the **Law of Large Numbers**: as $N(s) \to \infty$, $\hat{V}(s) \to v_\pi(s)$.
 
-                By the **Law of Large Numbers**, both converge to the true $v_\pi(s)$ as $N(s) \to \infty$.
+                The standard error of First-Visit MC falls as $\dfrac{\sigma}{\sqrt{n}}$, where
+                $\sigma$ is the standard deviation of returns from state $s$.
+                This means **doubling accuracy requires 4× more episodes** — MC is sample-hungry.
 
-                For First-Visit MC, each return is an **independent, identically distributed** sample —
-                so the standard error of the estimate falls as $1/\sqrt{n}$, where $n$ = number of first visits.
+                #### Why MC Is Unbiased (and Why That Matters)
 
-                ---
+                MC uses **actual returns** — real outcomes, not guesses. Unlike TD methods which
+                estimate G using $R + \gamma V(S')$ (a guess), MC waits for the true G.
+                No guessing = **zero bias**. The cost: it must wait for each full episode to finish.
 
-                #### Key Properties — What Makes MC Special
+                #### First-Visit vs Every-Visit: The Statistical Difference
 
-                > **No bootstrapping:** MC uses *actual* returns, never estimates-of-estimates. This means
-                > zero bias for prediction — the estimates are always correct in expectation.
-
-                > **Independence:** The estimate for state $s$ does not depend on the estimate for any
-                > other state $s'$. This is unlike Dynamic Programming, where all state values are coupled.
-                > You could estimate V(s) for just *one* state by running episodes only from $s$.
-
-                > **No model needed:** MC only needs sample episodes. It never needs to know $p(s'|s,a)$.
+                | Property | First-Visit | Every-Visit |
+                |----------|-------------|-------------|
+                | Bias | **Unbiased** for any N | Biased for finite N (converges to 0) |
+                | Variance per episode | Lower (1 sample) | Higher (multiple correlated samples) |
+                | Samples per episode | ≤ 1 per state | Potentially many per state |
+                | Preferred when | Theoretical analysis | Practical fast convergence |
                 """)
 
-
-            st.markdown("""
-            <div style="background:#0d1b0d; border-left:4px solid #4caf50; padding:.8rem 1rem;
-                        border-radius:0 8px 8px 0; margin-bottom:.8rem">
-            <b>📖 How to read the heatmaps below:</b><br>
-            Each coloured cell shows the estimated value V(s) of that grid square.
-            <b>Green = high value</b> (being here tends to lead to big rewards — close to the goal).
-            <b>Red = low / negative value</b> (dangerous — close to the trap, or far from the goal).
-            Numbers inside each cell are the exact V(s) estimate.
-            Walls (■) have no value because the agent can never stand on them.
-            The two maps should look <em>almost identical</em> — they're solving the same problem, just counting visits differently.
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(_card("#4caf50","📖","How to read the heatmaps below",
+                """Each grid square is coloured by its estimated <b>V(s) value</b>.<br>
+                🟢 <b>Green cells</b> = high V(s) — being here is good, the agent usually reaches the goal from here<br>
+                🔴 <b>Red cells</b> = low/negative V(s) — being here is bad (close to trap, or very far from goal)<br>
+                🟡 <b>Yellow cells</b> = moderate V(s) — intermediate positions<br>
+                <b>Numbers inside</b> = exact V(s) estimate. Walls (■) are blank — no agent ever stands there.<br>
+                <b>What to look for:</b> Both maps should show the same general pattern — green near (4,4),
+                red near (2,2). Any differences between left and right maps are due to counting visits differently."""),
+                unsafe_allow_html=True)
 
             fig, axes, axl = make_fig(1, 2, 12, 5)
             plot_value_heatmap(env, res["V_fv"], "First-Visit MC — V(s)", axes[0])
             plot_value_heatmap(env, res["V_ev"], "Every-Visit MC — V(s)", axes[1])
             plt.tight_layout(); st.pyplot(fig); plt.close()
 
-            # Convergence at a representative state
-            st.markdown("### Convergence at State (3,4) — goal-adjacent")
+            # Observations prompts
+            c1, c2 = st.columns(2)
+            with c1:
+                fv_goal_adj = res["V_fv"].get((3,4), 0)
+                st.metric("V(3,4) — First-Visit", f"{fv_goal_adj:.3f}",
+                          help="State (3,4) is directly above the goal. High value expected.")
+                st.markdown(f"""
+                **What you should see here:**
+                - States near (4,4) have **high positive** values (green)
+                - States near (2,2) have **lower** values (trap risk)
+                - Walls show no values (dark squares)
+                - Corner (0,0) — the start — has a moderate-to-low value
+                  (it takes many steps to reach the goal from the start)
+                """)
+            with c2:
+                ev_goal_adj = res["V_ev"].get((3,4), 0)
+                st.metric("V(3,4) — Every-Visit", f"{ev_goal_adj:.3f}",
+                          help="Compare this to First-Visit — they should be very close.")
+                st.markdown(f"""
+                **Difference between the two maps:**
+                - If they look nearly identical ✓ — both methods are converging to the same truth
+                - If Every-Visit shows more extreme values — it's picking up correlated samples
+                  that occasionally push estimates in one direction
+                - The maps converge toward each other as episode count increases
+                """)
+
+            st.divider()
+            st.subheader("📈 Convergence Chart — How estimates settle over time")
             st.markdown("""
-            > **Why state (3,4)?** It's the cell directly above the goal — high value, frequently visited,
-            > making it a good indicator of convergence speed. Watch both lines stabilise toward the same
-            > value as the number of episodes grows.
-            >
-            > **📖 How to read this chart:** X-axis = number of episodes played so far.
-            > Y-axis = current estimate of V(3,4). Both lines should converge to the same true value.
-            > A wobbly line = high variance (unreliable early estimates). A smooth line = low variance.
-            > **First-Visit (purple)** tends to be smoother; **Every-Visit (teal)** may converge faster but can be noisier.
+            We track **state (3,4)** — the cell directly above the goal — because it's frequently
+            visited and has a clear "true" value (high, since the goal is one step away).
+            Watching this state's estimate evolve over episodes shows how quickly each method converges.
             """)
+
+            st.markdown(_card("#7c4dff","📖","How to read this convergence chart",
+                """<b>X-axis</b> = number of episodes played so far (from left = 0 to right = all episodes).<br>
+                <b>Y-axis</b> = current estimate of V(3,4) — the "running average" of all returns from that state.<br>
+                <b>What to look for:</b><br>
+                • Early (left): both lines should be jumping around — high variance, few samples<br>
+                • Later (right): both lines should flatten — converging toward the true value<br>
+                • <b>Purple (First-Visit)</b>: usually smoother — independent samples per episode<br>
+                • <b>Teal (Every-Visit)</b>: may converge faster but wobble more — correlated within-episode samples<br>
+                • If both lines end at the same value ✓ — both methods found the same truth (as expected)"""),
+                unsafe_allow_html=True)
+
             focal = (3, 4)
             fv_trace = [h.get(focal, 0.0) for h in res["hist_fv"]]
             ev_trace = [h.get(focal, 0.0) for h in res["hist_ev"]]
@@ -959,659 +1162,884 @@ def main():
             fig2, ax2, _ = make_fig(1, 1, 10, 4)
             ax2.plot(x, fv_trace, color="#7c4dff", lw=2.5, marker="o", ms=5, label="First-Visit MC")
             ax2.plot(x, ev_trace, color="#00bcd4", lw=2.5, marker="s", ms=5, label="Every-Visit MC")
-            ax2.set_xlabel("Episodes", color="white"); ax2.set_ylabel("V(3,4)", color="white")
-            ax2.set_title("Value Estimate Convergence", color="white", fontweight="bold")
-            ax2.legend(facecolor=CARD_BG, labelcolor="white"); ax2.grid(alpha=0.15)
+            ax2.axhline(np.mean(fv_trace[-5:] or [0]), color="#7c4dff", ls=":", alpha=0.5,
+                        label=f"FV final ≈ {np.mean(fv_trace[-5:] or [0]):.2f}")
+            ax2.axhline(np.mean(ev_trace[-5:] or [0]), color="#00bcd4", ls=":", alpha=0.5,
+                        label=f"EV final ≈ {np.mean(ev_trace[-5:] or [0]):.2f}")
+            ax2.set_xlabel("Episodes", color="white", fontsize=11)
+            ax2.set_ylabel("V(3,4) estimate", color="white", fontsize=11)
+            ax2.set_title("Value Estimate Convergence — State (3,4)", color="white", fontweight="bold")
+            ax2.legend(facecolor=CARD_BG, labelcolor="white", fontsize=9)
+            ax2.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig2); plt.close()
 
-            c1, c2 = st.columns(2)
-            c1.info("**First-Visit MC** — Unbiased, independent samples. Statistically cleaner, converges more slowly on revisited states.")
-            c2.info("**Every-Visit MC** — More samples per episode (correlated). Converges faster in practice but has slight bias from correlation.")
+            st.markdown(_warn("""
+            <b>Common misconception:</b> "More episodes always makes Every-Visit better."
+            Not necessarily. Every-Visit gets <em>more samples</em>, but they're correlated within episodes.
+            First-Visit gets <em>fewer independent</em> samples. For most practical tasks the difference
+            is small. Every-Visit is easier to implement and often preferred in practice.
+            """), unsafe_allow_html=True)
+            st.markdown(_tip("""
+            <b>Experiment idea:</b> Try setting Episodes to 200 (slider). Both lines will be noisy —
+            that's high variance from small N. Now try 2000. The lines should be much smoother.
+            This directly demonstrates the 1/√n convergence rate.
+            """), unsafe_allow_html=True)
 
-        # ── Tab 2: On-policy Control ──────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 2 — ON-POLICY CONTROL
+        # ═════════════════════════════════════════════════════════════════════
         with tab_ctrl:
-            st.markdown("""
-            <div style="background:#0d1b14; border-left:4px solid #00897b; padding:1rem 1.2rem;
-                        border-radius:0 10px 10px 0; margin-bottom:1rem">
-            <b>🧩 What problem does On-policy MC Control solve?</b><br>
-            Prediction tells us how good each state is under a <em>fixed</em> policy — but what if the policy itself is bad?
-            <b>Control</b> takes the next step: it simultaneously <em>evaluates</em> the current policy AND <em>improves</em> it.<br><br>
-            The key upgrade here is learning <b>Q(s,a) — action values</b> instead of just V(s).
-            Instead of "how good is state s?", Q(s,a) answers "how good is it to take action <em>a</em> in state <em>s</em>?"
-            This lets the agent pick the best action at each step without needing a model of the environment.<br><br>
-            <b>The exploration problem:</b> If the agent always picks the best known action (greedy), it may
-            never discover better alternatives. <b>ε-greedy</b> solves this: most of the time pick the best
-            known action, but occasionally (with probability ε) pick a random one to explore.
-            </div>
-            """, unsafe_allow_html=True)
-            st.subheader("🎯 On-policy MC Control (ε-greedy GPI)")
-            st.markdown(r"""
-            MC Control estimates **Q(s,a)** action-values and improves the policy with
-            **Generalized Policy Iteration (GPI)** — evaluation + improvement every episode.
-            The ε-greedy policy guarantees *some* exploration in every state.
-            """)
+            st.markdown(_card("#00897b","🎯","What does On-policy MC Control solve?",
+                """<b>The problem:</b> Prediction tells us how good the current policy is — but what
+                if the policy is bad? We need to <em>improve</em> it.<br><br>
+                <b>The upgrade:</b> Instead of V(s), we now learn <b>Q(s,a) — action values</b>.
+                Q(s,a) answers "how good is it to take action <em>a</em> specifically in state <em>s</em>?"
+                This lets the agent compare its options and pick the best one — without needing any
+                model of how the world works.<br><br>
+                <b>The exploration trap:</b> If the agent always picks the best-known action (pure greedy),
+                it never discovers better alternatives it hasn't tried yet. ε-greedy escapes this by
+                occasionally picking a random action to explore."""),
+                unsafe_allow_html=True)
 
-            # ── Theory panel ─────────────────────────────────────────────────
+            st.subheader("🎯 On-policy MC Control — ε-greedy GPI")
+
             with st.expander("📐 Theory & Formulas — On-policy MC Control", expanded=False):
                 st.markdown(r"""
                 #### Why Q(s,a) instead of V(s)?
 
-                Without a model of the environment you can't look one step ahead to find the best action.
-                So instead of asking *"how good is state s?"* we ask *"how good is it to take action a in state s?"*
+                With V(s) alone and **no model**, you can't decide which action to take.
+                You'd need to know: "if I take action a, what state will I end up in?" — that's model knowledge.
 
-                $$q_\pi(s,a) \doteq \mathbb{E}_\pi\bigl[G_t \mid S_t=s,\, A_t=a\bigr]$$
-
-                MC estimates this by averaging actual returns from every (state, action) pair:
-
-                $$Q(s,a) \;\leftarrow\; \text{mean of all } G_t \text{ following first visit to } (s,a)$$
-
-                ---
-
-                #### ε-Greedy Policy (No Exploring Starts)
-
-                Early algorithms needed "exploring starts" — the agent must try every (s,a) pair as a starting
-                point. This is impractical in the real world. **ε-greedy** solves it:
-
+                Q(s,a) sidesteps this: it directly tells you the value of each action from each state.
                 """)
-                st.latex(r"""
-                \pi(a \mid s) =
-                \begin{cases}
-                1 - \varepsilon + \dfrac{\varepsilon}{|A(s)|} & \text{if } a = \arg\max_{a'} Q(s,a') \\[6pt]
-                \dfrac{\varepsilon}{|A(s)|} & \text{otherwise}
-                \end{cases}
-                """)
+                st.latex(
+                    r"\boxed{q_\pi(s,a) \doteq \mathbb{E}_\pi\bigl[G_t \mid S_t = s,\, A_t = a\bigr]}"
+                )
                 st.markdown(r"""
+                **Symbol decoder:**
+                - $q_\pi(s,a)$ — expected return when you're in state $s$, take action $a$, then follow policy $\pi$ forever after
+                - $A_t = a$ — "given that the action taken at time $t$ is $a$"
+                - Everything else is the same as in V(s)
 
-                Every non-greedy action gets a floor probability of **ε / |A(s)|**, guaranteeing all
-                state-action pairs are eventually visited. The best known action gets the rest:
-                **1 − ε + ε/|A(s)|**.
+                #### MC Estimation of Q
+                """)
+                st.latex(
+                    r"Q(s,a) \;\leftarrow\; \text{average of all } G_t \text{ following first-visit to } (s,a)"
+                )
+                st.markdown(r"""
+                The agent tracks **state-action pairs** $(s,a)$ instead of just states $s$.
+                With 25 states × 4 actions = **100 pairs** to estimate in this gridworld.
 
-                In this gridworld |A(s)| = 4, so with ε = 0.1:
-                - Best action probability: **0.925**
-                - Each other action: **0.025**
+                #### The Exploration Problem — Why ε-greedy?
 
-                ---
+                If the policy is deterministic (always pick the best known action), many state-action
+                pairs are never visited → their Q values never improve → the policy gets stuck.
 
+                **ε-greedy** solves this with a randomised policy:
+                """)
+                st.latex(
+                    r"\pi(a \mid s) = \begin{cases}"
+                    r" 1 - \varepsilon + \dfrac{\varepsilon}{\lvert A(s)\rvert} & a = \arg\max_{a'} Q(s,a') \quad \text{(best known action)} \\[8pt]"
+                    r" \dfrac{\varepsilon}{\lvert A(s)\rvert} & \text{otherwise} \quad \text{(exploration)}"
+                    r"\end{cases}"
+                )
+                st.markdown(
+                    f"""
+                **Symbol decoder:**
+                - $\\varepsilon$ — exploration rate (your ε slider, currently **{epsilon:.2f}**)
+                - $\\lvert A(s)\\rvert$ — number of available actions (= 4 in this gridworld)
+                - Best action probability: $1 - \\varepsilon + \\varepsilon/4$ = **{1 - epsilon + epsilon / 4:.3f}**
+                - Each other action probability: $\\varepsilon/4$ = **{epsilon / 4:.3f}**
+                """
+                )
+                st.markdown(r"""
                 #### GPI — Generalised Policy Iteration
 
-                After every episode, two things happen in lockstep:
+                Two steps alternate after every episode:
 
-                | Step | What happens |
-                |------|-------------|
-                | **Evaluation** | Update Q(s,a) ← mean returns for all (s,a) visited this episode |
-                | **Improvement** | Rebuild ε-greedy policy from the updated Q |
+                | Phase | Formula | What it does |
+                |-------|---------|-------------|
+                | **Evaluation** | $Q(s,a) \leftarrow \text{mean}(G_t)$ for visited $(s,a)$ | Update action values from observed returns |
+                | **Improvement** | $\pi(s) \leftarrow \varepsilon\text{-greedy}(Q)$ | Rebuild policy to be greedy on updated Q |
 
-                This ping-pong between evaluation and improvement is **Generalised Policy Iteration (GPI)**.
-                It converges to the best **ε-soft** policy — not the absolute optimal π*, because we must
-                keep ε > 0 to maintain exploration.
+                This **GPI loop** is guaranteed to converge — each improvement step makes the policy
+                at least as good as before (provable monotone improvement).
 
-                ---
+                #### The Fundamental Limitation
 
-                #### The Key Limitation
+                On-policy control converges to the **best ε-soft policy**, not the absolute optimal π*.
+                An ε-soft policy always has probability ≥ $\varepsilon/\lvert A\rvert$ of picking a suboptimal action.
+                To reach the true optimal, you need off-policy methods.
 
-                > On-policy control converges to the **best ε-soft policy**, not the true optimal.
-                > An ε-soft policy always has some chance (≥ ε/|A|) of picking a suboptimal action.
-                > To remove this constraint you need **off-policy methods**, which separate the
-                > *exploration* policy (behavior) from the *learned* policy (target).
-                """)
+                #### Why No Exploring Starts?
 
-            st.markdown("""
-            <div style="background:#0d1b14; border-left:4px solid #4caf50; padding:.8rem 1rem;
-                        border-radius:0 8px 8px 0; margin-bottom:.8rem">
-            <b>📖 How to read these two diagrams:</b><br>
-            <b>Left — Value heatmap:</b> Colours show max<sub>a</sub> Q(s,a) — the best expected return the
-            agent believes it can achieve from each square. Green = confident the agent can reach the goal;
-            red = near the trap or hopelessly far.<br>
-            <b>Right — Policy arrows:</b> Each arrow = the greedy action (arg max Q) the agent has settled on.
-            A well-trained policy shows arrows that form a coherent path from (0,0) to the goal (4,4) while
-            avoiding the trap at (2,2). Walls have no arrow — the agent can never stand there.
-            </div>
-            """, unsafe_allow_html=True)
+                Early MC algorithms required every state-action pair as a possible starting position
+                — "exploring starts" — which is impractical in real environments.
+                ε-greedy eliminates this requirement: every action has a nonzero probability of
+                being selected from any state, so all (s,a) pairs are eventually visited naturally.
+                """
+                )
+
+            st.markdown(_card("#4caf50","📖","How to read these two diagrams",
+                """<b>Left — Value heatmap (Q-max):</b>
+                Shows max<sub>a</sub>Q(s,a) — the best action-value from each state.
+                This is the agent's "confidence in success" from each square.
+                Same colour scale as before: green=good, red=bad.<br><br>
+                <b>Right — Policy arrows:</b>
+                Each arrow shows <b>arg max Q(s,a)</b> — the single best action the agent has learned for that square.
+                Reading the arrows as a sequence from start (0,0) gives you the agent's intended path to the goal.<br><br>
+                <b>What to look for:</b>
+                Do the arrows from (0,0) form a coherent path toward (4,4)?
+                Do arrows near (2,2) point <em>away</em> from the trap?
+                With more episodes, the arrows should become more consistent and purposeful."""),
+                unsafe_allow_html=True)
+
             fig, axes, axl = make_fig(1, 2, 12, 5)
             plot_value_heatmap(env, res["V_on"], "Q-max V(s) — On-policy Control", axes[0])
-            plot_policy_arrows(env, res["pi_det"], "Greedy Policy π* from Q", axes[1])
+            plot_policy_arrows(env, res["pi_det"], "Greedy Policy π (from Q)", axes[1])
             plt.tight_layout(); st.pyplot(fig); plt.close()
 
-            # Q-values table for start state
-            st.markdown("### Q(start, ·) — Action Values at Start State")
+            # Q-table at start
+            st.divider()
+            st.subheader("🔢 Action Values at the Start State (0,0)")
             st.markdown("""
-            > **What this table shows:** The agent starts at (0,0). After training, it has an estimated
-            > value for each of the 4 possible first moves. The highest Q-value tells you which direction
-            > the agent thinks is best. If the policy is good, the best action should be ↓ or → (heading
-            > toward the goal in the bottom-right corner). A ✅ marks the chosen action.
+            The table below shows **Q((0,0), a)** — the estimated value of each first move.
+            This is what the agent "thinks" about its four possible first actions after training.
+            The ✅ row is the action the agent will take (the greedy choice).
             """)
+            st.markdown(_card("#00897b","📖","How to read the Q-value table",
+                """Each row = one of the 4 possible actions from the start position (0,0).<br>
+                The <b>Q value</b> = expected total discounted return if you take that action now and follow
+                the current policy forever after.<br>
+                <b>Higher Q = better action.</b> A well-trained agent should show ↓ (Down) or → (Right) as the
+                best first move — these head toward the goal at (4,4). ↑ (Up) is blocked by the grid boundary
+                and ← (Left) runs into a wall, so their Q values should be lower."""),
+                unsafe_allow_html=True)
+
             Q_start = res["Q_on"][(0,0)]
+            best_a  = int(np.argmax(Q_start))
             qdf = pd.DataFrame({
                 "Action": ["↑ Up", "→ Right", "↓ Down", "← Left"],
-                "Q(start, a)": [f"{v:.3f}" for v in Q_start],
-                "Best?": ["✅" if i == int(np.argmax(Q_start)) else "" for i in range(4)],
+                "Q(start, a)": [f"{v:.4f}" for v in Q_start],
+                "Probability (ε-greedy)": [
+                    f"{(1-epsilon+epsilon/4):.3f} ✅ BEST" if i == best_a else f"{epsilon/4:.3f}"
+                    for i in range(4)],
+                "Interpretation": [
+                    "Blocked by grid edge" if i==0 else
+                    "Moves right → toward goal column" if i==1 else
+                    "Moves down → toward goal row" if i==2 else
+                    "Runs into wall (1,0)→bounce" for i in range(4)],
             })
             st.dataframe(qdf, use_container_width=True, hide_index=True)
 
             # Learning curve
-            st.markdown("### Episode Return — Learning Curve")
-            st.markdown("""
-            > **📖 How to read this chart:** Each point on the X-axis is one complete episode.
-            > The Y-axis is the total reward collected during that episode (higher = better).
-            > A random agent scores very negative numbers (many −0.1 steps, often falls in the trap).
-            > As the agent learns, the returns should trend **upward** — more episodes ended at the goal.
-            > The faint raw line shows every episode (noisy); the bright line is a rolling average.
-            > **Peak return** (green dashed) shows the best the agent achieved.
-            > If the curve plateaus and doesn't reach near +10, the ε-greedy policy is limiting it — a known limitation of on-policy control.
-            """)
-            raw = res["ep_rewards"]
+            st.divider()
+            st.subheader("📈 Learning Curve — Does the agent improve over time?")
+            st.markdown(_card("#00897b","📖","How to read the learning curve",
+                """<b>X-axis</b> = episode number (left = early training, right = late training).<br>
+                <b>Y-axis</b> = total reward collected in that episode.<br>
+                <b>Faint noisy line</b> = raw episode returns — very noisy (one bad episode can give −5).<br>
+                <b>Bright smooth line</b> = rolling average (window = N/20 episodes) — shows the trend.<br>
+                <b>Green dashed line</b> = peak rolling-average return achieved.<br><br>
+                <b>What to look for:</b>
+                The trend should rise from negative (random policy = lots of trap visits) toward positive.
+                The plateau value reveals the ε-soft policy limit: even a well-trained agent sometimes
+                wastes moves due to the ε exploration requirement."""),
+                unsafe_allow_html=True)
+
+            raw = res["ep_rewards_on"]
             sm  = smooth(raw, max(1, len(raw)//20))
-            fig3, ax3, _ = make_fig(1, 1, 10, 4)
-            ax3.plot(raw, color="#7c4dff", alpha=0.15, lw=0.6)
-            ax3.plot(range(len(sm)), sm, color="#7c4dff", lw=2.5, label="Smoothed return")
-            ax3.axhline(np.max(sm), color="#4caf50", ls="--", lw=1, alpha=0.7, label=f"Peak {np.max(sm):.2f}")
-            ax3.set_xlabel("Episode", color="white"); ax3.set_ylabel("Total Return", color="white")
+            fig3, ax3, _ = make_fig(1, 1, 11, 4)
+            ax3.plot(raw, color="#00897b", alpha=0.12, lw=0.6)
+            ax3.plot(range(len(sm)), sm, color="#00897b", lw=2.5, label="Smoothed return (on-policy)")
+            ax3.axhline(float(np.max(sm)), color="#4caf50", ls="--", lw=1.2, alpha=0.8,
+                        label=f"Peak return: {float(np.max(sm)):.2f}")
+            ax3.axhline(0, color="white", ls=":", lw=0.5, alpha=0.3)
+            ax3.set_xlabel("Episode number", color="white", fontsize=11)
+            ax3.set_ylabel("Total return G", color="white", fontsize=11)
             ax3.set_title("On-policy MC Control — Learning Progress", color="white", fontweight="bold")
-            ax3.legend(facecolor=CARD_BG, labelcolor="white"); ax3.grid(alpha=0.15)
+            ax3.legend(facecolor=CARD_BG, labelcolor="white")
+            ax3.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig3); plt.close()
 
-            st.info("**Key insight**: The agent can only converge to the *best ε-soft* policy — not the true optimal π*. To learn the exact optimal policy, use off-policy methods.")
+            st.markdown(_tip("""
+            <b>Experiment:</b> Increase ε (exploration rate) to 0.4 and re-run.
+            The learning curve will be noisier and the final performance lower — too much exploration
+            prevents the agent from exploiting what it has learned.
+            Decrease ε to 0.01 — the agent exploits early but may miss better routes.
+            """), unsafe_allow_html=True)
+            st.markdown(_warn("""
+            <b>Why the return may never reach +10:</b> Even a perfect policy takes roughly 8 steps
+            to reach the goal (8 × −0.1 = −0.8 penalty), giving a best-case return of about +9.2.
+            The ε-greedy policy also occasionally wastes moves on random exploration, further reducing
+            the average. A return consistently above +8 is excellent for this environment.
+            """), unsafe_allow_html=True)
 
-        # ── Tab 3: Off-policy IS ──────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 3 — OFF-POLICY IS EVALUATION
+        # ═════════════════════════════════════════════════════════════════════
         with tab_offpol:
-            st.markdown("""
-            <div style="background:#1b0a0a; border-left:4px solid #ef5350; padding:1rem 1.2rem;
-                        border-radius:0 10px 10px 0; margin-bottom:1rem">
-            <b>🧩 What problem does Off-policy MC solve?</b><br>
-            On-policy methods have a catch: the policy that <em>collects data</em> must be the same as the
-            policy being <em>evaluated</em>. But what if you want to:<br>
-            &nbsp;&nbsp;• Learn from <b>historical data</b> collected by a different (e.g. random) agent?<br>
-            &nbsp;&nbsp;• Evaluate a <b>risky "target" policy</b> without actually letting it run (e.g. in robotics, self-driving cars)?<br>
-            &nbsp;&nbsp;• Keep a <b>safe exploration strategy</b> while still learning about an aggressive one?<br><br>
-            <b>Off-policy MC</b> solves all of these using <b>Importance Sampling (IS)</b> — a statistical
-            trick that asks: <em>"If the target policy had generated this episode instead of the behavior policy,
-            how would the returns be different?"</em> The answer is a correction weight ρ applied to every return.<br><br>
-            <b>Real-world example:</b> A hospital has logs of patients treated with standard drug A.
-            They want to know: "How would those same patients have fared on experimental drug B?"
-            Off-policy IS is exactly the tool used in clinical causal inference.
-            </div>
-            """, unsafe_allow_html=True)
-            st.subheader("⚖️ Off-policy MC — Ordinary IS vs Weighted IS")
-            st.markdown(r"""
-            Off-policy evaluation lets us assess a **target policy π** using data
-            from a **behavior policy b** (here: random). The key tool is
-            **Importance Sampling (IS)**:
+            st.markdown(_card("#ef5350","⚖️","What does Off-policy IS Evaluation solve?",
+                """<b>The dilemma:</b> The agent that collects experience (behavior policy b) must explore —
+                taking suboptimal actions to discover new things. But the policy we want to evaluate
+                (target policy π) might be purely greedy. If b and π are different, returns from b
+                have the wrong expected value for π — they can't just be averaged.<br><br>
+                <b>The trick — Importance Sampling:</b> We <em>reweight</em> each return by how much more
+                or less likely that episode trajectory was under π than under b. Trajectories that π
+                would have preferred get higher weight; trajectories π would have avoided get lower weight.<br><br>
+                <b>Real-world applications:</b> Medical trials (evaluate treatment B using data from treatment A),
+                recommendation systems (evaluate new ranking policy using logs from old one), robotics safety
+                (evaluate aggressive policy using safe exploration data)."""),
+                unsafe_allow_html=True)
 
-            $$\rho_{t:T-1} = \prod_{k=t}^{T-1}\frac{\pi(A_k|S_k)}{b(A_k|S_k)}$$
+            st.subheader("⚖️ Off-policy IS Evaluation — Ordinary vs Weighted")
 
-            | Method | Estimator | Bias | Variance |
-            |--------|-----------|------|----------|
-            | Ordinary IS | mean(ρ · G) | Unbiased | **Very high** |
-            | Weighted IS | Σ(ρ·G)/Σρ | Biased | **Much lower** |
-            """)
-
-            # ── Theory panel ─────────────────────────────────────────────────
-            with st.expander("📐 Theory & Formulas — Off-policy IS", expanded=False):
+            with st.expander("📐 Theory & Formulas — Importance Sampling", expanded=False):
                 st.markdown(r"""
-                #### The Core Dilemma
+                #### The Core Problem
 
-                Off-policy learning faces a fundamental problem: the data was collected under behavior
-                policy $b$, but we want to evaluate target policy $\pi$. The returns have the wrong
-                expectation: $\mathbb{E}_b[G_t | S_t = s] = v_b(s) \neq v_\pi(s)$.
+                Returns from behavior policy $b$ have expectation $v_b(s)$, not $v_\pi(s)$:
+                $$\mathbb{E}_b[G_t \mid S_t=s] = v_b(s) \neq v_\pi(s)$$
 
-                **Importance Sampling (IS)** corrects for this mismatch using a ratio that measures
-                *"how much more or less likely was this trajectory under π than under b?"*
+                We need to correct for the mismatch between b and π.
 
-                ---
+                #### The IS Ratio — The Correction Weight
 
-                #### The IS Ratio
+                For a trajectory $A_t, S_{t+1}, \ldots, S_T$, the ratio of how likely it was under
+                π vs b is:
 
-                Given a trajectory $A_t, S_{t+1}, A_{t+1}, \ldots, S_T$ starting from state $S_t$:
+                $$\boxed{\rho_{t:T-1} \doteq \prod_{k=t}^{T-1} \frac{\pi(A_k \mid S_k)}{b(A_k \mid S_k)}}$$
 
-                """)
-                st.latex(r"""
-                \rho_{t:T-1} \doteq \frac{\prod_{k=t}^{T-1}\pi(A_k|S_k)\,p(S_{k+1}|S_k,A_k)}
-                {\prod_{k=t}^{T-1}b(A_k|S_k)\,p(S_{k+1}|S_k,A_k)}
-                = \prod_{k=t}^{T-1}\frac{\pi(A_k|S_k)}{b(A_k|S_k)}
-                """)
-                st.markdown(r"""
+                **Symbol decoder:**
+                - $\rho_{t:T-1}$ — the importance sampling ratio (Greek letter "rho")
+                - $\pi(A_k \mid S_k)$ — probability that target policy π would have chosen action $A_k$ at step $k$
+                - $b(A_k \mid S_k)$ — probability that behavior policy b chose it (this is known — we generated the episode)
+                - The product multiplies these ratios over all steps from $t$ to $T-1$
 
-                The environment dynamics $p(S_{k+1}|S_k,A_k)$ cancel — IS only depends on the policies,
-                not the transition model. This is crucial: MC off-policy evaluation is **model-free**.
+                **Key insight:** The environment dynamics $p(S_{k+1}|S_k,A_k)$ cancel out — they appear
+                in both numerator and denominator. So IS only depends on the policies, not the transition model.
+                **This makes off-policy IS model-free.**
 
-                ---
+                **Worked example (3-step episode):**
 
-                #### Ordinary Importance Sampling
+                If π would choose each action with probability 0.7 and b chose it with probability 0.25:
 
-                Simply multiply each return by its IS ratio, then average:
+                $$\rho = \frac{0.7}{0.25} \times \frac{0.7}{0.25} \times \frac{0.7}{0.25} = 2.8 \times 2.8 \times 2.8 = 21.95$$
 
-                """)
-                st.latex(r"""
-                V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}\, G_t}
-                {|\mathcal{T}(s)|}
-                """)
-                st.markdown(r"""
+                This trajectory is 22× more likely under π than under b — it gets 22× the weight.
+                You can see why variance explodes for long episodes!
 
-                ✅ **Unbiased** — correct in expectation  
-                ❌ **Unbounded variance** — if ρ can be 10×, the estimate can be 10× the actual return
+                #### Ordinary Importance Sampling (Unbiased, High Variance)
 
-                ---
+                $$V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1} G_t}{|\mathcal{T}(s)|}$$
 
-                #### Weighted Importance Sampling
+                **Symbol decoder:**
+                - $\mathcal{T}(s)$ — all time steps where state $s$ was visited
+                - $T(t)$ — the terminal time of the episode containing step $t$
+                - $|\mathcal{T}(s)|$ — just the count of visits
 
-                Use IS weights as a weighted denominator instead:
+                ✅ **Unbiased** — correct expectation: $\mathbb{E}[\rho G_t] = v_\pi(s)$  
+                ❌ **Unbounded variance** — ρ can be enormous; one outlier episode ruins the average
 
-                """)
-                st.latex(r"""
-                V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}\, G_t}
-                {\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}}
-                """)
-                st.markdown(r"""
+                #### Weighted Importance Sampling (Biased, Low Variance)
 
-                The weight on any single return is **at most 1** (the max weight cancels in numerator/denominator).
+                $$V(s) \doteq \frac{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1} G_t}{\displaystyle\sum_{t \in \mathcal{T}(s)} \rho_{t:T(t)-1}}$$
 
-                ✅ **Dramatically lower variance** — weights are bounded  
-                ❌ **Biased** — but bias converges to 0 asymptotically as $N \to \infty$
+                The denominator normalises the weights so they sum to 1.
+                **No single episode can dominate** — even if ρ=1000, it's 1000/(sum of all ρ's).
 
-                ---
+                ✅ **Dramatically lower variance**  
+                ❌ **Biased** for finite N, but bias → 0 as N → ∞
 
-                #### Coverage Requirement
+                #### The Coverage Requirement
 
-                Off-policy IS requires **coverage**: every action taken under π must also be possible under b.
-                """)
-                st.latex(r"\pi(a|s) > 0 \implies b(a|s) > 0")
-                st.markdown(r"""
+                $$\pi(a \mid s) > 0 \implies b(a \mid s) > 0 \quad \text{(coverage)}$$
 
-                In this gridworld: the behavior policy is uniform random (all actions equally likely),
-                satisfying coverage for any deterministic target policy.
-
-                ---
-
-                #### Practical Verdict
-
-                > **Weighted IS is almost always preferred in practice.** Despite being biased,
-                > its variance is so much lower that it reaches accurate estimates far faster.
-                > Ordinary IS is useful in theory and for certain function-approximation extensions.
+                Every action the target policy might take must also be possible under the behavior policy.
+                In this app: b = uniform random (all actions equally likely at 0.25), satisfying
+                coverage for any deterministic π.
                 """)
 
+            st.markdown(_card("#ef5350","📖","How to read these three heatmaps",
+                """All three maps estimate <b>the same quantity</b>: V(s) for the greedy target policy π.<br>
+                <b>Left (On-policy reference):</b> Learned directly by following π — this is the "ground truth" we're comparing to.<br>
+                <b>Middle (Ordinary IS):</b> Estimated from random-exploration data using unweighted IS ratios. May have extreme values from outlier ρ weights.<br>
+                <b>Right (Weighted IS):</b> Same data, but weights are normalised. Should be smoother and closer to the reference.<br>
+                <b>What to look for:</b> Middle map may have cells that are very different from the reference —
+                this is the high-variance problem in action. Right map should track the reference much more closely."""),
+                unsafe_allow_html=True)
 
-            st.markdown("""
-            <div style="background:#1b0a0a; border-left:4px solid #ef5350; padding:.8rem 1rem;
-                        border-radius:0 8px 8px 0; margin-bottom:.8rem">
-            <b>📖 How to read these three heatmaps:</b><br>
-            All three maps estimate V(s) for the <em>same target policy</em> (the greedy policy learned by on-policy control).
-            The <b>leftmost (On-policy reference)</b> is the "ground truth" — learned directly by the agent that followed the target policy.
-            The <b>middle (Ordinary IS)</b> and <b>right (Weighted IS)</b> estimate the <em>same values</em> but using
-            <em>random exploration data</em> with importance-sampling correction weights.
-            Differences from the reference map reveal the estimation error.
-            Ordinary IS is noisier (more red/green extremes); Weighted IS tends to be smoother and closer to the reference.
-            </div>
-            """, unsafe_allow_html=True)
-            fig, axes, axl = make_fig(1, 3, 15, 5)
+            fig, axes, axl = make_fig(1, 3, 16, 5)
+            plot_value_heatmap(env, res["V_on"],  "On-policy (reference)",  axes[0])
             plot_value_heatmap(env, res["V_ois"], "Ordinary IS",            axes[1])
             plot_value_heatmap(env, res["V_wis"], "Weighted IS",            axes[2])
             plt.tight_layout(); st.pyplot(fig); plt.close()
 
-            # State-by-state comparison
-            st.markdown("### Per-state Comparison: IS Methods vs Reference")
-            st.markdown("""
-            > **📖 How to read this line chart:** Each point on the X-axis represents one non-wall, non-terminal
-            > grid state. The Y-axis is the estimated V(s) for that state.
-            > The **green line** (on-policy) is the reference we're trying to match.
-            > **Ordinary IS (red)** often diverges wildly — large spikes indicate episodes where the
-            > importance weight ρ happened to be very large, skewing the average.
-            > **Weighted IS (blue)** stays closer to the reference because the weights are normalised.
-            > A perfect off-policy estimator would exactly overlap the green line.
-            """)
+            # Per-state comparison
+            st.divider()
+            st.subheader("📊 State-by-state Accuracy Comparison")
+            st.markdown(_card("#ef5350","📖","How to read this line chart",
+                """Each point on the X-axis is one non-wall, non-terminal state (listed in grid-scan order).<br>
+                The Y-axis is the estimated V(s) value for that state.<br>
+                <b>Green line (reference)</b> = on-policy ground truth — what the true values should be.<br>
+                <b>Red line (Ordinary IS)</b> = off-policy estimate with unweighted ratios. Look for <em>spikes</em>
+                where the estimate is far from green — those are high-ρ episodes dominating the average.<br>
+                <b>Blue line (Weighted IS)</b> = normalised weights. Should hug the green line much more closely.<br>
+                The closer a line is to green, the better the method estimates the target policy's values."""),
+                unsafe_allow_html=True)
+
             common = [s for s in res["V_on"] if s in res["V_ois"] and s in res["V_wis"]
                       and s not in env.walls and not env.is_terminal(s)]
-            ref  = np.array([res["V_on"][s]  for s in common])
-            ois  = np.array([res["V_ois"][s] for s in common])
-            wis  = np.array([res["V_wis"][s] for s in common])
+            ref = np.array([res["V_on"][s]  for s in common])
+            ois = np.array([res["V_ois"][s] for s in common])
+            wis = np.array([res["V_wis"][s] for s in common])
 
-            fig4, ax4, _ = make_fig(1, 1, 10, 4)
+            fig4, ax4, _ = make_fig(1, 1, 11, 4)
             idx = range(len(common))
-            ax4.plot(idx, ref, "o-",  color="#4caf50", lw=2, label="On-policy (ref)", ms=5)
-            ax4.plot(idx, ois, "s--", color="#ef5350", lw=1.8, alpha=0.85, label="Ordinary IS", ms=5)
-            ax4.plot(idx, wis, "^-",  color="#42a5f5", lw=1.8, alpha=0.85, label="Weighted IS", ms=5)
-            ax4.set_xlabel("State index (non-wall, non-terminal)", color="white")
-            ax4.set_ylabel("V(s)", color="white")
-            ax4.set_title("Value Estimates Across States", color="white", fontweight="bold")
-            ax4.legend(facecolor=CARD_BG, labelcolor="white"); ax4.grid(alpha=0.15)
+            ax4.plot(idx, ref, "o-",  color="#4caf50", lw=2,   ms=6, label="On-policy (reference / ground truth)")
+            ax4.plot(idx, ois, "s--", color="#ef5350", lw=1.8, ms=5, alpha=0.85, label="Ordinary IS (high variance)")
+            ax4.plot(idx, wis, "^-",  color="#42a5f5", lw=1.8, ms=5, alpha=0.85, label="Weighted IS (lower variance)")
+            ax4.set_xlabel("State (non-wall, non-terminal)", color="white", fontsize=11)
+            ax4.set_ylabel("V(s) estimate", color="white", fontsize=11)
+            ax4.set_title("IS Estimation Accuracy vs On-policy Reference", color="white", fontweight="bold")
+            ax4.legend(facecolor=CARD_BG, labelcolor="white")
+            ax4.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig4); plt.close()
 
             mse_ois = float(np.mean((ois - ref)**2))
             mse_wis = float(np.mean((wis - ref)**2))
-            st.markdown("""
-            > **📖 What these numbers mean:** MSE (Mean Squared Error) measures how far an IS estimate
-            > is from the on-policy reference — lower is better. The "WIS improvement" tells you how much
-            > Weighted IS reduced the error compared to Ordinary IS. Even with the same data and episodes,
-            > Weighted IS almost always wins on this metric.
-            """)
+            pct_imp = max(0, (mse_ois - mse_wis) / max(mse_ois, 1e-9) * 100)
+
+            st.markdown(_card("#ef5350","📖","How to read the MSE metrics below",
+                """<b>MSE (Mean Squared Error)</b> = average of (estimated − true)² across all states.<br>
+                Lower MSE = closer to the reference = more accurate off-policy estimate.<br>
+                The third metric shows how much Weighted IS improved over Ordinary IS —
+                a large improvement confirms the theoretical prediction that weighted IS
+                has dramatically lower variance (and thus lower error for finite samples)."""),
+                unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
-            c1.metric("Ordinary IS — MSE", f"{mse_ois:.4f}")
-            c2.metric("Weighted IS — MSE",  f"{mse_wis:.4f}")
-            c3.metric("WIS improvement", f"{max(0,(mse_ois-mse_wis)/max(mse_ois,1e-9)*100):.1f}%", delta="↓ lower is better")
+            c1.metric("Ordinary IS — MSE vs reference", f"{mse_ois:.4f}", help="Lower is better")
+            c2.metric("Weighted IS — MSE vs reference",  f"{mse_wis:.4f}", help="Lower is better")
+            c3.metric("WIS accuracy improvement", f"{pct_imp:.1f}%", delta="↓ lower MSE")
 
-        # ── Tab 4: Incremental MC ─────────────────────────────────────────────
-        with tab_incr:
-            st.markdown("""
-            <div style="background:#1b0f00; border-left:4px solid #ff9800; padding:1rem 1.2rem;
-                        border-radius:0 10px 10px 0; margin-bottom:1rem">
-            <b>🧩 What problem does Incremental MC solve?</b><br>
-            Standard MC Prediction stores <em>every single return</em> for every state — then computes the average at the end.
-            For a long-running agent (millions of episodes), this quickly exhausts memory.<br><br>
-            <b>Incremental MC</b> asks: <em>"Can I maintain a running average without storing all past data?"</em>
-            The answer is yes — using the identity <code>new_mean = old_mean + (new_value − old_mean) / n</code>.
-            This trick means the agent only ever needs to remember the <em>current estimate</em> and a <em>count</em> — O(1) memory.<br><br>
-            <b>Why it matters beyond memory:</b> If you replace the 1/N step-size with a fixed constant α,
-            you get an <em>exponential moving average</em> — recent episodes matter more than old ones.
-            This is critical for <b>non-stationary environments</b> (e.g. a game where the rules slowly change).
-            It's also the direct bridge to <b>TD learning</b>, the next major RL paradigm.
-            </div>
-            """, unsafe_allow_html=True)
-            st.subheader("⚡ Incremental Monte Carlo")
-            st.markdown(r"""
-            Instead of storing all returns per state, **Incremental MC** updates online:
+            st.markdown(_tip("""
+            <b>Experiment:</b> Increase episodes to 2000. Both MSE values should drop significantly —
+            both IS methods converge to the true values with enough data. But Weighted IS will always
+            converge faster (lower variance → fewer episodes needed for the same accuracy).
+            """), unsafe_allow_html=True)
 
-            $$V(S_t) \leftarrow V(S_t) + \frac{1}{N(S_t)}\bigl[G_t - V(S_t)\bigr]$$
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 4 — OFF-POLICY MC CONTROL
+        # ═════════════════════════════════════════════════════════════════════
+        with tab_offctrl:
+            st.markdown(_card("#1565c0","🎲","What does Off-policy MC Control solve?",
+                """<b>The on-policy limitation:</b> On-policy control converges to the best ε-soft policy —
+                which always has some probability of picking suboptimal actions. The exploration
+                requirement is permanently baked into the policy.<br><br>
+                <b>Off-policy control separates concerns:</b>
+                The <em>behavior policy b</em> explores freely (ε-soft), generating all the experience.
+                The <em>target policy π</em> is purely greedy — it only takes the best known action.
+                Because π never has to explore, it can converge to the <b>true optimal policy π*</b>.<br><br>
+                <b>The catch — the greedy tail problem:</b> Updates only apply to states in the
+                "greedy tail" of each episode — the consecutive run of greedy actions at the END.
+                The moment a non-greedy action appears (walking backward), the IS weight becomes 0
+                and all earlier updates are discarded. This can be very slow."""),
+                unsafe_allow_html=True)
 
-            This is **mathematically equivalent** to batch averaging but uses *O(1)* memory per state.  
-            Replacing 1/N with a fixed α gives an **exponential moving average** — useful for  
-            non-stationary environments (and is the precursor to TD learning).
-            """)
+            st.subheader("🎲 Off-policy MC Control — Learning the True Optimal π*")
 
-            # ── Theory panel ─────────────────────────────────────────────────
-            with st.expander("📐 Theory & Formulas — Incremental MC", expanded=False):
+            with st.expander("📐 Theory & Formulas — Off-policy MC Control", expanded=False):
                 st.markdown(r"""
-                #### The Memory Problem
+                #### Two Policies, One Goal
 
-                Batch MC stores every observed return per state:
-                $\{G_1, G_2, \ldots, G_n\}$ then computes $V(s) = \frac{1}{n}\sum G_i$.
+                | Policy | Symbol | Type | Role |
+                |--------|--------|------|------|
+                | Target | $\pi$ | Deterministic greedy | The policy we improve — will become π* |
+                | Behavior | $b$ | ε-soft stochastic | Generates all episodes — ensures coverage |
 
-                For long-running agents this is impractical. **Incremental MC** uses the identity:
+                #### The Full Algorithm (Sutton & Barto, Chapter 5)
 
-                $$V_{n+1} \doteq V_n + \frac{1}{n}\bigl[G_n - V_n\bigr]$$
+                **Initialise:** $Q(s,a) \leftarrow 0$, $C(s,a) \leftarrow 0$, $\pi(s) \leftarrow \arg\max_a Q(s,a)$
 
-                which is the *running mean update* — provably equivalent to the batch average but requires
-                storing only $V_n$ and the counter $n$. The term $[G_n - V_n]$ is called the **error**:
-                how much the new observation differs from the current estimate.
+                **For each episode:**
+                1. Generate episode using $b$: $S_0, A_0, R_1, \ldots, S_{T-1}, A_{T-1}, R_T$
+                2. Set $G \leftarrow 0$, $W \leftarrow 1$
+                3. **Walk backward** $t = T-1, T-2, \ldots, 0$:
 
-                ---
+                $$G \leftarrow \gamma G + R_{t+1}$$
 
-                #### Off-Policy Generalisation (Weighted IS)
+                $$C(S_t, A_t) \leftarrow C(S_t, A_t) + W \quad \text{(accumulate IS weight)}$$
 
-                For weighted importance sampling, the incremental update generalises to:
+                $$Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \frac{W}{C(S_t, A_t)}\bigl[G - Q(S_t, A_t)\bigr]$$
 
-                $$V_{n+1} \doteq V_n + \frac{W_n}{C_n}\bigl[G_n - V_n\bigr]$$
+                $$\pi(S_t) \leftarrow \arg\max_a Q(S_t, a) \quad \text{(update greedy target)}$$
 
-                $$C_{n+1} \doteq C_n + W_{n+1}, \quad C_0 = 0$$
+                $$\textbf{If } A_t \neq \pi(S_t): \textbf{ BREAK} \quad \text{(non-greedy → W=0 → stop)}$$
 
-                where $W_n = \rho_{t_n:T(t_n)-1}$ is the IS weight for the $n$-th return.
-                When $W=1$ for all steps (on-policy case), this reduces to the simple $1/n$ update.
+                $$W \leftarrow W \cdot \frac{1}{b(A_t \mid S_t)} \quad \text{(IS weight: π(a|s)=1 since greedy)}$$
 
-                ---
+                **Symbol decoder:**
+                - $C(S_t, A_t)$ — cumulative IS weight for pair $(S_t, A_t)$ — the denominator of weighted IS
+                - $W$ — current episode's running IS weight (product of $1/b$ so far)
+                - $\frac{W}{C}[G - Q]$ — the weighted IS update: error term scaled by relative weight
 
-                #### Fixed Step-Size — α Replacement
+                #### Why Break on a Non-Greedy Action?
 
-                Replace $1/n$ with a constant **α ∈ (0,1)**:
+                Since $\pi$ is deterministic greedy: $\pi(a|s) = 1$ for the best action, 0 otherwise.
 
-                $$V(S_t) \leftarrow V(S_t) + \alpha\bigl[G_t - V(S_t)\bigr]$$
+                The IS weight $W = \prod \frac{\pi(a|s)}{b(a|s)}$.
 
-                This gives an **exponential moving average** — older returns are geometrically discounted:
+                If any action $A_t$ was non-greedy: $\pi(A_t|S_t) = 0 \Rightarrow W = 0$.
 
-                $$V_n = (1-\alpha)^n V_0 + \alpha \sum_{k=1}^{n}(1-\alpha)^{n-k} G_k$$
+                With W=0, the update $\frac{W}{C}[G-Q]$ = 0 — no learning happens.
+                So breaking early is exactly equivalent (and computationally faster).
 
-                | Step-size | Memory of past | Best for |
-                |-----------|---------------|---------|
-                | 1/n | Equal weight all | Stationary environments |
-                | α (constant) | Recent > old | Non-stationary environments |
+                #### The Greedy Tail Problem
 
-                ---
+                Learning only from the greedy tail means:
+                - Episode of 20 steps where the agent makes 1 non-greedy action at step 3
+                → only steps 4–20 (17 steps) contribute learning
+                - Shorter greedy tails = less learning per episode = slower convergence
 
-                #### Bridge to TD Learning
+                This is the fundamental cost of achieving true optimality.
 
-                Replace the actual return $G_t$ (which requires the full episode) with a
-                **bootstrapped estimate** $R_{t+1} + \gamma V(S_{t+1})$ (available after one step):
+                #### Why π* instead of just best ε-soft?
 
-                $$V(S_t) \leftarrow V(S_t) + \alpha\bigl[R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\bigr]$$
-
-                This is **TD(0)** — the simplest temporal-difference method. The incremental update
-                structure from MC is identical; only the target changes from $G_t$ to a one-step estimate.
+                Target policy $\pi$ has no ε constraint → $\pi(s) = \arg\max Q(s,a)$ exactly.
+                With infinite episodes: $Q \to q^*$ → $\pi \to \pi^*$ (true optimal, provably).
+                On-policy ε-greedy converges to: $\pi(s) = \arg\max Q(s,a)$ with probability $1-\varepsilon$
+                → can never be purely greedy.
                 """)
 
-            st.markdown("""
-            <div style="background:#1b0f00; border-left:4px solid #ffa726; padding:.8rem 1rem;
-                        border-radius:0 8px 8px 0; margin-bottom:.8rem">
-            <b>📖 How to read these heatmaps:</b><br>
-            Both maps show V(s) estimates under the same random policy.
-            They should look <em>nearly identical</em> — because Incremental MC is mathematically equivalent to batch First-Visit MC.
-            Any visible differences are just random seed effects.
-            The point of the comparison is to confirm that the memory-efficient online method produces the same result as storing everything.
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(_card("#42a5f5","📖","How to read the diagrams on this tab",
+                """<b>Top row:</b> The learned target policy π* (value heatmap + arrows). This is a <em>deterministic</em>
+                policy — every cell has exactly one arrow, no randomness. Compare to the on-policy arrows in the previous tab.<br>
+                <b>Middle row:</b> Direct side-by-side comparison — on-policy arrows (left) vs off-policy arrows (right).
+                Look for cells where they disagree — the off-policy agent may make bolder choices near the trap because
+                it never has to randomly explore there.<br>
+                <b>Bottom left:</b> State value comparison. Off-policy values should be ≥ on-policy since π* ≥ best ε-soft π.<br>
+                <b>Bottom right:</b> Greedy tail fraction — what fraction of each episode contributed to learning.
+                Low values mean learning is slow (behavior rarely stays greedy consecutively)."""),
+                unsafe_allow_html=True)
+
             fig, axes, axl = make_fig(1, 2, 12, 5)
-            plot_value_heatmap(env, res["V_fv"],  "First-Visit MC (batch)", axes[0])
-            plot_value_heatmap(env, res["V_inc"], "Incremental MC",         axes[1])
+            plot_value_heatmap(env, res["V_off"], "Off-policy Control — V(s)", axes[0])
+            plot_policy_arrows(env, res["pi_off"], "Learned Target Policy π*", axes[1])
             plt.tight_layout(); st.pyplot(fig); plt.close()
 
-            # Variance history
-            st.markdown("### Mean Variance Across States Over Time")
+            st.subheader("🔀 Policy Comparison: On-policy vs Off-policy")
             st.markdown("""
-            > **📖 How to read this chart:** The X-axis marks checkpoints (every N/20 episodes).
-            > The Y-axis shows the average variance of V(s) estimates across all states.
-            > **Variance measures how much the estimates jump around** — high variance means unreliable estimates.
-            > You should see variance **decrease and flatten** as more episodes are played.
-            > This is the core MC learning signal: the more data you collect, the more confident the estimates become.
-            > The orange fill under the curve shows the area of uncertainty — as it shrinks, the agent "knows more."
+            Both maps below show the **greedy** version of each method's learned policy —
+            the action with the highest Q-value from each state.
+
+            The key difference: on-policy arrows came from a policy trained *with* ε-exploration built in.
+            Off-policy arrows came from a deterministic target policy trained separately.
             """)
+            fig2, axes2, _ = make_fig(1, 2, 12, 5)
+            plot_policy_arrows(env, res["pi_det"], "On-policy Greedy π  (ε-soft origin)", axes2[0])
+            plot_policy_arrows(env, res["pi_off"], "Off-policy Target π*  (deterministic)", axes2[1])
+            plt.tight_layout(); st.pyplot(fig2); plt.close()
+
+            all_s = [env.i2s(i) for i in range(env.n_states)
+                     if env.i2s(i) not in env.walls and not env.is_terminal(env.i2s(i))]
+            v_on_arr  = np.array([res["V_on"].get(s, 0)  for s in all_s])
+            v_off_arr = np.array([res["V_off"].get(s, 0) for s in all_s])
+
+            fig3, axes3, _ = make_fig(1, 2, 14, 4)
+            idx = range(len(all_s))
+            axes3[0].plot(idx, v_on_arr,  "o-",  color="#00897b", lw=2,   ms=5, label="On-policy")
+            axes3[0].plot(idx, v_off_arr, "s--", color="#1565c0", lw=1.8, ms=5, label="Off-policy (target π*)")
+            axes3[0].set_xlabel("State index", color="white"); axes3[0].set_ylabel("V(s)", color="white")
+            axes3[0].set_title("State Values: On-policy vs Off-policy", color="white", fontweight="bold")
+            axes3[0].legend(facecolor=CARD_BG, labelcolor="white"); axes3[0].grid(alpha=0.15)
+
+            gh    = res["greedy_hist"]
+            sm_gh = smooth(gh, max(1, len(gh)//20)) if len(gh) > 1 else np.array(gh)
+            axes3[1].plot(gh, color="#42a5f5", alpha=0.12, lw=0.5)
+            axes3[1].plot(range(len(sm_gh)), sm_gh, color="#42a5f5", lw=2.5, label="Greedy tail fraction")
+            axes3[1].axhline(float(np.mean(gh)), color="#ffa726", ls="--", lw=1.5,
+                             label=f"Mean: {np.mean(gh):.2f} ({np.mean(gh)*100:.0f}% of steps used)")
+            axes3[1].set_xlabel("Episode", color="white")
+            axes3[1].set_ylabel("Greedy tail / episode length", color="white")
+            axes3[1].set_title("Fraction of Each Episode Used for Learning", color="white", fontweight="bold")
+            axes3[1].legend(facecolor=CARD_BG, labelcolor="white"); axes3[1].grid(alpha=0.15)
+            axes3[1].set_ylim(0, 1)
+            plt.tight_layout(); st.pyplot(fig3); plt.close()
+
+            st.markdown(_card("#42a5f5","📖","What the greedy tail chart tells you",
+                f"""The y-axis (0 to 1) shows what fraction of each episode was used for Q updates.<br>
+                A value of <b>{np.mean(gh):.2f}</b> means on average, {np.mean(gh)*100:.0f}% of steps contributed learning.<br>
+                <b>If this value is low</b> (&lt;0.3): the behavior policy often takes non-greedy actions early,
+                cutting off learning. Consider reducing ε to make b more greedy — but coverage must still hold.<br>
+                <b>As training progresses</b>: the target policy improves → the behavior policy (which is based on Q)
+                also improves → more steps stay greedy → the tail fraction should <em>increase</em> over time."""),
+                unsafe_allow_html=True)
+
+            raw_on  = res["ep_rewards_on"]
+            raw_off = res["ep_rewards_off"]
+            sm_on   = smooth(raw_on,  max(1, len(raw_on) //20))
+            sm_off  = smooth(raw_off, max(1, len(raw_off)//20))
+
+            st.divider()
+            st.subheader("📈 Learning Curves — On-policy vs Off-policy")
+            st.markdown(_card("#1565c0","📖","How to read these learning curves",
+                """Both agents start from scratch with zero knowledge and play the same number of episodes.<br>
+                <b>Green (on-policy)</b> often rises faster early — it learns from every step of every episode.<br>
+                <b>Blue (off-policy)</b> may rise slower at first — it only learns from the greedy tail.<br>
+                <b>What to look for at the end of training:</b> Does off-policy reach a higher plateau?
+                In theory it should — its target policy has no ε constraint. In practice with limited
+                episodes, on-policy often wins in speed while off-policy wins in peak quality."""),
+                unsafe_allow_html=True)
+
+            fig4, ax4, _ = make_fig(1, 1, 12, 4)
+            ax4.plot(raw_on,  color="#00897b", alpha=0.12, lw=0.5)
+            ax4.plot(raw_off, color="#1565c0", alpha=0.12, lw=0.5)
+            ax4.plot(range(len(sm_on)),  sm_on,  color="#00897b", lw=2.5, label="On-policy ε-greedy")
+            ax4.plot(range(len(sm_off)), sm_off, color="#1565c0", lw=2.5, label="Off-policy target π*")
+            ax4.set_xlabel("Episode number", color="white", fontsize=11)
+            ax4.set_ylabel("Total return", color="white", fontsize=11)
+            ax4.set_title("Learning Curves — On-policy vs Off-policy MC Control", color="white", fontweight="bold")
+            ax4.legend(facecolor=CARD_BG, labelcolor="white"); ax4.grid(alpha=0.15)
+            plt.tight_layout(); st.pyplot(fig4); plt.close()
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("On-policy mean V(s)",   f"{float(np.mean(v_on_arr)):.3f}")
+            c2.metric("Off-policy mean V(s)",  f"{float(np.mean(v_off_arr)):.3f}",
+                      delta=f"{float(np.mean(v_off_arr)-np.mean(v_on_arr)):+.3f}")
+            c3.metric("On-policy peak return",  f"{float(np.max(sm_on)):.2f}")
+            c4.metric("Off-policy peak return", f"{float(np.max(sm_off)):.2f}",
+                      delta=f"{float(np.max(sm_off)-np.max(sm_on)):+.2f}")
+
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 5 — INCREMENTAL MC
+        # ═════════════════════════════════════════════════════════════════════
+        with tab_incr:
+            st.markdown(_card("#ff9800","⚡","What does Incremental MC solve?",
+                """<b>The memory problem:</b> Standard MC stores every observed return for every state —
+                G₁, G₂, G₃, ... — then computes the average at the end. For an agent running millions
+                of episodes, this exhausts memory.<br><br>
+                <b>The solution:</b> A running mean update that only needs two numbers per state:
+                the current estimate V(s) and the visit count N(s). No list of returns needed.<br><br>
+                <b>Why it matters beyond memory:</b> Replace the 1/N step-size with a fixed constant α
+                and you get an exponential moving average — newer episodes matter more than old ones.
+                This is essential for <em>non-stationary</em> environments and is the direct bridge to
+                TD learning."""),
+                unsafe_allow_html=True)
+
+            st.subheader("⚡ Incremental Monte Carlo")
+
+            with st.expander("📐 Theory & Formulas — Incremental MC", expanded=False):
+                st.markdown(r"""
+                #### The Batch Formula We're Replacing
+
+                Batch MC computes:
+                """)
+                st.latex(r"V_n(s) = \frac{1}{n}\sum_{i=1}^{n} G_i")
+                st.markdown(r"""
+                This requires storing all $n$ returns. For $n = 10^6$ episodes, that's 10⁶ numbers per state.
+
+                #### The Incremental Identity
+
+                Note that:
+                """)
+                st.latex(
+                    r"\frac{1}{n}\sum_{i=1}^{n} G_i = \frac{1}{n}\left(\sum_{i=1}^{n-1} G_i + G_n\right)"
+                    r" = \frac{n-1}{n} V_{n-1} + \frac{1}{n}G_n = V_{n-1} + \frac{1}{n}(G_n - V_{n-1})"
+                )
+                st.markdown(r"""
+                This gives the **incremental update rule:**
+                """)
+                st.latex(
+                    r"\boxed{V_{n}(s) \leftarrow V_{n-1}(s) + \frac{1}{n}\bigl[G_n - V_{n-1}(s)\bigr]}"
+                )
+                st.markdown(r"""
+                **Symbol decoder:**
+                - $V_{n-1}(s)$ — current estimate before seeing the new return
+                - $G_n$ — the new return from the $n$-th visit to state $s$
+                - $\frac{1}{n}$ — step size: shrinks as $n$ grows (each new sample has less impact)
+                - $[G_n - V_{n-1}(s)]$ — the **error**: how much the new observation differs from our current belief
+
+                This is **mathematically identical** to the batch formula but uses O(1) memory.
+
+                #### Worked Numeric Example
+
+                Suppose we've visited state (3,4) three times with returns: G₁=8.5, G₂=9.1, G₃=7.8.
+
+                | Step | New G | Old V | Error | New V |
+                |------|-------|-------|-------|-------|
+                | n=1 | 8.50 | 0.00 | +8.50 | 0.00 + (1/1)×8.50 = **8.500** |
+                | n=2 | 9.10 | 8.500| +0.60 | 8.500 + (1/2)×0.60 = **8.800** |
+                | n=3 | 7.80 | 8.800| −1.00 | 8.800 + (1/3)×(−1.00) = **8.467** |
+
+                Batch average: (8.5+9.1+7.8)/3 = **8.467** ✓ — identical result.
+
+                #### Fixed Step-Size α — The Non-Stationary Extension
+
+                Replace $1/n$ with a constant $\alpha \in (0,1)$:
+                """)
+                st.latex(r"V(s) \leftarrow V(s) + \alpha\bigl[G_t - V(s)\bigr]")
+                st.markdown(r"""
+                This weights recent returns exponentially more than old ones:
+                """)
+                st.latex(
+                    r"V_n = (1-\alpha)^n V_0 + \alpha\sum_{k=1}^{n}(1-\alpha)^{n-k} G_k"
+                )
+                st.markdown(r"""
+                With α=0.1: a return from 50 episodes ago has weight $0.9^{50} \approx 0.005$ —
+                it's nearly forgotten. This is crucial when the environment *changes over time*.
+
+                | Update | Memory of past | When to use |
+                |--------|---------------|-------------|
+                | $1/n$ step-size | Equal weight all returns | Stationary environment |
+                | Fixed $\alpha$ | Recent returns matter more | Non-stationary, changing rewards |
+
+                #### The Bridge to TD Learning
+
+                Replace $G_t$ (requires full episode) with the **TD target** $R_{t+1} + \gamma V(S_{t+1})$:
+                """)
+                st.latex(
+                    r"V(S_t) \leftarrow V(S_t) + \alpha\bigl[\underbrace{R_{t+1} + \gamma V(S_{t+1})}_{\text{TD target}} - V(S_t)\bigr]"
+                )
+                st.markdown(r"""
+                This is **TD(0)** — the simplest Temporal-Difference method. The incremental update
+                structure from MC is identical; only the target changes from the true $G_t$ to a one-step estimate.
+                """)
+
+            st.markdown(_card("#ffa726","📖","How to read the heatmaps below",
+                """Both maps show V(s) under the same random policy using the same episodes.<br>
+                <b>Left (Batch First-Visit):</b> Stores all returns, computes exact average at end.<br>
+                <b>Right (Incremental MC):</b> Updates running mean after each episode — no list stored.<br>
+                <b>They should look nearly identical</b> — that's the whole point. Incremental MC gives
+                the exact same answer with a fraction of the memory. Any small differences are random
+                seed effects from the order of updates, not systematic error."""),
+                unsafe_allow_html=True)
+
+            fig, axes, axl = make_fig(1, 2, 12, 5)
+            plot_value_heatmap(env, res["V_fv"],  "First-Visit MC (batch average)", axes[0])
+            plot_value_heatmap(env, res["V_inc"], "Incremental MC (running mean)",  axes[1])
+            plt.tight_layout(); st.pyplot(fig); plt.close()
+
+            st.divider()
+            st.subheader("📉 Variance Reduction — How estimates stabilise over time")
+            st.markdown("""
+            As more episodes are played, the estimates for each state are based on more samples.
+            More samples → lower variance → more reliable values. The chart below tracks
+            the **average variance of V(s) estimates** across all states as training progresses.
+            """)
+            st.markdown(_card("#ff9800","📖","How to read the variance chart",
+                """<b>X-axis</b> = training checkpoint (every N/20 episodes).<br>
+                <b>Y-axis</b> = average variance of V(s) across all visited states. This measures how
+                much the estimates are "jumping around" — high variance means unreliable, low variance means settled.<br>
+                <b>The orange fill</b> = the area of uncertainty — as it shrinks, the agent "knows more".<br>
+                <b>What to expect:</b> The curve should drop sharply early (each new episode dramatically
+                improves sparse estimates) then flatten as estimates stabilise (diminishing returns per episode).<br>
+                <b>Rate of fall:</b> Variance drops proportional to 1/n — to halve the remaining variance, you need to double episodes."""),
+                unsafe_allow_html=True)
+
             fig5, ax5, _ = make_fig(1, 1, 10, 4)
             vh = res["var_hist"]
             if vh:
-                ax5.plot(vh, color="#ff9800", lw=2.5)
+                ax5.plot(vh, color="#ff9800", lw=2.5, label="Mean variance across states")
                 ax5.fill_between(range(len(vh)), 0, vh, color="#ff9800", alpha=0.15)
-            ax5.set_xlabel("Checkpoint (every N/20 episodes)", color="white")
-            ax5.set_ylabel("Mean Var(V(s))", color="white")
-            ax5.set_title("Variance Reduction as N Grows", color="white", fontweight="bold")
-            ax5.grid(alpha=0.15)
+                if len(vh) > 3:
+                    ax5.annotate("High variance:\nfew samples", xy=(0, vh[0]),
+                                 xytext=(len(vh)*0.1, vh[0]*0.9),
+                                 color="#ffcc80", fontsize=8,
+                                 arrowprops=dict(arrowstyle="->", color="#ffcc80", lw=1))
+                    ax5.annotate("Low variance:\nmany samples", xy=(len(vh)-1, vh[-1]),
+                                 xytext=(len(vh)*0.6, vh[-1]+max(vh)*0.2),
+                                 color="#a5d6a7", fontsize=8,
+                                 arrowprops=dict(arrowstyle="->", color="#a5d6a7", lw=1))
+            ax5.set_xlabel("Checkpoint (every N/20 episodes)", color="white", fontsize=11)
+            ax5.set_ylabel("Mean Var(V(s)) across states", color="white", fontsize=11)
+            ax5.set_title("Variance Reduction as More Episodes Are Played", color="white", fontweight="bold")
+            ax5.legend(facecolor=CARD_BG, labelcolor="white"); ax5.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig5); plt.close()
 
             c1, c2 = st.columns(2)
-            c1.info("**Memory**: O(1) per state — no need to store every return.")
-            c2.info("**Bridge to TD**: Replace 1/N with α and allow G to bootstrap → you get TD(0).")
+            c1.info("**Memory advantage:** Batch MC needs O(N×S) storage (N returns × S states). Incremental MC needs O(S) — just current estimate + count per state.")
+            c2.info("**Bridge to TD:** Swap the true return G for a one-step bootstrap estimate R+γV(S') → you've invented TD(0), which can learn from incomplete episodes.")
 
-        # ── Tab 5: Advanced IS ────────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 6 — ADVANCED IS
+        # ═════════════════════════════════════════════════════════════════════
         with tab_adv:
-            st.markdown("""
-            <div style="background:#0d1020; border-left:4px solid #9c6dff; padding:1rem 1.2rem;
-                        border-radius:0 10px 10px 0; margin-bottom:1rem">
-            <b>🧩 What problem do Advanced IS methods solve?</b><br>
-            Even Weighted IS can suffer from high variance in long episodes — because the importance weight ρ
-            is a <em>product</em> of many per-step ratios. If an episode has 50 steps, you're multiplying
-            50 numbers together. Even if each ratio is close to 1, the product can still become astronomically
-            large or small.<br><br>
+            st.markdown(_card("#9c6dff","🔬","What do Advanced IS methods solve?",
+                """<b>The remaining variance problem:</b> Even Weighted IS can be noisy for long episodes.
+                Why? The IS weight ρ is a <em>product</em> of per-step ratios. A 50-step episode multiplies
+                50 numbers together — even if each ratio is ~1.2, the product can be 1.2⁵⁰ ≈ 9100.
+                One such episode dominates the entire average.<br><br>
+                <b>Per-Decision IS</b> fixes this by not using future ratios for past rewards.
+                Reward R₃ doesn't need the IS ratio from steps 4–50 — those future decisions can't
+                change what happened at step 3.<br><br>
+                <b>Discounting-Aware IS</b> goes further: with γ&lt;1, rewards at step 50 are
+                discounted by γ⁵⁰ ≈ 0.006. Their IS corrections also have less effect on the estimate.
+                This method exploits the discount structure to further shorten effective weight products."""),
+                unsafe_allow_html=True)
 
-            <b>Per-Decision IS</b> breaks the weight apart: each reward Rₖ is only corrected by the ratios
-            <em>up to that step</em>, not the whole episode. Why does this help?
-            Because future decisions don't affect past rewards — so there's no reason to include their ratios.
-            *Think:* "The reward I got at step 3 has nothing to do with what the policy did at step 47."<br><br>
+            st.subheader("🔬 Advanced IS: Per-Decision & Discounting-Aware")
 
-            <b>Discounting-Aware IS</b> goes one step further: when γ &lt; 1, rewards far in the future
-            matter less (they're discounted). So their IS corrections also need to matter less.
-            This method exploits the discount factor to reduce the effective "length" of the IS product,
-            giving the lowest variance of all estimators.<br><br>
-
-            <b>Real-world use:</b> Both methods are critical in healthcare, finance, and robotics where
-            episodes are long and the difference between behavior and target policy is large.
-            </div>
-            """, unsafe_allow_html=True)
-            st.subheader("🔬 Advanced IS: Per-Decision vs Discounting-Aware")
-            st.markdown(r"""
-            **Per-Decision IS** decomposes the episode-level importance weight into per-step ratios.  
-            Each reward $R_{k+1}$ is weighted only by the IS ratio *up to* step k, not the full episode:
-
-            $$\hat{V}^{PD}(s_t) = \sum_{k=t}^{T} \gamma^{k-t}\left(\prod_{j=t}^{k}\rho_j\right) R_{k+1}$$
-
-            **Discounting-Aware IS** additionally exploits the discount structure  
-            (when γ < 1, distant rewards contribute less — so their IS ratios matter less).
-            This gives the **lowest variance** among all IS estimators.
-            """)
-
-            # ── Theory panel ─────────────────────────────────────────────────
             with st.expander("📐 Theory & Formulas — Per-Decision & Discounting-Aware IS", expanded=False):
                 st.markdown(r"""
-                #### Why Standard IS Has High Variance
+                #### Why Standard IS Has Exploding Variance
 
-                The standard IS weight multiplies **all** per-step ratios together:
-                $$\rho_{t:T-1} = \prod_{k=t}^{T-1} \rho_k, \quad \rho_k = \frac{\pi(A_k|S_k)}{b(A_k|S_k)}$$
-
-                For a 50-step episode, that's 50 numbers multiplied together. Even if each is ~1.2,
-                the product is $1.2^{50} \approx 9100$ — an enormous, destabilising weight.
-
-                ---
-
-                #### Per-Decision Importance Sampling
-
-                Key insight: **reward $R_{k+1}$ is independent of actions taken after step $k$**.
-                So future ratios are irrelevant for past rewards. We write the return as a sum of
-                individually IS-corrected rewards:
-
+                Standard IS weight for a 50-step episode:
                 """)
-                st.latex(r"""
-                \hat{V}^{PD}(s_t) = \sum_{k=t}^{T-1} \gamma^{k-t}
-                \underbrace{\left(\prod_{j=t}^{k}\rho_j\right)}_{\text{only ratios up to step }k} R_{k+1}
-                """)
+                st.latex(
+                    r"\rho_{t:T-1} = \underbrace{\frac{\pi(A_t \mid S_t)}{b(A_t \mid S_t)}}_{\rho_t} \times"
+                    r" \underbrace{\frac{\pi(A_{t+1} \mid S_{t+1})}{b(A_{t+1} \mid S_{t+1})}}_{\rho_{t+1}} \times"
+                    r" \cdots \times \rho_{T-1}"
+                )
                 st.markdown(r"""
+                If each ratio is 1.5 (π prefers this action 1.5× more than b):
+                $1.5^{50} \approx 637{,}621$ — the weight for this episode is 637,621×
+                the average return. Any one such episode destroys the variance.
 
-                This is **provably unbiased** and has **lower variance** than ordinary IS,
-                because each reward uses only the ratios it actually needs.
+                #### Per-Decision IS — The Key Insight
 
-                ---
+                **Reward $R_{k+1}$ at step $k$ is causally independent of actions after step $k$.**
+                Future decisions can't reach back in time to change past rewards.
 
-                #### Discounting-Aware Importance Sampling
-
-                When $\gamma < 1$, the discounted return can be rewritten as a weighted sum of
-                **flat (undiscounted) partial returns** $\bar{G}_{t:h}$:
-
+                So instead of weighting the entire return with the full IS product, we weight each
+                reward with only the IS ratios *up to* that reward's step:
                 """)
-                st.latex(r"G_t = (1-\gamma)\sum_{h=t}^{T-1} \gamma^{h-t} \bar{G}_{t:h} + \gamma^{T-t} \bar{G}_{t:T}")
+                st.latex(
+                    r"\boxed{\hat{V}^{PD}(s_t) = \sum_{k=t}^{T-1} \gamma^{k-t}"
+                    r" \left(\prod_{j=t}^{k}\rho_j\right) R_{k+1}}"
+                )
                 st.markdown(r"""
+                **Symbol decoder:**
+                - $\prod_{j=t}^{k}\rho_j$ — IS weight only up to step $k$ (not the full episode)
+                - $\gamma^{k-t}$ — discount applied to reward $k$ steps in the future
+                - For reward $R_{t+1}$ (the next reward): only $\rho_t$ is needed (1 ratio, not 50)
+                - For reward $R_{t+5}$: only $\rho_t \cdots \rho_{t+4}$ needed (5 ratios, not 50)
 
-                Each partial return $\bar{G}_{t:h}$ only needs IS ratios up to horizon $h$, not the full
-                episode. The IS weight for each partial return is then:
+                This provably has **lower variance** than ordinary IS — each reward's weight is shorter.
 
+                #### Discounting-Aware IS — Exploiting γ < 1
+
+                With $\gamma < 1$, a discounted return can be decomposed into **flat partial returns**:
                 """)
-                st.latex(r"\rho_{t:h} = \prod_{k=t}^{h} \rho_k \quad (\text{length } h-t+1, \text{ not } T-t)")
+                st.latex(
+                    r"G_t = (1-\gamma)\sum_{h=t}^{T-1}\gamma^{h-t}\bar{G}_{t:h} + \gamma^{T-t}\bar{G}_{t:T}"
+                )
                 st.markdown(r"""
+                where $\bar{G}_{t:h} = \sum_{k=t}^{h} R_{k+1}$ is the undiscounted sum to horizon $h$.
 
-                Since $\gamma < 1$ discounts distant horizons, those long IS products have lower influence.
-                Result: **shortest effective IS products → lowest variance of all estimators**.
+                Each partial return $\bar{G}_{t:h}$ only needs IS ratios up to horizon $h$.
+                And since $\gamma^{h-t}$ is small for large $h-t$, distant horizons contribute little
+                — their IS products have limited influence.
 
-                Benefit vanishes as $\gamma \to 1$ (no discounting → same as Per-Decision IS).
+                Result: **effective IS products are shorter** (weighted by discount factors).
 
-                ---
-
-                #### Variance Hierarchy
-
+                #### Variance Hierarchy — Provably Ordered
                 """)
-                st.latex(r"\text{Var}[\text{Disc. IS}] \;\leq\; \text{Var}[\text{Per-Decision IS}] \;\leq\; \text{Var}[\text{Weighted IS}] \;\leq\; \text{Var}[\text{Ordinary IS}]")
+                st.latex(
+                    r"\text{Var}[\text{Disc-Aware IS}] \leq \text{Var}[\text{Per-Decision IS}]"
+                    r" \leq \text{Var}[\text{Weighted IS}] \leq \text{Var}[\text{Ordinary IS}]"
+                )
                 st.markdown(r"""
+                | Method | Max IS product length | Why |
+                |--------|----------------------|-----|
+                | Ordinary IS | Full episode $T-t$ | All ratios multiplied |
+                | Weighted IS | Full episode $T-t$ | Normalised, but still full product |
+                | Per-Decision IS | Up to each step $k-t$ | Shorter products per reward |
+                | Discounting-Aware IS | Discounted by $\gamma^{h-t}$ | Distant terms downweighted |
 
-                | Method | IS product length | Variance |
-                |--------|-----------------|---------|
-                | Ordinary IS | Full episode (T steps) | Highest |
-                | Weighted IS | Full episode, normalised | Lower |
-                | Per-Decision IS | Up to each step k | Very low |
-                | Discounting-Aware IS | Discounted by γ | Lowest |
+                The hierarchy collapses when $\gamma = 1$ (no discounting):
+                Discounting-Aware = Per-Decision IS.
                 """)
 
-            st.markdown("""
-            <div style="background:#0d1020; border-left:4px solid #9c6dff; padding:.8rem 1rem;
-                        border-radius:0 8px 8px 0; margin-bottom:.8rem">
-            <b>📖 How to read these heatmaps:</b><br>
-            Both maps use only <b>500 episodes</b> (capped for speed), evaluating the same greedy target policy
-            via off-policy data. They should show <em>smoother, more consistent</em> value estimates than
-            Ordinary IS — particularly in states far from the goal where IS weights tend to blow up.
-            If cells look washed out or grey, that state was rarely visited under the behavior policy,
-            so few valid IS corrections could be made — a real limitation of IS methods with a very
-            different behavior policy.
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(_card("#9c6dff","📖","How to read these two heatmaps",
+                """Both maps estimate V(s) for the greedy target policy using only 500 episodes (capped for speed).<br>
+                <b>Left (Per-Decision IS):</b> Uses shorter IS products per reward. Should be smoother than Ordinary IS.<br>
+                <b>Right (Discounting-Aware IS):</b> Exploits γ&lt;1 to further reduce effective product length. Smoothest of all IS methods.<br>
+                <b>Grey/pale cells</b> = states rarely visited by the behavior policy, so few IS-corrected samples exist.<br>
+                <b>What to look for:</b> Compare these maps to the Ordinary IS map in the previous tab.
+                The advanced methods should have fewer extreme values (fewer very-green or very-red cells in unusual places)."""),
+                unsafe_allow_html=True)
+
             fig, axes, axl = make_fig(1, 2, 12, 5)
-            plot_value_heatmap(env, res["V_pd"], "Per-Decision IS — V(s)",       axes[0])
-            plot_value_heatmap(env, res["V_da"], "Discounting-Aware IS — V(s)",  axes[1])
+            plot_value_heatmap(env, res["V_pd"], "Per-Decision IS — V(s)",      axes[0])
+            plot_value_heatmap(env, res["V_da"], "Discounting-Aware IS — V(s)", axes[1])
             plt.tight_layout(); st.pyplot(fig); plt.close()
 
-            # Variance bars for all IS methods
-            st.markdown("### Variance Comparison — All IS Methods")
-            st.markdown("""
-            > **📖 How to read this bar chart:** Each bar represents one IS estimator.
-            > The height is the **variance of V(s) estimates across all non-terminal states** — lower means
-            > the estimator gives more consistent, reliable answers.
-            > The expected ordering from theory is:
-            > **Ordinary IS** (highest) → **Weighted IS** → **Per-Decision IS** → **Discounting IS** (lowest).
-            > If your run doesn't show exactly this ordering, it's because 500 episodes is a small sample
-            > and randomness can flip adjacent methods. The general trend should hold.
-            > **Colour guide:** red=unstable, blue=good, green=best.
-            """)
+            st.divider()
+            st.subheader("📊 Variance Comparison — All IS Methods")
+            st.markdown(_card("#9c6dff","📖","How to read the variance bar chart",
+                """Each bar = one IS method. Bar height = variance of V(s) estimates across all non-terminal states.<br>
+                <b>Lower bar = more consistent estimates = better for practical use.</b><br>
+                <b>Expected order</b> (shortest to tallest): Discounting IS → Per-Decision IS → Weighted IS → Ordinary IS.<br>
+                If your chart doesn't perfectly follow this order: 500 episodes is a small sample —
+                sampling noise can flip adjacent bars. Run more episodes (use the slider) to see the
+                theoretical ordering emerge more clearly.<br>
+                <b>Colour guide:</b> red=high variance, blue/green=low variance (just visual — not a quality score by itself)."""),
+                unsafe_allow_html=True)
+
             all_s = [s for s in res["V_on"] if s not in env.walls and not env.is_terminal(s)]
             variance_data = {
-                "Ordinary IS":       np.var([res["V_ois"].get(s,0) for s in all_s]),
-                "Weighted IS":       np.var([res["V_wis"].get(s,0) for s in all_s]),
-                "Per-Decision IS":   np.var([res["V_pd"].get(s,0)  for s in all_s]),
-                "Discounting IS":    np.var([res["V_da"].get(s,0)  for s in all_s]),
+                "Ordinary IS":    np.var([res["V_ois"].get(s,0) for s in all_s]),
+                "Weighted IS":    np.var([res["V_wis"].get(s,0) for s in all_s]),
+                "Per-Decision IS":np.var([res["V_pd"].get(s,0)  for s in all_s]),
+                "Discounting IS": np.var([res["V_da"].get(s,0)  for s in all_s]),
             }
             fig6, ax6, _ = make_fig(1, 1, 10, 4)
-            colors_b = ["#ef5350","#42a5f5","#66bb6a","#ffa726"]
+            colors_b = ["#ef5350", "#42a5f5", "#66bb6a", "#ffa726"]
             bars = ax6.bar(list(variance_data.keys()), list(variance_data.values()),
                            color=colors_b, edgecolor="white", lw=0.5, alpha=0.9)
             for bar, val in zip(bars, variance_data.values()):
                 ax6.text(bar.get_x()+bar.get_width()/2, bar.get_height()*1.02,
-                         f"{val:.4f}", ha="center", va="bottom", color="white", fontsize=9)
-            ax6.set_ylabel("Variance of V(s) estimates", color="white")
-            ax6.set_title("IS Variance Hierarchy (lower = better)", color="white", fontweight="bold")
+                         f"{val:.4f}", ha="center", va="bottom", color="white", fontsize=9, fontweight="bold")
+            ax6.set_ylabel("Var(V(s)) across non-terminal states", color="white", fontsize=11)
+            ax6.set_title("IS Variance Hierarchy — Lower Is Better", color="white", fontweight="bold")
             ax6.grid(alpha=0.15, axis="y")
             plt.tight_layout(); st.pyplot(fig6); plt.close()
 
-        # ── Tab 6: Dashboard ──────────────────────────────────────────────────
-        with tab_dash:
-            st.markdown("""
-            <div style="background:#120d1a; border-left:4px solid #ce93d8; padding:1rem 1.2rem;
-                        border-radius:0 10px 10px 0; margin-bottom:1rem">
-            <b>📈 What this dashboard shows</b><br>
-            This is the big-picture comparison. All 8 MC methods estimate values for the <em>same gridworld</em>,
-            and you can compare them side-by-side to see how much their answers agree or differ.<br><br>
-            <b>Key question to ask yourself:</b> Do all maps agree on <em>which states are good and bad</em>?
-            They should — because they're all estimating the same underlying truth.
-            But they may disagree on the <em>exact numbers</em>, especially in states that are rarely visited
-            or where IS weights are extreme.
-            </div>
-            """, unsafe_allow_html=True)
-            st.subheader("📈 Full Comparison Dashboard")
+            st.markdown(_warn("""
+            <b>Important caveat:</b> "Lowest variance" does NOT mean "best" in all cases.
+            Discounting-Aware IS has zero benefit when γ=1 (no discounting).
+            Per-Decision IS is more complex to implement correctly.
+            In practice, <b>Weighted IS is usually the first choice</b> — it offers a good balance
+            of low variance, correctness, and implementation simplicity.
+            """), unsafe_allow_html=True)
 
-            # All 8 heatmaps
-            st.markdown("### Value Functions — All 8 Methods")
-            st.markdown("""
-            <div style="background:#1a1a2e; border-left:4px solid #ce93d8; padding:.8rem 1rem;
-                        border-radius:0 8px 8px 0; margin-bottom:.8rem">
-            <b>📖 How to read this grid of 8 maps:</b>
-            Every map uses the same colour scale (red=−5 to green=+10). Scan for:<br>
-            &nbsp;• <b>Agreement on hot zones</b> — all methods should show green near the goal and red near the trap.<br>
-            &nbsp;• <b>Coverage gaps</b> — grey/blank cells appear in off-policy IS methods when a state was never
-            reached by the behavior policy, so no IS correction could be computed.<br>
-            &nbsp;• <b>Smoothness</b> — noisier maps (more random-looking colour patches) indicate higher variance.
-            First-Visit and Incremental MC should look the smoothest.
-            Off-policy methods (especially Ordinary IS) may look patchier.
-            </div>
-            """, unsafe_allow_html=True)
+        # ═════════════════════════════════════════════════════════════════════
+        # TAB 7 — DASHBOARD
+        # ═════════════════════════════════════════════════════════════════════
+        with tab_dash:
+            st.markdown(_card("#ce93d8","📈","What does this dashboard show?",
+                """All 9 MC methods running on the <em>same</em> gridworld with the <em>same</em> settings.
+                This lets you see directly: do they agree on which states are good and bad? How much
+                does their accuracy differ? Where does each method struggle?<br>
+                The dashboard is the culmination — every other tab shows one method; this shows all of them together."""),
+                unsafe_allow_html=True)
+            st.subheader("📈 Full Comparison Dashboard — All 9 Methods")
+
+            st.markdown("### 🗺️ Value Functions — All 9 Methods Side-by-Side")
+            st.markdown(_card("#ce93d8","📖","How to read the 3×3 grid of heatmaps",
+                """Every map uses the same colour scale (red=−5, green=+10).<br>
+                <b>What they should all agree on:</b> Green near (4,4), dark/red near (2,2), moderate elsewhere.<br>
+                <b>Where they differ:</b><br>
+                &nbsp;• IS methods (maps 4–9) may have grey cells — states the behavior policy didn't visit with compatible actions<br>
+                &nbsp;• Ordinary IS (map 4) may have unexpected very-green or very-red cells — high-ρ episodes dominating<br>
+                &nbsp;• Advanced IS (maps 7,8) should be smoother than Ordinary IS with same data<br>
+                <b>Maps 1–3</b> (on-policy methods) should be most consistent — they learn directly from the target policy."""),
+                unsafe_allow_html=True)
+
             methods_v = [
-                (res["V_fv"],  "First-Visit MC"),
-                (res["V_ev"],  "Every-Visit MC"),
-                (res["V_on"],  "On-policy Control"),
-                (res["V_ois"], "Ordinary IS"),
-                (res["V_wis"], "Weighted IS"),
-                (res["V_inc"], "Incremental MC"),
-                (res["V_pd"],  "Per-Decision IS"),
-                (res["V_da"],  "Discounting IS"),
+                (res["V_fv"],  "1. First-Visit MC"),
+                (res["V_ev"],  "2. Every-Visit MC"),
+                (res["V_on"],  "3. On-policy Control"),
+                (res["V_off"], "4. Off-policy Control"),
+                (res["V_ois"], "5. Ordinary IS"),
+                (res["V_wis"], "6. Weighted IS"),
+                (res["V_inc"], "7. Incremental MC"),
+                (res["V_pd"],  "8. Per-Decision IS"),
+                (res["V_da"],  "9. Discounting IS"),
             ]
-            fig, axes, axl = make_fig(2, 4, 20, 10)
-            for idx, (V, title) in enumerate(methods_v):
-                ax = axes[idx//4][idx%4]
+            fig, axes, axl = make_fig(3, 3, 18, 15)
+            for idx2, (V, title) in enumerate(methods_v):
+                ax = axes[idx2//3][idx2%3]
                 ax.set_facecolor(DARK_BG)
                 ax.tick_params(colors="#9e9ebb", labelsize=7)
                 for sp in ax.spines.values(): sp.set_edgecolor(GRID_COLOR)
@@ -1619,336 +2047,364 @@ def main():
             plt.tight_layout(); st.pyplot(fig); plt.close()
 
             # Summary table
-            st.markdown("### Method Summary Table")
-            st.markdown("""
-            > **📖 How to read this table:**
-            > - **MSE vs On-policy** — how far each method's V(s) estimates are from the on-policy control reference (lower = more accurate).
-            > - **Var(V)** — how spread out the value estimates are across states (lower = more consistent map, less extreme highs/lows).
-            > - **Coverage** — what percentage of non-terminal states got an estimate. Off-policy IS methods sometimes miss states
-            >   the behavior policy never visited with the right action sequence, so their coverage can be under 100%.
-            """)
-            all_s = [s for s in res["V_on"] if s not in env.walls and not env.is_terminal(s)]
-            ref_v = np.array([res["V_on"].get(s,0) for s in all_s])
+            st.divider()
+            st.markdown("### 📋 Accuracy & Coverage Summary Table")
+            st.markdown(_card("#ce93d8","📖","How to read the summary table",
+                """<b>MSE vs On-policy:</b> Mean squared error of each method's V(s) estimates compared
+                to the on-policy reference. Lower = closer to the "ground truth." Methods that use IS
+                may have higher MSE simply due to variance — not because they're wrong in expectation.<br>
+                <b>Var(V):</b> How spread out the value estimates are. High variance = estimates are
+                jumping around a lot — the method needs more data to stabilise.<br>
+                <b>Coverage:</b> What fraction of non-terminal states got an estimate.
+                IS methods may miss states the behavior policy never visited with the right action sequence."""),
+                unsafe_allow_html=True)
 
+            all_s2 = [s for s in res["V_on"] if s not in env.walls and not env.is_terminal(s)]
+            ref_v  = np.array([res["V_on"].get(s, 0) for s in all_s2])
             rows = []
             for V, title in methods_v:
-                vals = np.array([V.get(s,0) for s in all_s])
+                vals = np.array([V.get(s, 0) for s in all_s2])
                 mse  = float(np.mean((vals - ref_v)**2))
                 var  = float(np.var(vals))
-                cov  = sum(1 for s in all_s if s in V) / len(all_s) * 100
-                rows.append({"Method": title,
-                              "MSE vs On-policy": f"{mse:.4f}",
-                              "Var(V)": f"{var:.4f}",
-                              "Coverage": f"{cov:.0f}%"})
+                cov  = sum(1 for s in all_s2 if s in V) / len(all_s2) * 100
+                rows.append({"Method": title, "MSE vs On-policy ↓": f"{mse:.4f}",
+                             "Var(V) ↓": f"{var:.4f}", "Coverage": f"{cov:.0f}%"})
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-            # Variance / stability chart
-            st.markdown("### Relative Variance & Stability Scores (expert assessment)")
+            # Variance/stability bars
+            st.divider()
+            st.markdown("### 📊 Expert Variance & Stability Scores")
             st.markdown("""
-            > **📖 How to read these bar charts:** These are *qualitative* expert scores, not computed from this run.
-            > They represent the known theoretical properties of each method.
-            > **Left chart (Variance, lower=better):** bars pointing left are better — shorter bar = less noisy estimates.
-            > **Right chart (Stability, higher=better):** longer bar = more reliable across different runs and environments.
-            > Notice that Ordinary IS has the worst variance score but Discounting IS has the best —
-            > this matches the variance hierarchy proven in Sutton & Barto Chapter 5.
+            The bars below show **qualitative expert scores** from RL theory — not computed from your
+            specific run. They reflect what happens across many environments with large sample sizes.
+            These scores are a teaching tool to understand the theoretical ordering.
             """)
-            labels  = ["FV MC","EV MC","On-policy","Ordinary IS","Weighted IS","Incremental","Per-Dec IS","Disc. IS"]
-            var_sc  = [2, 3, 4, 9, 3, 2, 2, 1]   # lower = less variance
-            stab_sc = [9, 8, 7, 3, 8, 9, 8, 9]    # higher = more stable
+            st.markdown(_card("#ce93d8","📖","How to read the two bar charts",
+                """<b>Left (Variance — lower is better):</b> Bars extend left. Shorter bar = less noisy estimates.
+                Ordinary IS has the longest bar (most noisy). Discounting IS has the shortest (least noisy).<br>
+                <b>Right (Stability — higher is better):</b> Bars extend right. Longer bar = more reliable across
+                different environments, seeds, and episode counts.<br>
+                <b>Note:</b> Low variance and high stability are correlated but not identical. Weighted IS is
+                very stable despite not having the absolute lowest variance."""),
+                unsafe_allow_html=True)
+
+            labels  = ["FV MC","EV MC","On-pol","Off-pol","Ord IS","WIS","Incr MC","Per-Dec IS","Disc IS"]
+            var_sc  = [2, 3, 4, 5, 9, 3, 2, 2, 1]
+            stab_sc = [9, 8, 7, 6, 3, 8, 9, 8, 9]
 
             fig7, axes7, _ = make_fig(1, 2, 14, 5)
-            cbar = ["#7c4dff","#9c6dff","#00897b","#ef5350","#42a5f5","#ff9800","#66bb6a","#ffa726"]
-
+            cbar = ["#7c4dff","#9c6dff","#00897b","#1565c0","#ef5350","#42a5f5","#ff9800","#ffa726","#66bb6a"]
             axes7[0].barh(labels, var_sc,  color=cbar, alpha=0.88, edgecolor="white", lw=0.4)
-            axes7[0].set_xlabel("Variance Score  (← lower is better)", color="white")
+            axes7[0].set_xlabel("Variance score (lower = less noisy) ←", color="white")
             axes7[0].set_title("Relative Variance", color="white", fontweight="bold")
             axes7[0].invert_xaxis()
             axes7[0].grid(alpha=0.15, axis="x")
-
             axes7[1].barh(labels, stab_sc, color=cbar, alpha=0.88, edgecolor="white", lw=0.4)
-            axes7[1].set_xlabel("Stability Score  (higher is better →)", color="white")
+            axes7[1].set_xlabel("Stability score (higher = more reliable) →", color="white")
             axes7[1].set_title("Stability", color="white", fontweight="bold")
             axes7[1].grid(alpha=0.15, axis="x")
-
             plt.tight_layout(); st.pyplot(fig7); plt.close()
 
-            # Evolution diagram
-            st.markdown("### MC Method Evolution — Simple → Advanced")
-            st.markdown("""
-            > **📖 How to read this diagram:** Each circle is a method. Arrows show which method
-            > *leads to* or *enables* the next. Start at the top-left (MC Prediction) and follow
-            > the arrows rightward. Each branch solves a specific limitation of its parent:
-            > - MC Prediction → Control (adds policy improvement)
-            > - Control → Off-policy IS (separates exploration from learning)
-            > - Ordinary IS → Weighted IS (fixes variance explosion)
-            > - Weighted IS → Per-Decision IS (further variance reduction)
-            > - Per-Decision IS → Discounting IS (exploits discount structure)
-            > The right side of the diagram = more sophisticated, lower variance, but more complex to implement.
-            """)
+            # Method evolution diagram
+            st.divider()
+            st.markdown("### 🌳 MC Method Family Tree")
+            st.markdown(_card("#ce93d8","📖","How to read the family tree",
+                """Each circle = one MC method. Arrows show which method led to the next in the history
+                of RL research — each branch was invented to solve a specific limitation of its parent.<br>
+                <b>Left side = simpler, more fundamental.</b> Right side = more advanced, lower variance.<br>
+                Reading the arrows: "this method's limitation motivated the invention of that method."
+                For example: On-policy control (ε-soft limit) → Off-policy control (true optimality).
+                Standard IS (variance explosion) → Per-Decision IS → Discounting-Aware IS (progressively lower variance)."""),
+                unsafe_allow_html=True)
+
             fig8, ax8, _ = make_fig(1, 1, 14, 6)
             ax8.axis("off")
-
             nodes = [
-                (0.05, 0.50, "MC\nPrediction",   "#7c4dff"),
-                (0.22, 0.78, "First-Visit\nMC",  "#5c35cc"),
-                (0.22, 0.22, "Every-Visit\nMC",  "#9c6dff"),
-                (0.42, 0.50, "MC Control\nOn-pol","#00897b"),
-                (0.60, 0.78, "Ordinary\nIS",      "#ef5350"),
-                (0.60, 0.22, "Weighted\nIS",      "#42a5f5"),
-                (0.78, 0.64, "Per-Decision\nIS",  "#ffa726"),
-                (0.78, 0.36, "Incremental\nMC",   "#ff9800"),
-                (0.95, 0.50, "Discounting\nIS",   "#66bb6a"),
+                (0.05, 0.50, "MC\nPrediction",    "#7c4dff"),
+                (0.22, 0.80, "First-Visit\nMC",   "#5c35cc"),
+                (0.22, 0.20, "Every-Visit\nMC",   "#9c6dff"),
+                (0.42, 0.65, "On-policy\nControl","#00897b"),
+                (0.42, 0.35, "Incremental\nMC",   "#ff9800"),
+                (0.60, 0.80, "Off-policy\nControl","#1565c0"),
+                (0.60, 0.50, "Ordinary\nIS",       "#ef5350"),
+                (0.60, 0.20, "Weighted\nIS",       "#42a5f5"),
+                (0.82, 0.65, "Per-Decision\nIS",   "#ffa726"),
+                (0.82, 0.35, "Disc-Aware\nIS",     "#66bb6a"),
             ]
-            edges = [(0,1),(0,2),(1,3),(2,3),(3,4),(3,5),(3,7),(4,6),(5,6),(6,8)]
-
+            edges = [(0,1),(0,2),(1,3),(2,3),(3,4),(3,5),(3,6),(6,7),(5,8),(7,8),(8,9)]
             for x, y, lbl, col in nodes:
-                ax8.add_patch(plt.Circle((x,y), 0.065, color=col, alpha=0.88,
+                ax8.add_patch(plt.Circle((x,y), 0.072, color=col, alpha=0.88,
                                          transform=ax8.transAxes, zorder=3))
-                ax8.text(x, y, lbl, ha="center", va="center", fontsize=7, color="white",
+                ax8.text(x, y, lbl, ha="center", va="center", fontsize=6.5, color="white",
                          fontweight="bold", transform=ax8.transAxes, zorder=4)
-
             for i, j in edges:
-                x0,y0 = nodes[i][0], nodes[i][1]
-                x1,y1 = nodes[j][0], nodes[j][1]
+                x0, y0 = nodes[i][0], nodes[i][1]
+                x1, y1 = nodes[j][0], nodes[j][1]
                 ax8.annotate("", xy=(x1,y1), xytext=(x0,y0),
                              xycoords="axes fraction", textcoords="axes fraction",
                              arrowprops=dict(arrowstyle="->", color="#90a4ae", lw=1.5))
-
-            ax8.set_title("MC Method Family Tree — Simple to Advanced",
-                          color="white", fontweight="bold", pad=20)
+            ax8.set_title("MC Method Family Tree — Each Method Solves a Limitation of Its Parent",
+                          color="white", fontweight="bold", pad=16)
             plt.tight_layout(); st.pyplot(fig8); plt.close()
 
             # Bias-variance scatter
-            st.markdown("### Bias–Variance Landscape")
-            st.markdown("""
-            > **📖 How to read this scatter plot:** This is the most important summary chart.
-            > - **X-axis (Bias):** How much does the method's estimate *systematically* deviate from truth?
-            >   Unbiased = 0 bias. Weighted IS has nonzero bias (it's a known trade-off).
-            > - **Y-axis (Variance):** How much do estimates *jump around* between runs?
-            >   High variance = you need many episodes to get reliable answers.
-            > - **Green bottom-left corner = ideal zone:** low bias AND low variance. This is where you want to be.
-            > - **Ordinary IS** sits top-left: unbiased but extremely high variance (noisy, unstable).
-            > - **Discounting IS** sits bottom-right: slightly biased but very low variance (reliable, smooth).
-            > - In practice, **low variance usually wins** — a slightly biased but consistent answer is more useful
-            >   than an unbiased but wildly noisy one.
-            """)
+            st.divider()
+            st.markdown("### 🎯 Bias–Variance Landscape")
+            st.markdown(_card("#ce93d8","📖","How to read the bias-variance scatter plot",
+                """This is the most important theoretical summary chart in the app.<br>
+                <b>X-axis (Bias →):</b> How systematically wrong the method is. Bias=0 means the estimate
+                is correct in expectation (averaging over infinite episodes). Weighted IS has some bias
+                for finite N because the weight denominator introduces a systematic under/over-correction.<br>
+                <b>Y-axis (Variance →):</b> How much estimates fluctuate across different runs.
+                High variance = different seeds give very different results = unreliable.<br>
+                <b>Green bottom-left corner = ideal:</b> both low bias AND low variance.<br>
+                <b>Ordinary IS (top-left):</b> Unbiased but highest variance — mathematically pure, practically unstable.<br>
+                <b>Discounting IS (bottom-right):</b> Tiny bias, lowest variance — best practical choice when γ&lt;1."""),
+                unsafe_allow_html=True)
+
             bv_data = {
                 "FV MC":       (1.0, 2.0, "#7c4dff"),
                 "EV MC":       (1.8, 2.8, "#9c6dff"),
                 "On-policy":   (2.5, 4.0, "#00897b"),
+                "Off-policy":  (2.0, 5.0, "#1565c0"),
                 "Ordinary IS": (0.5, 9.0, "#ef5350"),
                 "Weighted IS": (3.0, 2.5, "#42a5f5"),
                 "Incremental": (1.0, 2.2, "#ff9800"),
                 "Per-Dec IS":  (1.2, 1.8, "#ffa726"),
                 "Disc. IS":    (1.5, 1.2, "#66bb6a"),
             }
-            fig9, ax9, _ = make_fig(1, 1, 8, 5)
-            ax9.add_patch(plt.Rectangle((0,0),3,3,alpha=0.08,color="green",zorder=0))
-            ax9.text(1.5, 0.25, "← Ideal Region", color="#81c784", fontsize=9)
-
-            for name,(bv,var,col) in bv_data.items():
-                ax9.scatter(bv, var, s=200, color=col, zorder=5, edgecolors="white", lw=1)
-                ax9.annotate(name, (bv,var), xytext=(6,4), textcoords="offset points",
+            fig9, ax9, _ = make_fig(1, 1, 9, 5)
+            ax9.add_patch(plt.Rectangle((0,0),3,3, alpha=0.07, color="green", zorder=0))
+            ax9.text(1.5, 0.3, "✓ Ideal zone\n(low bias, low variance)", color="#81c784",
+                     fontsize=8, ha="center")
+            for name, (bv, var, col) in bv_data.items():
+                ax9.scatter(bv, var, s=220, color=col, zorder=5, edgecolors="white", lw=1.2)
+                ax9.annotate(name, (bv, var), xytext=(8, 5), textcoords="offset points",
                              color="white", fontsize=8)
-
-            ax9.set_xlabel("Relative Bias →", color="white", fontsize=11)
-            ax9.set_ylabel("Relative Variance →", color="white", fontsize=11)
-            ax9.set_title("Bias–Variance Tradeoff: All MC Methods", color="white", fontweight="bold")
-            ax9.set_xlim(0,10); ax9.set_ylim(0,10)
+            ax9.set_xlabel("Relative Bias  (systematic error) →", color="white", fontsize=11)
+            ax9.set_ylabel("Relative Variance  (instability) →",   color="white", fontsize=11)
+            ax9.set_title("Bias–Variance Tradeoff: All 9 MC Methods", color="white", fontweight="bold")
+            ax9.set_xlim(0, 10); ax9.set_ylim(0, 10)
             ax9.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig9); plt.close()
 
     else:
-        # If no run yet, show placeholder on computation tabs
-        for tab in [tab_pred, tab_ctrl, tab_offpol, tab_incr, tab_adv, tab_dash]:
+        for tab in [tab_pred, tab_ctrl, tab_offpol, tab_offctrl, tab_incr, tab_adv, tab_dash]:
             with tab:
-                st.info("👈 Press **Run All Methods** in the sidebar to start the experiment.")
+                st.info("👈 Press **Run All 9 Methods** in the sidebar to generate all charts and analyses.")
 
-    # ── Tab 7: Method Guide (always visible) ──────────────────────────────────
+    # ═════════════════════════════════════════════════════════════════════════
+    # TAB 8 — METHOD GUIDE (always visible)
+    # ═════════════════════════════════════════════════════════════════════════
     with tab_guide:
+        st.subheader("📚 Complete MC Method Reference")
+
         st.markdown("""
-        <div style="background:#12121f; border-radius:12px; padding:1.2rem 1.6rem; border:1px solid #2a2a3e; margin-bottom:1.2rem">
+        <div style="background:#12121f; border-radius:12px; padding:1.2rem 1.6rem; border:1px solid #2a2a3e; margin-bottom:1rem">
 
-        ### 📚 How to use this guide
+        ### 🧠 One-Sentence Core Intuition for Each Method
 
-        Each section below covers one MC method. For every method you'll find:
-
-        | Field | What it tells you |
-        |-------|------------------|
-        | **📌 What it does** | Plain-English description — no equations needed |
-        | **🕐 When to use it** | Practical scenarios where this method is the right choice |
-        | **✅ Pros** | What the method does well |
-        | **❌ Cons** | Known limitations and failure modes |
-        | **📊 Variance behaviour** | How stable/noisy the estimates are — critical for practical use |
-        | **🔗 Relation to others** | Where this method fits in the MC family tree |
-
-        ---
-
-        ### 🧠 The One-Sentence Intuition for Each Method
-
-        | Method | One sentence |
-        |--------|-------------|
-        | **First-Visit MC** | *"Play games, look back at your first time in each place, average what happened after."* |
-        | **Every-Visit MC** | *"Like First-Visit but count every time you passed through a location — more data, slightly messier stats."* |
-        | **On-policy Control** | *"Improve your strategy after every game, while always keeping a small chance of trying something new."* |
-        | **Ordinary IS** | *"Reweight old data from a different strategy to evaluate a new one — but the weights can be explosively large."* |
-        | **Weighted IS** | *"Same as Ordinary IS, but normalise the weights — trades perfect accuracy for much more stable estimates."* |
-        | **Incremental MC** | *"Instead of saving every past result, just update a running average — same answer, infinitely less memory."* |
-        | **Per-Decision IS** | *"Each step's reward only needs the IS correction up to that step — cutting the weight products shorter reduces noise."* |
-        | **Discounting-Aware IS** | *"When future rewards matter less (γ&lt;1), their corrections also matter less — exploit this for lowest-variance IS."* |
+        | # | Method | Core intuition |
+        |---|--------|---------------|
+        | 1 | **First-Visit MC** | Play many games; for each game, record the total reward from the FIRST time you visited each location; average across games |
+        | 2 | **Every-Visit MC** | Same but count EVERY visit to a location within a game — more data, slight statistical correlation |
+        | 3 | **On-policy Control** | Improve your strategy after every game, keeping a small chance of random moves so you never stop exploring |
+        | 4 | **Off-policy IS Evaluation** | Correct old data collected by a random strategy to evaluate a smarter one — using a statistical reweighting trick |
+        | 5 | **Off-policy MC Control** | Learn a pure greedy optimal strategy while a separate exploration strategy collects all the data |
+        | 6 | **Incremental MC** | Instead of storing every past result, maintain only a running average — same answer, O(1) memory |
+        | 7 | **Per-Decision IS** | Each reward in an episode only needs the IS correction up to that step, not the whole episode — shorter products, lower variance |
+        | 8 | **Discounting-Aware IS** | When γ&lt;1, distant rewards matter less — so their IS corrections also matter less — exploit this for the lowest possible variance |
 
         </div>
         """, unsafe_allow_html=True)
-        st.subheader("📚 Complete MC Method Reference")
+
+        # Decision guide
+        with st.expander("🗺️ Which MC method should I use? — Decision Guide", expanded=True):
+            st.markdown("""
+            ```
+            START HERE
+              │
+              ├─ Do I know the full model p(s'|s,a)?
+              │    └─ YES → Use Dynamic Programming (not MC)
+              │    └─ NO  → Continue ↓
+              │
+              ├─ Do I need to improve the policy or just evaluate it?
+              │    ├─ EVALUATE ONLY (fixed policy)
+              │    │    ├─ Simple / memory OK → First-Visit MC
+              │    │    ├─ Want more data per episode → Every-Visit MC
+              │    │    └─ Memory constrained / streaming → Incremental MC
+              │    │
+              │    └─ IMPROVE THE POLICY (control)
+              │         ├─ Data from same policy I'm improving → On-policy MC Control (ε-greedy)
+              │         │    └─ Acceptable limitation: converges to BEST ε-SOFT policy (not true π*)
+              │         │
+              │         └─ Want the TRUE OPTIMAL policy → Off-policy MC Control
+              │              └─ Acceptable limitation: learns only from greedy episode tail (slow)
+              │
+              └─ Am I using off-policy data (behavior ≠ target)?
+                   ├─ EVALUATION only
+                   │    ├─ Need unbiased estimate → Ordinary IS (but prepare for high variance)
+                   │    └─ Need stable estimates → Weighted IS (slight bias, much lower variance)
+                   │         ├─ Episodes are long → Per-Decision IS (shorter IS products)
+                   │         └─ γ < 1 (discounted) → Discounting-Aware IS (lowest variance)
+                   │
+                   └─ CONTROL (improve policy too) → Off-policy MC Control
+            ```
+            """)
 
         entries = [
             {
                 "icon": "🔵", "name": "MC Prediction — First-Visit",
-                "what":  "Estimates V(s) by averaging the return from the **first** time a state appears in each episode.",
-                "when":  "Policy evaluation for a fixed policy; theoretical analyses where unbiasedness matters.",
-                "pros":  "✅ Unbiased | ✅ Statistically independent samples per episode | ✅ Simple",
-                "cons":  "❌ Wastes data when states revisited | ❌ Requires complete episodes",
-                "variance": "LOW — each state contributes one independent return per episode.",
-                "relation": "Foundation of all MC prediction. Every-Visit MC relaxes the uniqueness constraint.",
+                "what": "Estimates **V(s)** by averaging the return G from the **first** visit to each state per episode. Walk backward through the episode; if you haven't seen this state before, record its return.",
+                "when": "Evaluating a fixed policy. Theoretical analyses where statistical independence matters. When you can afford to occasionally miss a state in an episode.",
+                "pros": "✅ Provably unbiased (correct expected value) | ✅ Independent samples per episode | ✅ Clean theoretical guarantees | ✅ Error ∝ 1/√n",
+                "cons": "❌ Ignores revisits within an episode (wasted data) | ❌ Requires complete episodes | ❌ Converges slowly for rarely-visited states",
+                "variance": "**LOW.** Each episode contributes exactly one G per state. Samples from different episodes are independent → classical √n statistics apply.",
+                "relation": "Foundation of all MC methods. Every-Visit MC relaxes the uniqueness constraint. Incremental MC is its memory-efficient implementation.",
             },
             {
                 "icon": "🟣", "name": "MC Prediction — Every-Visit",
-                "what":  "Like First-Visit but counts the state **every** time it appears. More data per episode.",
-                "when":  "When sample efficiency matters and slight bias is acceptable.",
-                "pros":  "✅ More updates per episode | ✅ Faster practical convergence",
-                "cons":  "❌ Correlated samples within an episode | ❌ Slight bias for loopy environments",
-                "variance": "MEDIUM — more samples but correlated, so variance reduction is not proportional.",
-                "relation": "Same asymptotic limit as First-Visit. Both converge to V^π(s) as N→∞.",
+                "what": "Like First-Visit but counts **every** occurrence of a state in an episode. A state visited 5 times contributes 5 return samples — one from each visit's remaining trajectory.",
+                "when": "When sample efficiency matters more than theoretical purity. When states are frequently revisited and you want to extract maximum information per episode.",
+                "pros": "✅ More updates per episode | ✅ Faster practical convergence | ✅ Simpler to implement (no 'visited' tracking needed) | ✅ Preferred in practice (S&B §5.1)",
+                "cons": "❌ Correlated samples within one episode | ❌ Biased for finite N (but consistent — bias→0 as N→∞) | ❌ Slight instability in loopy environments",
+                "variance": "**MEDIUM.** More samples but correlated — the returns from the 2nd and 3rd visit to a state in one episode share the same future trajectory.",
+                "relation": "Same asymptotic limit as First-Visit. In practice, often preferred. Converges to V^π(s) as N→∞ for both methods.",
             },
             {
-                "icon": "🟢", "name": "On-policy MC Control (ε-greedy)",
-                "what":  "Estimates Q(s,a) and improves policy with ε-greedy every episode (GPI).",
-                "when":  "Learning from direct interaction; when exploration must be maintained throughout.",
-                "pros":  "✅ No model needed | ✅ Simple | ✅ Guaranteed exploration via ε",
-                "cons":  "❌ Convergent only to best ε-soft policy, not π* | ❌ Requires complete episodes",
-                "variance": "MEDIUM — action-value estimates stable, but ε-greedy introduces stochastic noise.",
-                "relation": "The on-policy MC counterpart to Q-learning. Off-policy IS removes the ε-soft constraint.",
+                "icon": "🟢", "name": "On-policy MC Control (ε-greedy GPI)",
+                "what": "Estimates **Q(s,a)** action-values and improves the policy after every episode using ε-greedy Generalised Policy Iteration. No model needed — Q directly tells the agent which action is best.",
+                "when": "Learning from direct interaction. When you need a simple, effective baseline. When the environment is not changing. When the ε-soft policy limitation is acceptable.",
+                "pros": "✅ Model-free | ✅ Simple to implement | ✅ Guaranteed exploration (all s,a pairs visited) | ✅ Converges reliably",
+                "cons": "❌ Converges only to best ε-soft policy (always retains ε-exploration) | ❌ Cannot achieve true optimal π* | ❌ Requires complete episodes",
+                "variance": "**MEDIUM.** Q-value estimates stabilise with N. The ε-greedy policy introduces stochastic noise in returns — each episode may take slightly different paths.",
+                "relation": "On-policy counterpart to off-policy Q-learning. Remove ε constraint → need off-policy methods. Use V(s) → need a model. Add bootstrapping → get Sarsa (TD-based).",
             },
             {
-                "icon": "🔴", "name": "Off-policy — Ordinary IS",
-                "what":  "Reweights returns from behavior policy b to evaluate target policy π using ρ = ∏π/b.",
-                "when":  "Reusing logged data; separating exploration from evaluation.",
-                "pros":  "✅ Unbiased | ✅ Can reuse any existing data | ✅ Flexible data collection",
-                "cons":  "❌ VERY high variance — ρ can grow exponentially with episode length",
-                "variance": "HIGH — product of many ratios → variance explodes for long episodes.",
-                "relation": "Direct off-policy generalization. Weighted IS solves the variance problem.",
+                "icon": "🔵", "name": "Off-policy MC Control (true π*)",
+                "what": "Learns a **deterministic greedy target policy π*** while generating all data with a separate ε-soft behavior policy. Updates Q via weighted IS, but only from the greedy tail of each episode.",
+                "when": "When you need the **true optimal policy**, not just best ε-soft. When exploration and learning must be completely separated — e.g. robotics safety, clinical medicine, learning from demonstrations.",
+                "pros": "✅ Converges to true optimal π* | ✅ Exploration kept separate | ✅ Can reuse data from any soft policy | ✅ Target policy can be evaluated separately",
+                "cons": "❌ Only learns from greedy tail (slow) | ❌ High variance (inherits IS noise) | ❌ Requires coverage (b must cover all π actions) | ❌ Complex to implement correctly",
+                "variance": "**HIGH.** Combines IS variance with the greedy-tail limitation. Each episode contributes fewer updates. Practically, often needs more episodes than on-policy.",
+                "relation": "Off-policy counterpart to on-policy MC control. Uses the incremental weighted-IS update (§5.6). The learned Q can be evaluated separately with ordinary/weighted IS.",
             },
             {
-                "icon": "🔵", "name": "Off-policy — Weighted IS",
-                "what":  "Like Ordinary IS but uses ρ as a weight in a weighted average: Σ(ρG)/Σρ.",
-                "when":  "Almost always preferred over Ordinary IS; better bias-variance tradeoff.",
-                "pros":  "✅ Much lower variance | ✅ Practically stable | ✅ Consistent estimator",
-                "cons":  "❌ Biased (consistent but not unbiased for finite N)",
-                "variance": "LOW — denominator normalizes explosive weights.",
-                "relation": "Preferred off-policy method. Per-Decision IS further decomposes the weight.",
+                "icon": "🔴", "name": "Off-policy — Ordinary Importance Sampling",
+                "what": "Reweights returns from behavior policy b to evaluate target policy π. Each return G is multiplied by the IS ratio ρ = ∏(π/b), then ordinary averaging is applied.",
+                "when": "When an **unbiased** estimate is essential (e.g., formal hypothesis testing). When comparing different IS estimators. As a stepping stone to understanding weighted IS.",
+                "pros": "✅ Provably unbiased | ✅ Can evaluate any target policy | ✅ Simpler formula | ✅ Easier to extend to function approximation",
+                "cons": "❌ Extremely high variance — ρ products can be astronomically large | ❌ One outlier episode can corrupt thousands of episodes of learning | ❌ Practically unusable for long episodes",
+                "variance": "**VERY HIGH.** Each ratio ρ_k can be >1. Their product over 50 steps can be 10⁶. One such episode gives an estimate 10⁶× larger than typical. Variance is theoretically unbounded.",
+                "relation": "The starting point for off-policy IS. Weighted IS fixes the variance problem with a small bias. Per-Decision IS reduces the product length.",
+            },
+            {
+                "icon": "🔵", "name": "Off-policy — Weighted Importance Sampling",
+                "what": "Like Ordinary IS but uses a weighted average: Σ(ρ·G)/Σρ. Each return is weighted by ρ, but the denominator normalises so no single episode can have weight >1.",
+                "when": "Almost always preferred over Ordinary IS. The practical default for off-policy evaluation. When you want stable, reliable estimates from off-policy data.",
+                "pros": "✅ Dramatically lower variance | ✅ Practically stable | ✅ Consistent (bias→0) | ✅ Max weight on any single return is bounded at 1",
+                "cons": "❌ Biased for finite N | ❌ Bias can be significant with very few episodes | ❌ Slightly more complex formula",
+                "variance": "**LOW.** The denominator Σρ normalises all weights. Even if ρ=10,000 for one episode, its effective weight is 10,000/(total weight) which is typically small.",
+                "relation": "The practical replacement for Ordinary IS. Per-Decision IS further reduces variance by decomposing the IS product per reward.",
             },
             {
                 "icon": "⚡", "name": "Incremental MC",
-                "what":  "Implements First-Visit MC with an online update rule: V(s) += (1/N)(G−V(s)).",
-                "when":  "Memory-constrained settings; streaming data; non-stationary with constant α.",
-                "pros":  "✅ O(1) memory | ✅ Equivalent to batch averaging | ✅ Bridge to TD learning",
-                "cons":  "❌ No fundamental variance improvement over First-Visit",
-                "variance": "LOW (same as First-Visit). Using constant α trades bias for tracking ability.",
-                "relation": "Implementation variant of First-Visit MC. Replace G with bootstrapped estimate → TD(0).",
+                "what": "Implements First-Visit MC with a running mean update: V(s) += (1/N)(G − V(s)). Mathematically equivalent to batch averaging but uses O(1) memory per state.",
+                "when": "Any MC application where memory is constrained. Streaming data. Non-stationary environments (with fixed α). As the bridge toward understanding TD learning.",
+                "pros": "✅ O(1) memory (constant per state) | ✅ Identical estimates to batch MC | ✅ Easily extended to non-stationary (fixed α) | ✅ Natural bridge to TD learning",
+                "cons": "❌ No variance improvement over First-Visit | ❌ Fixed α introduces bias in stationary settings | ❌ Requires care to choose α correctly",
+                "variance": "**LOW** (same as First-Visit with 1/N step-size). Fixed α variant trades bias for tracking ability — higher α = faster to forget old data but more variance.",
+                "relation": "Implementation of First-Visit MC. Replace G with R+γV(S') → you get TD(0). Use weighted IS weights W → off-policy weighted IS (§5.6 algorithm).",
             },
             {
-                "icon": "🟠", "name": "Per-Decision IS",
-                "what":  "Decomposes the IS weight: each reward Rₖ is weighted only by ratios up to step k.",
-                "when":  "Off-policy evaluation where you need lower variance than standard IS.",
-                "pros":  "✅ Provably lower variance than Ordinary/Weighted IS | ✅ Unbiased",
-                "cons":  "❌ More complex implementation | ❌ Still requires full episodes",
-                "variance": "VERY LOW — avoids multiplying future ratios into past rewards.",
-                "relation": "Intermediate between Weighted IS and Discounting-Aware IS.",
+                "icon": "🟠", "name": "Per-Decision Importance Sampling",
+                "what": "Decomposes the IS weight per reward: each Rₖ is weighted only by the product of IS ratios up to step k. Future ratios don't affect past rewards, so there's no need to include them.",
+                "when": "Off-policy evaluation with long episodes (50+ steps). When weighted IS variance is still too high. When you can afford more implementation complexity for lower variance.",
+                "pros": "✅ Provably lower variance than Ordinary and Weighted IS | ✅ Unbiased | ✅ Shorter IS products per reward",
+                "cons": "❌ More complex implementation | ❌ Still requires complete episodes | ❌ Benefit diminishes for short episodes",
+                "variance": "**VERY LOW.** IS products are truncated at each reward's step. Reward R_{t+1} only uses ρ_t (1 ratio). Reward R_{t+5} only uses ρ_t·...·ρ_{t+4} (5 ratios, not T−t ratios).",
+                "relation": "Intermediate between Weighted IS and Discounting-Aware IS. When γ=1: Discounting-Aware IS reduces to Per-Decision IS.",
             },
             {
-                "icon": "🟡", "name": "Discounting-Aware IS",
-                "what":  "Exploits γ<1 to decompose returns into flat partial returns, further reducing IS weight variance.",
-                "when":  "Maximum variance reduction in off-policy evaluation with γ<1.",
-                "pros":  "✅ Lowest variance of all IS estimators | ✅ Unbiased | ✅ Optimal for discounted MDPs",
-                "cons":  "❌ Most complex | ❌ Benefit vanishes as γ→1",
-                "variance": "LOWEST — discounting limits the contribution of distant states, reducing IS product length.",
-                "relation": "Most advanced IS method. Reduces to Per-Decision IS when γ=1.",
+                "icon": "🟡", "name": "Discounting-Aware Importance Sampling",
+                "what": "Exploits the discount factor γ<1 to further reduce variance. Decomposes the return into flat partial returns, each requiring only IS ratios up to its horizon — and downweights distant horizons by their discount factor.",
+                "when": "Maximum variance reduction in off-policy evaluation. When γ<1 (discounted tasks) and episodes are long. When you need the most accurate off-policy estimates possible.",
+                "pros": "✅ Lowest variance of all IS estimators | ✅ Exploits discount structure | ✅ Unbiased | ✅ Theoretically optimal for discounted MDPs",
+                "cons": "❌ Most complex to implement correctly | ❌ Zero benefit when γ=1 | ❌ Diminishing returns for short episodes | ❌ Less standard — fewer reference implementations",
+                "variance": "**LOWEST.** Distant horizons are discounted by γ^h, reducing their IS product's influence. Effective product length ≈ mean discounted episode length (much shorter than T).",
+                "relation": "Most advanced IS method. Reduces to Per-Decision IS when γ=1. Uses the same incremental weighted-IS update as the Incremental MC section.",
             },
         ]
 
         for e in entries:
-            with st.expander(f"{e['icon']} {e['name']}"):
+            with st.expander(f"{e['icon']} {e['name']}", expanded=False):
                 c1, c2 = st.columns(2)
                 with c1:
-                    st.markdown(f"**📌 What it does:**  \n{e['what']}")
-                    st.markdown(f"**🕐 When to use:**  \n{e['when']}")
-                    st.markdown(f"**✅ Pros:**  \n{e['pros']}")
+                    st.markdown(f"**📌 What it does:**\n\n{e['what']}")
+                    st.markdown("---")
+                    st.markdown(f"**🕐 When to use it:**\n\n{e['when']}")
+                    st.markdown("---")
+                    st.markdown(f"**✅ Pros:**\n\n{e['pros']}")
                 with c2:
-                    st.markdown(f"**❌ Cons:**  \n{e['cons']}")
-                    st.markdown(f"**📊 Variance behaviour:**  \n{e['variance']}")
-                    st.markdown(f"**🔗 Relation to others:**  \n{e['relation']}")
+                    st.markdown(f"**❌ Cons:**\n\n{e['cons']}")
+                    st.markdown("---")
+                    st.markdown(f"**📊 Variance behaviour:**\n\n{e['variance']}")
+                    st.markdown("---")
+                    st.markdown(f"**🔗 Relation to other methods:**\n\n{e['relation']}")
 
         st.divider()
-        st.markdown("""
-        ### 🗺️ Big Picture: How MC Methods Connect
+        st.markdown(r"""
+        ### ❓ Frequently Asked Questions
 
-        ```
-        MC PREDICTION
-        ├── First-Visit MC   (unbiased, O(1) with incremental update)
-        └── Every-Visit MC   (faster convergence, slight bias)
-               │
-               ▼
-        MC CONTROL (On-policy)
-        └── ε-greedy GPI     (explores + improves; converges to best ε-soft π)
-               │
-               ▼  (separate exploration from evaluation)
-        OFF-POLICY EVALUATION
-        ├── Ordinary IS      (unbiased, explosive variance)
-        └── Weighted IS      (biased, low variance) ← preferred in practice
-               │
-               ▼  (further variance reduction)
-        ADVANCED IS
-        ├── Per-Decision IS  (decompose weight per reward)
-        └── Discounting-Aware IS  (exploit γ<1 structure)
+        **Q: Why must MC wait for the full episode? Can't it learn faster?**
 
-        ALL MC methods share:
-        • Require complete episodes (episodic MDPs)
-        • No bootstrapping (use actual returns G_t)
-        • Model-free (learn from experience only)
-        • High variance compared to TD (but zero bias for prediction)
-        ```
+        MC uses the *true* return G — the actual total reward from now to the end.
+        You can't know G until the episode ends. TD methods solve this by *estimating* G
+        using $R_{t+1} + \gamma V(S_{t+1})$ — they learn after every step but introduce
+        bias (they're guessing what G will be). MC: unbiased but patient. TD: biased but fast.
 
         ---
 
-        ### ❓ Frequently Asked Questions (Non-Scientist Edition)
+        **Q: What does "high variance" feel like in practice?**
 
-        **Q: Why does MC need "complete episodes"? Why not learn after each step?**
-        Because MC computes the *true return G* — the actual total reward from that point to the end.
-        You can't know G until the episode is over. Methods that learn after each step (TD methods) instead
-        *estimate* G using a partial calculation — they bootstrap. MC never guesses: it waits for the real answer.
+        Run this app with 200 episodes, then run it again with a different seed.
+        For Ordinary IS, the value maps will look completely different between runs.
+        For First-Visit MC, they'll look similar. That inconsistency between runs *is* high variance.
+        In real systems: a high-variance estimator might tell you a drug is effective in one clinical
+        trial and harmful in the next — using the same data collection process.
 
-        **Q: What does "high variance" actually mean in practice?**
-        It means if you run the same experiment twice with different random seeds, you'll get very different
-        value estimates. Practically: you need to run many more episodes to get reliable results.
-        Low variance methods give you consistent answers from fewer episodes — that's why engineers prefer them.
+        ---
 
-        **Q: When would I actually use off-policy MC in real life?**
-        Classic use case: **clinical trials**. You have historical patient data where doctors chose treatments
-        based on their own judgment (the behavior policy). You want to evaluate "what would have happened if we
-        always followed treatment guideline B?" (the target policy). Off-policy IS gives you this counterfactual
-        estimate without running a new trial.
+        **Q: Why use off-policy methods at all if they have higher variance?**
 
-        **Q: If Discounting-Aware IS is best, why do we need the other IS methods?**
-        The hierarchy only holds for γ < 1. For γ = 1 (undiscounted tasks), Discounting-Aware IS collapses to
-        Per-Decision IS. And Weighted IS is simpler to implement correctly — in practice it's often the
-        first choice. The advanced methods are worth the complexity only when episodes are long and variance
-        is actually causing problems.
+        Three reasons: **(1) Reusing old data** — if you have historical logs from a system,
+        you can evaluate new policies without running new (potentially expensive or dangerous) experiments.
+        **(2) Safety** — evaluate a risky target policy using data from a safe behavior policy.
+        **(3) True optimality** — on-policy control is permanently constrained to ε-soft policies.
+        Off-policy control can find the true optimal.
 
-        **Q: What's the difference between MC and Deep RL methods like DQN?**
-        DQN (and most modern deep RL) uses TD learning — it bootstraps (estimates G using current value estimates)
-        and trains neural networks instead of lookup tables. MC methods are the theoretical foundation:
-        simpler, more interpretable, exactly correct in the limit — but slow to converge and only applicable
-        when episodes terminate. Deep RL trades some of that purity for scale and speed.
+        ---
+
+        **Q: When should I use MC vs TD learning?**
+
+        | Situation | Prefer |
+        |-----------|--------|
+        | Episodes always terminate cleanly | Either |
+        | No clean episode end (continuous tasks) | **TD** (MC can't apply) |
+        | Need unbiased estimates | **MC** |
+        | Need fast online learning | **TD** |
+        | Environments with high variance returns | **TD** (less affected) |
+        | Theoretical analysis / interpretability | **MC** |
+
+        ---
+
+        **Q: Does discounting (γ<1) actually make the problem easier?**
+
+        Yes — in two ways. First, it bounds the magnitude of returns (finite sum even for infinite episodes).
+        Second, it reduces the effective IS product length for Discounting-Aware IS. But it also changes
+        the objective: you're now optimising *discounted* total reward, which may not match what you actually want.
+        γ=0.99 is a common practical choice — close enough to 1 to approximate undiscounted reward while
+        providing numerical stability.
         """)
 
 
