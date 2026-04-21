@@ -432,15 +432,15 @@ def main_prereq():
         normalises each example's value relative to those statistics.
         """)
         st.latex(r"""
-        \hat{x}_i = rac{x_i - \mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2 + arepsilon}}
-        \qquad y_i = \gamma\, \hat{x}_i + eta
+        \hat{x}_i = \frac{x_i - \mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2 + \varepsilon}}
+        \qquad y_i = \gamma\, \hat{x}_i + \beta
         """)
         st.markdown(r"""
         **Symbol decoder:**
-        - $\mu_\mathcal{B} = rac{1}{m}\sum_{i=1}^m x_i$ — mean of the current mini-batch (size $m$)
-        - $\sigma_\mathcal{B}^2 = rac{1}{m}\sum_{i=1}^m (x_i - \mu_\mathcal{B})^2$ — variance
-        - $arepsilon$ — small constant for numerical stability (e.g. $10^{-5}$)
-        - $\gamma, eta$ — **learned** scale and shift parameters (allows the network to undo normalization if needed)
+        - $\mu_\mathcal{B} = \frac{1}{m}\sum_{i=1}^m x_i$ — mean of the current mini-batch (size $m$)
+        - $\sigma_\mathcal{B}^2 = \frac{1}{m}\sum_{i=1}^m (x_i - \mu_\mathcal{B})^2$ — variance
+        - $\varepsilon$ — small constant for numerical stability (e.g. $10^{-5}$)
+        - $\gamma, \beta$ — **learned** scale and shift parameters (allows the network to undo normalization if needed)
         - At inference: $\mu_\mathcal{B}$ is replaced by a running average computed during training
         """)
 
@@ -1673,7 +1673,7 @@ for epoch in range(50):
                 is rebuilt every forward pass, allowing Python control flow (if/else, loops) inside the model.
                 `torch.no_grad()` context manager disables graph recording — used during evaluation for 2–5× speedup.
                 `detach()` creates a new tensor that shares data but doesn't participate in gradient computation.""",
-                "formula": r"\frac{\partial L}{\partial \theta} \text{ computed automatically via } \texttt{loss.backward()}",
+                "formula": r"\text{loss.backward()} \;\Rightarrow\; \theta.\text{grad} = \frac{\partial L}{\partial \theta}",
                 "formula_note": "No manual gradient derivation needed — autograd handles all chain rule applications",
             },
             {
@@ -1687,7 +1687,7 @@ for epoch in range(50):
                 uses batch stats) via `model.train()`; evaluation mode (dropout off, BatchNorm uses running stats) via
                 `model.eval()`; state saving and loading via `model.state_dict()` / `load_state_dict()`.
                 Modules can be composed: `nn.Sequential` stacks layers sequentially; custom modules can contain sub-modules.""",
-                "formula": r"\texttt{class Net(nn.Module):} \quad \texttt{def forward(self, x): return self.layers(x)}",
+                "formula": r"\hat{y} = f_\theta(x) \quad \text{where } \theta = \text{model.parameters()}",
                 "formula_note": "Define layers in __init__, use them in forward — PyTorch handles the rest",
             },
             {
@@ -1702,7 +1702,7 @@ for epoch in range(50):
                 `pin_memory=True` speeds up CPU→GPU transfers by allocating data in page-locked memory.
                 Custom datasets require implementing `__len__()` and `__getitem__(idx)`.
                 For RL: experience replay buffers serve the same role as DataLoader — batching random transitions.""",
-                "formula": r"\texttt{for X\_batch, y\_batch in DataLoader(dataset, batch\_size=32, shuffle=True):}",
+                "formula": r"(X_{\mathcal{B}}, y_{\mathcal{B}}) \sim \mathcal{D}, \quad X_{\mathcal{B}} \in \mathbb{R}^{B \times d}",
                 "formula_note": "Each iteration: X_batch.shape = (32, features), y_batch.shape = (32,)",
             },
         ]
@@ -1746,21 +1746,21 @@ for epoch in range(50):
                 with st.expander(f"{entry['emoji']} **{entry['term']}** — {entry['short']}", expanded=False):
                     col_def, col_formula = st.columns([3, 2])
                     with col_def:
-                        st.markdown(f"""
-                        <div style="background:#0d0d1a;border-radius:8px;padding:.9rem 1.1rem;
-                                    height:100%;font-size:.93rem;color:#c0c0d8;line-height:1.65">
-                        {entry['definition']}
-                        </div>""", unsafe_allow_html=True)
+                        # Use st.markdown so LaTeX $...$ renders correctly
+                        st.markdown(entry['definition'])
                     with col_formula:
-                        st.markdown(f"""
+                        st.markdown("""
                         <div style="background:#1a1a30;border:1px solid #3a3a5e;border-radius:8px;
-                                    padding:.8rem 1rem;margin-bottom:.5rem">
+                                    padding:.6rem 1rem;margin-bottom:.4rem">
                         <span style="color:#9c9cf0;font-size:.8rem;font-weight:700">
                         📐 Key Formula</span></div>""", unsafe_allow_html=True)
-                        st.latex(entry["formula"])
+                        try:
+                            st.latex(entry["formula"])
+                        except Exception:
+                            st.code(entry["formula"], language="latex")
                         st.caption(f"📝 {entry['formula_note']}")
                         st.markdown(f"""
-                        <div style="background:#12121f;border-radius:6px;padding:.5rem .8rem;
-                                    font-size:.8rem;color:#546e7a;margin-top:.3rem">
+                        <div style="background:#12121f;border-radius:6px;padding:.4rem .8rem;
+                                    font-size:.79rem;color:#546e7a;margin-top:.3rem">
                         <b>Category:</b> {entry['category']}
                         </div>""", unsafe_allow_html=True)
