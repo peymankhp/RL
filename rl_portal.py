@@ -49,6 +49,7 @@ body, .stApp { background: #0a0a14; }
 .method-card-dp  { border-left: 5px solid #6a1b9a; }
 .method-card-mc  { border-left: 5px solid #7c4dff; }
 .method-card-td  { border-left: 5px solid #e65100; }
+.method-card-pre { border-left: 5px solid #00897b; }
 
 /* ── Back button ── */
 div[data-testid="stButton"] > button[kind="secondary"] {
@@ -109,6 +110,10 @@ def show_home():
             classical RL — Dynamic Programming, Monte Carlo, and Temporal-Difference methods.
         </p>
         <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:1.5rem; flex-wrap:wrap">
+            <span style="background:#00897b22; border:1px solid #00897b55; color:#80cbc4;
+                         border-radius:20px; padding:.35rem 1rem; font-size:.9rem">
+                🧬 Deep Learning Prerequisites
+            </span>
             <span style="background:#6a1b9a22; border:1px solid #6a1b9a55; color:#ce93d8;
                          border-radius:20px; padding:.35rem 1rem; font-size:.9rem">
                 🧮 Dynamic Programming
@@ -127,10 +132,10 @@ def show_home():
 
     # Quick facts strip
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Methods covered", "17", help="DP=6, MC=9, TD=7")
-    c2.metric("Interactive charts", "60+", help="Heatmaps, convergence plots, policy arrows, learning curves")
-    c3.metric("Theory expanders", "25+", help="Each with full formulas, symbol decoders, worked examples")
-    c4.metric("Environments", "3", help="4×4 GridWorld (DP), 5×5 GridWorld (MC), CliffWalking (TD)")
+    c1.metric("Methods covered", "17+3", help="DP=6, MC=9, TD=7 + Prerequisites (RNN, Norm, PyTorch)")
+    c2.metric("Interactive charts", "70+", help="Heatmaps, convergence plots, policy arrows, learning curves, LSTM gates, normalization demos")
+    c3.metric("Theory expanders", "30+", help="Each with full formulas, symbol decoders, worked examples")
+    c4.metric("Environments", "3+", help="4×4 GridWorld (DP), 5×5 GridWorld (MC), CliffWalking (TD), 2D Classification (Prereq)")
 
     st.markdown("---")
 
@@ -140,10 +145,51 @@ def show_home():
         📚 Choose your learning module
     </h2>
     <p style="color:#9e9ebb; margin-bottom:1.5rem; font-size:.97rem">
-        Each module is a self-contained interactive textbook. Start with DP to understand
-        the foundations, then MC for model-free sampling methods, and TD for online learning.
+        <b>Recommended path:</b> Start with Prerequisites to build the neural network foundations,
+        then explore DP for the mathematical theory, MC for model-free sampling, and TD for online step-by-step learning.
     </p>
     """, unsafe_allow_html=True)
+
+    # ── Prereq Card (full width) ──────────────────────────────────────────
+    st.markdown("""
+    <div class="method-card method-card-pre">
+        <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap">
+            <div style="font-size:2.2rem">🧬</div>
+            <div>
+                <h3 style="color:white;margin:0;font-size:1.2rem">Deep Learning Prerequisites
+                    <span style="background:#00897b33;color:#80cbc4;border-radius:10px;
+                                 padding:.15rem .6rem;font-size:.75rem;margin-left:.5rem">
+                        START HERE
+                    </span>
+                </h3>
+                <p style="color:#80cbc4;font-size:.82rem;margin:.2rem 0 0;font-weight:600">
+                    RNNs & LSTMs · Batch & Layer Normalization · PyTorch Full Training Loop
+                </p>
+            </div>
+        </div>
+        <p style="color:#b0b0cc;font-size:.92rem;margin:.8rem 0">
+            Before diving into DP/MC/TD, every RL practitioner needs a solid understanding of
+            the neural network building blocks used in modern deep RL systems.
+            This module covers sequential memory (RNNs, LSTMs), training stabilisation
+            (Batch & Layer Normalization), and the complete PyTorch training loop that powers
+            DQN, PPO, AlphaGo, and every other deep RL algorithm.
+            Each topic includes interactive visualisations, full mathematical derivations,
+            and working simulations you can run directly in the browser.
+        </p>
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap">
+            <span style="background:#00897b33;color:#80cbc4;border-radius:10px;padding:.2rem .6rem;font-size:.8rem">🔁 RNN unrolling demo</span>
+            <span style="background:#00897b33;color:#80cbc4;border-radius:10px;padding:.2rem .6rem;font-size:.8rem">🧩 LSTM gate simulator</span>
+            <span style="background:#00897b33;color:#80cbc4;border-radius:10px;padding:.2rem .6rem;font-size:.8rem">📊 Normalisation visualiser</span>
+            <span style="background:#00897b33;color:#80cbc4;border-radius:10px;padding:.2rem .6rem;font-size:.8rem">🎮 Live training simulation</span>
+            <span style="background:#00897b33;color:#80cbc4;border-radius:10px;padding:.2rem .6rem;font-size:.8rem">🗺️ Full concept map</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🚀 Start Prerequisites Module", use_container_width=True, key="btn_pre",
+                 type="primary"):
+        go("prereq")
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
 
@@ -271,6 +317,12 @@ def show_home():
           <th style="text-align:left; padding:.5rem .3rem; color:#9e9ebb; font-weight:600">Prereq.</th>
         </tr>
         <tr style="border-bottom:1px solid #1a1a2e">
+          <td style="padding:.5rem .3rem">0️⃣</td>
+          <td style="padding:.5rem .3rem; color:#80cbc4; font-weight:600">🧬 Prerequisites</td>
+          <td style="padding:.5rem .3rem">RNNs, LSTMs, Batch/Layer Norm, PyTorch training loop</td>
+          <td style="padding:.5rem .3rem; color:#4caf50">None</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1a1a2e">
           <td style="padding:.5rem .3rem">1️⃣</td>
           <td style="padding:.5rem .3rem; color:#ce93d8; font-weight:600">🧮 DP</td>
           <td style="padding:.5rem .3rem">Bellman equations, exact optimality, value functions, GPI</td>
@@ -379,6 +431,16 @@ def show_back_bar(module_name, module_color, module_icon):
 # LOAD SUB-MODULES LAZILY
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
+def load_prereq():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("prereq_mod", "_prereq_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["prereq_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
 def load_dp():
     import importlib.util, sys
     spec = importlib.util.spec_from_file_location("dp_mod", "_dp_mod.py")
@@ -415,6 +477,11 @@ page = st.session_state.portal_page
 
 if page == "home":
     show_home()
+
+elif page == "prereq":
+    show_back_bar("Deep Learning Prerequisites", "#80cbc4", "🧬")
+    mod = load_prereq()
+    mod.main_prereq()
 
 elif page == "dp":
     show_back_bar("Dynamic Programming", "#ce93d8", "🧮")
