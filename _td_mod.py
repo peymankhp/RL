@@ -1253,41 +1253,41 @@ def main_td():
             st.subheader("🔄 Expected SARSA — Variance Reduction via Expectation")
 
             with st.expander("📐 Theory & Formulas — Expected SARSA", expanded=False):
+                st.markdown("#### The Expected SARSA Update")
+                st.latex(r"Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \left[R_{t+1} + \gamma \sum_a \pi(a \mid S_{t+1}) Q(S_{t+1}, a) - Q(S_t, A_t)\right]")
+
                 st.markdown(r"""
-                #### The Expected SARSA Update
-
-                $$\boxed{Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \left[R_{t+1} + \gamma \sum_a \pi(a \mid S_{t+1}) Q(S_{t+1}, a) - Q(S_t, A_t)\right]}$$
-
                 **Symbol decoder:**
                 - $\sum_a \pi(a \mid S_{t+1}) Q(S_{t+1}, a)$ — **expected** Q over all actions, weighted by policy probabilities
-                - $\pi(a \mid S_{t+1})$ — probability that policy π takes action $a$ in state $S_{t+1}$
+                - $\pi(a \mid S_{t+1})$ — probability that policy $\pi$ takes action $a$ in state $S_{t+1}$
 
                 #### Computing the Expected Value
 
-                For an ε-greedy policy with 4 actions (as in CliffWalking):
+                For an $\varepsilon$-greedy policy with 4 actions (as in CliffWalking):
                 - Best action $a^* = \arg\max_a Q(S', a)$ gets probability $1 - \varepsilon + \varepsilon/4$
                 - Each other action gets probability $\varepsilon/4$
+                """)
+                st.latex(r"\sum_a \pi(a\mid S') Q(S',a) = \left(1-\varepsilon+\frac{\varepsilon}{4}\right) Q(S',a^*) + \frac{\varepsilon}{4} \sum_{a \neq a^*} Q(S',a)")
 
-                $$\sum_a \pi(a|S') Q(S',a) = \left(1-\varepsilon+\frac{\varepsilon}{4}\right) Q(S',a^*)
-                + \frac{\varepsilon}{4} \sum_{a \neq a^*} Q(S',a)$$
+                st.markdown("""
+                **Worked example** ($\varepsilon=0.1$, 4 actions, state $S'$ has $Q=[-10,-8,-15,-12]$):
+                - Best action: index 1 ($Q=-8$), prob $= 1-0.1+0.025 = 0.925$
+                - Others: prob $= 0.025$ each
+                """)
+                st.latex(r"\mathbb{E}[Q(S',\cdot)] = 0.925(-8) + 0.025(-10) + 0.025(-15) + 0.025(-12)")
+                st.latex(r"= -7.4 - 0.25 - 0.375 - 0.3 = -8.325")
 
-                **Worked example** (ε=0.1, 4 actions, state S' has Q = [−10, −8, −15, −12]):
-                - Best action: index 1 (Q=−8), prob = 1−0.1+0.025 = 0.925
-                - Others: prob = 0.025 each
-
-                $$\mathbb{E}[Q(S',·)] = 0.925 \times (-8) + 0.025 \times (-10) + 0.025 \times (-15) + 0.025 \times (-12)$$
-                $$= -7.4 - 0.25 - 0.375 - 0.3 = -8.325$$
-
-                vs. SARSA sampled A'=1: uses exactly −8 (no sampling noise).
-                vs. SARSA sampled A'=2: uses exactly −15 (very different from expected −8.325!).
+                st.markdown("""
+                vs. SARSA sampled $A'=1$: uses exactly $-8$ (no sampling noise).  
+                vs. SARSA sampled $A'=2$: uses exactly $-15$ (very different from expected $-8.325$!).
 
                 #### The Method Generalisation Triangle
+                """)
+                st.latex(r"\text{SARSA} \xrightarrow{\text{replace sample with expectation}} \text{Expected SARSA} \xrightarrow{\varepsilon \to 0} \text{Q-Learning}")
 
-                $$\text{SARSA} \quad \xrightarrow{\text{replace sample with expectation}} \quad \text{Expected SARSA}
-                \quad \xrightarrow{\varepsilon \to 0} \quad \text{Q-Learning}$$
-
-                - SARSA: uses sampled $A'$ from ε-greedy
-                - Expected SARSA: uses expectation under ε-greedy — eliminates sample variance from $A'$
+                st.markdown("""
+                - SARSA: uses sampled $A'$ from $\varepsilon$-greedy
+                - Expected SARSA: uses expectation under $\varepsilon$-greedy — eliminates sample variance from $A'$
                 - Q-Learning: if policy is fully greedy, expectation = max = Q-Learning's target
 
                 **Expected SARSA is strictly better than SARSA** in terms of variance.
@@ -1456,45 +1456,46 @@ def main_td():
                 st.markdown(r"""
                 #### The n-step Return
 
-                Instead of one real reward (TD) or all rewards (MC), use exactly n:
+                Instead of one real reward (TD) or all rewards (MC), use exactly $n$:
+                """)
+                st.latex(r"G_{t:t+n} \doteq R_{t+1} + \gamma R_{t+2} + \cdots + \gamma^{n-1} R_{t+n} + \gamma^n Q(S_{t+n}, A_{t+n})")
 
-                $$\boxed{G_{t:t+n} \doteq R_{t+1} + \gamma R_{t+2} + \cdots + \gamma^{n-1} R_{t+n}
-                + \gamma^n Q(S_{t+n}, A_{t+n})}$$
-
+                st.markdown(r"""
                 **Symbol decoder:**
-                - $G_{t:t+n}$ — the n-step return starting at time t (read "G from t to t+n")
-                - $R_{t+k}$ — real reward received k steps after time t
-                - $\gamma^n Q(S_{t+n}, A_{t+n})$ — bootstrap value after n real steps
-                - The sum of real rewards has n terms; the bootstrap has 1
+                - $G_{t:t+n}$ — the n-step return starting at time $t$ (read "G from $t$ to $t+n$")
+                - $R_{t+k}$ — real reward received $k$ steps after time $t$
+                - $\gamma^n Q(S_{t+n}, A_{t+n})$ — bootstrap value after $n$ real steps
+                - The sum of real rewards has $n$ terms; the bootstrap has 1
 
                 #### The n-step SARSA Update
+                """)
+                st.latex(r"Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \left[G_{t:t+n} - Q(S_t, A_t)\right]")
 
-                $$Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \bigl[G_{t:t+n} - Q(S_t, A_t)\bigr]$$
-
-                where $G_{t:t+n}$ uses the next n real rewards plus one bootstrap.
+                st.markdown(r"""
+                where $G_{t:t+n}$ uses the next $n$ real rewards plus one bootstrap.
 
                 **Limits:**
-                - $n=1$: $G_{t:t+1} = R_{t+1} + \gamma Q(S_{t+1}, A_{t+1})$ → SARSA
-                - $n=T-t$: $G_{t:T} = R_{t+1} + \cdots + \gamma^{T-t}R_T$ → Monte Carlo return
+                - $n=1$: $G_{t:t+1} = R_{t+1} + \gamma Q(S_{t+1}, A_{t+1})$ $\rightarrow$ SARSA
+                - $n=T-t$: $G_{t:T} = R_{t+1} + \cdots + \gamma^{T-t}R_T$ $\rightarrow$ Monte Carlo return
                 - $n=2$: $G_{t:t+2} = R_{t+1} + \gamma R_{t+2} + \gamma^2 Q(S_{t+2}, A_{t+2})$
 
                 #### The Bias-Variance Trade-off with n
 
                 | n | Real rewards | Bootstrap | Bias | Variance |
-                |---|-------------|-----------|------|----------|
+                |---|---|---|---|---|
                 | 1 (SARSA) | 1 step | from step 2 | HIGH (bootstrap dominates) | LOW |
                 | 4 | 4 steps | from step 5 | Medium | Medium |
                 | T (MC) | All steps | None | **ZERO** | HIGH |
 
                 **Intuition:** More real rewards = less bias (no guessing), but more variance
-                (actual rewards are noisy). The optimal n minimises mean squared error = bias² + variance.
+                (actual rewards are noisy). The optimal $n$ minimises mean squared error = bias^2 + variance.
 
                 #### Implementation Note — The Lag
 
                 n-step TD has a processing lag: you must wait until step $t+n$ before you can
-                compute the update for step $t$ (you need all n rewards). This means:
-                - Episode of length T: updates $t=0,\ldots,T-n$ during episode
-                - Updates $t=T-n+1,\ldots,T-1$ at episode end (using terminal values)
+                compute the update for step $t$ (you need all $n$ rewards). This means:
+                - Episode of length $T$: updates $t=0,\\ldots,T-n$ during episode
+                - Updates $t=T-n+1,\\ldots,T-1$ at episode end (using terminal values)
                 """)
 
             Q_n = res["Q_nstep"]
