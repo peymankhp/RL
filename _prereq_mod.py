@@ -747,14 +747,13 @@ def main_prereq():
         with st.expander("Step 4 — Backward Pass (Autograd & Chain Rule)", expanded=False):
             st.markdown(r"""
             `loss.backward()` is the magic step. PyTorch traverses the computation graph
-            **in reverse**, applying the chain rule at each node to compute $\frac{\partial L}{\partial \theta}$
-            for every parameter $\theta$ in the model.
+            **in reverse**, applying the chain rule at each node to compute
+            $\frac{\partial L}{\partial \theta}$ for every parameter $\theta$ in the model.
 
             **The chain rule in practice:**
-            $$\frac{\partial L}{\partial W_1} = \frac{\partial L}{\partial \hat{y}}
-            \cdot \frac{\partial \hat{y}}{\partial h}
-            \cdot \frac{\partial h}{\partial W_1}$$
-
+            """)
+            st.latex(r"\frac{\partial L}{\partial W_1} = \frac{\partial L}{\partial \hat{y}} \cdot \frac{\partial \hat{y}}{\partial h} \cdot \frac{\partial h}{\partial W_1}")
+            st.markdown(r"""
             where each factor is computed locally at each layer and multiplied together.
 
             ```python
@@ -785,12 +784,13 @@ def main_prereq():
             | **Adam** | Momentum + adaptive step size | Most popular, robust default |
 
             **Adam update (full equations):**
-            $$m_t = \beta_1 m_{t-1} + (1-\beta_1)\nabla L \quad \text{(1st moment, momentum)}$$
-            $$v_t = \beta_2 v_{t-1} + (1-\beta_2)(\nabla L)^2 \quad \text{(2nd moment, variance)}$$
-            $$\hat{m}_t = \frac{m_t}{1-\beta_1^t}, \quad \hat{v}_t = \frac{v_t}{1-\beta_2^t} \quad \text{(bias correction)}$$
-            $$\theta \leftarrow \theta - \frac{\eta}{\sqrt{\hat{v}_t} + \varepsilon}\hat{m}_t$$
-
-            **Default Adam hyperparameters:** $\eta=10^{-3}$, $\beta_1=0.9$, $\beta_2=0.999$, $\varepsilon=10^{-8}$.
+            """)
+            st.latex(r"m_t = \beta_1 m_{t-1} + (1-\beta_1)\nabla L \quad \text{(1st moment, momentum)}")
+            st.latex(r"v_t = \beta_2 v_{t-1} + (1-\beta_2)(\nabla L)^2 \quad \text{(2nd moment, variance)}")
+            st.latex(r"\hat{m}_t = \frac{m_t}{1-\beta_1^t}, \quad \hat{v}_t = \frac{v_t}{1-\beta_2^t} \quad \text{(bias correction)}")
+            st.latex(r"\theta \leftarrow \theta - \frac{\eta}{\sqrt{\hat{v}_t} + \varepsilon}\hat{m}_t")
+            st.markdown(r"""
+            **Default Adam hyperparameters:** $\eta=10^{{-3}}$, $\beta_1=0.9$, $\beta_2=0.999$, $\varepsilon=10^{{-8}}$.
 
             ```python
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
