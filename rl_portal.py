@@ -115,8 +115,9 @@ def show_home():
     """, unsafe_allow_html=True)
 
     # ── Tabs ─────────────────────────────────────────────────────────────────
-    tab_road, tab_compare, tab_when, tab_all = st.tabs([
+    tab_road, tab_tree, tab_compare, tab_when, tab_all = st.tabs([
         "🗺️ Learning Roadmap",
+        "🌲 Interactive Map",
         "⚖️ Method Comparison",
         "🎯 When to Use Which",
         "📦 All Modules",
@@ -358,286 +359,404 @@ def show_home():
                 """, unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════
-    # TAB 2 — METHOD COMPARISON
+    # TAB 2 — VIKING TREE ROADMAP
+    # ════════════════════════════════════════════════════════════════════════
+    with tab_tree:
+        st.markdown("""
+        <div style="text-align:center;margin-bottom:.5rem">
+        <h2 style="color:#c8a96e;font-size:1.6rem;margin:0;font-family:serif;letter-spacing:2px">
+        ⚔️ THE KNOWLEDGE TREE — YOUR PATH TO MASTERY ⚔️</h2>
+        <p style="color:#7a9e7e;font-size:.9rem;margin:.3rem 0 0">
+        Click any node to open that module. Follow the branches from root to crown.
+        </p></div>""", unsafe_allow_html=True)
+
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as mpatches
+        from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+        import numpy as np
+
+        # Viking colour palette
+        BG    = "#0d0f14"   # deep night sky
+        STONE = "#1e2530"   # stone grey
+        GOLD  = "#c8a96e"   # rune gold
+        SILVER= "#8ab4c8"   # frost silver
+        MOSS  = "#4a7c59"   # moss green
+        BLOOD = "#8b2020"   # blood red
+        RUNE  = "#5a7a9a"   # rune blue
+        BARK  = "#4a3728"   # tree bark
+
+        fig_tree = plt.figure(figsize=(16, 22), facecolor=BG)
+        ax = fig_tree.add_axes([0, 0, 1, 1])
+        ax.set_xlim(0, 16); ax.set_ylim(0, 22)
+        ax.set_facecolor(BG); ax.axis("off")
+
+        # Draw decorative starfield
+        np.random.seed(42)
+        stars_x = np.random.uniform(0, 16, 120)
+        stars_y = np.random.uniform(0, 22, 120)
+        stars_s = np.random.choice([1, 2, 3], 120, p=[0.6,0.3,0.1])
+        ax.scatter(stars_x, stars_y, s=stars_s, color="white", alpha=0.25, zorder=0)
+
+        # Draw the World Tree trunk
+        trunk_x = np.array([7.8, 7.9, 8.0, 8.1, 8.2])
+        for i, tx in enumerate(trunk_x):
+            alpha = 0.15 + 0.2*(i==2)
+            ax.plot([tx, tx+0.1*(i-2)], [0.3, 21], color=BARK, lw=8-i*0.5, alpha=alpha, zorder=1)
+        # Main trunk
+        ax.plot([8.0, 8.0], [0.3, 21], color=BARK, lw=6, alpha=0.6, zorder=1)
+        ax.plot([8.0, 8.0], [0.3, 21], color="#6b4f38", lw=3, alpha=0.5, zorder=2)
+
+        # Roots at bottom
+        for (rx, ry, ra) in [([8,6.5,5.5],[0.3,0.1,-0.1], 0.5),
+                               ([8,9.5,10.5],[0.3,0.1,-0.1], 0.5),
+                               ([8,7.2,6.8],[0.3,-0.1,-0.3], 0.4)]:
+            ax.plot(rx, ry, color=BARK, lw=3, alpha=ra, zorder=1)
+
+        def vnode(ax, cx, cy, icon, label, sublabel, color, size=1.3, zorder=5):
+            """Draw a viking-styled node."""
+            w, h = size*1.8, size*0.75
+            # Glow effect
+            glow = mpatches.Ellipse((cx, cy), w*1.3, h*1.5, color=color, alpha=0.08, zorder=zorder-1)
+            ax.add_patch(glow)
+            # Main box with rune border
+            box = FancyBboxPatch((cx-w/2, cy-h/2), w, h,
+                                  boxstyle="round,pad=0.12",
+                                  facecolor=STONE, edgecolor=color, lw=2.5, zorder=zorder)
+            ax.add_patch(box)
+            # Top highlight
+            hi = FancyBboxPatch((cx-w/2+0.05, cy+h/2-0.12), w-0.1, 0.1,
+                                 boxstyle="round,pad=0.02",
+                                 facecolor=color, alpha=0.3, zorder=zorder+1)
+            ax.add_patch(hi)
+            # Corner rune marks
+            for dx, dy in [(-w/2+0.08, h/2-0.1),(w/2-0.08, h/2-0.1),
+                            (-w/2+0.08,-h/2+0.1),(w/2-0.08,-h/2+0.1)]:
+                ax.plot(cx+dx, cy+dy, 's', color=color, ms=3, alpha=0.7, zorder=zorder+1)
+            # Text
+            ax.text(cx, cy+0.07, f"{icon} {label}", ha="center", va="center",
+                    color="white", fontsize=8.5*size, fontweight="bold", zorder=zorder+2)
+            ax.text(cx, cy-0.2, sublabel, ha="center", va="center",
+                    color=color, fontsize=6.5*size, alpha=0.9, zorder=zorder+2)
+
+        def branch(ax, x1, y1, x2, y2, color, lw=2, style="-"):
+            """Draw a curved branch between nodes."""
+            # Use bezier-like curve via intermediate point
+            xm = (x1+x2)/2 + (y2-y1)*0.08
+            ym = (y1+y2)/2
+            from matplotlib.patches import FancyArrowPatch
+            ax.annotate("", xy=(x2,y2+0.36), xytext=(x1,y1-0.36),
+                arrowprops=dict(arrowstyle="->,head_width=0.15,head_length=0.12",
+                               color=color, lw=lw, linestyle=style,
+                               connectionstyle="arc3,rad=0.08"), zorder=3)
+
+        def branch_plain(ax, x1, y1, x2, y2, color, lw=1.8):
+            ax.plot([x1,x2],[y1,y2], color=color, lw=lw, alpha=0.6, zorder=3, ls="--")
+
+        # ── NODE DEFINITIONS (cx, cy, icon, label, sublabel, color, size) ──
+        nodes = [
+            # Foundation
+            (8.0, 20.5, "📐", "Math Foundations", "Stage -1 · Start Here", "#4caf50", 1.35),
+            (8.0, 19.0, "🧬", "Deep Learning", "Stage 0 · Neural Networks", "#00897b", 1.25),
+            # Classical RL trio
+            (5.0, 17.3, "🧮", "Dynamic Prog.", "Stage 1 · DP", "#6a1b9a", 1.1),
+            (8.0, 17.3, "🎲", "Monte Carlo", "Stage 2 · MC", "#7c4dff", 1.1),
+            (11.0, 17.3, "⚡", "TD Learning", "Stage 3 · TD", "#e65100", 1.1),
+            # Deep RL
+            (6.0, 15.4, "🎮", "Value-Based", "Stage 4 · DQN→Rainbow", "#1565c0", 1.1),
+            (10.0, 15.4, "🎯", "DDPG & TD3", "Stage 4b · Continuous", "#0288d1", 1.1),
+            (8.0, 13.8, "🎭", "Actor-Critic", "Stage 5 · PPO · SAC", "#7c4dff", 1.2),
+            (8.0, 12.3, "🎓", "Imitation", "Stage 6 · BC · GAIL", "#ad1457", 1.1),
+            # Tier 1
+            (3.5, 10.5, "🏗️", "Model-Based", "Tier 1 · DreamerV3", "#e65100", 1.0),
+            (8.0, 10.5, "📦", "Offline RL", "Tier 1 · CQL·IQL·DT", "#00897b", 1.0),
+            (12.5, 10.5, "🔍", "Exploration", "Tier 1 · ICM·RND", "#f57f17", 1.0),
+            # Tier 2
+            (4.5,  8.7, "🚀", "Advanced", "Tier 2 · MARL·HRL·Safe", "#6a1b9a", 1.0),
+            (11.5, 8.7, "🔄", "Transfer", "Tier 2 · Continual·GRPO", "#f57f17", 1.0),
+            # Tier 3
+            (8.0,  7.0, "🔧", "Engineering", "Tier 3 · Debug·Distrib.", "#546e7a", 1.05),
+            # Tier 4
+            (8.0,  5.3, "🔬", "Frontier", "Tier 4 · RLHF·Foundation", "#ad1457", 1.15),
+        ]
+
+        # ── DRAW BRANCHES FIRST ──
+        # Root branches
+        branch(ax, 8.0,20.5, 8.0,19.0, GOLD, 2.5)
+        branch(ax, 8.0,19.0, 5.0,17.3, MOSS, 2)
+        branch(ax, 8.0,19.0, 8.0,17.3, MOSS, 2)
+        branch(ax, 8.0,19.0,11.0,17.3, MOSS, 2)
+        # To Deep RL
+        branch(ax, 5.0,17.3, 6.0,15.4, RUNE, 1.8)
+        branch(ax, 11.0,17.3,10.0,15.4, RUNE, 1.8)
+        branch(ax, 8.0,17.3, 6.0,15.4, SILVER, 1.5)
+        branch(ax, 8.0,17.3,10.0,15.4, SILVER, 1.5)
+        branch(ax, 6.0,15.4, 8.0,13.8, GOLD, 2)
+        branch(ax,10.0,15.4, 8.0,13.8, GOLD, 2)
+        branch(ax, 8.0,13.8, 8.0,12.3, SILVER, 1.8)
+        # To Tier 1
+        branch(ax, 8.0,12.3,  3.5,10.5, MOSS, 1.6)
+        branch(ax, 8.0,12.3,  8.0,10.5, MOSS, 1.6)
+        branch(ax, 8.0,12.3, 12.5,10.5, MOSS, 1.6)
+        # To Tier 2
+        branch(ax,  3.5,10.5, 4.5, 8.7, RUNE, 1.4)
+        branch(ax, 12.5,10.5,11.5, 8.7, RUNE, 1.4)
+        branch(ax,  8.0,10.5, 4.5, 8.7, SILVER, 1.2)
+        branch(ax,  8.0,10.5,11.5, 8.7, SILVER, 1.2)
+        # To Tier 3
+        branch(ax, 4.5, 8.7, 8.0, 7.0, GOLD, 1.5)
+        branch(ax,11.5, 8.7, 8.0, 7.0, GOLD, 1.5)
+        # To Tier 4
+        branch(ax, 8.0, 7.0, 8.0, 5.3, BLOOD, 2)
+
+        # ── DRAW NODES ──
+        for (cx, cy, icon, label, sublabel, color, size) in nodes:
+            vnode(ax, cx, cy, icon, label, sublabel, color, size)
+
+        # ── DECORATIVE ELEMENTS ──
+        # Rune border at bottom
+        ax.text(8, 1.2, "ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ ᚷ ᚹ ᚺ ᚾ ᛁ ᛃ ᛇ ᛈ ᛉ ᛊ ᛏ ᛒ ᛖ ᛗ ᛚ ᛜ ᛞ ᛟ",
+                ha="center", color=GOLD, alpha=0.35, fontsize=9)
+        ax.text(8, 0.6, "— THE PATH OF THE SEEKER — CLIMB THE KNOWLEDGE TREE —",
+                ha="center", color=SILVER, alpha=0.4, fontsize=8, style="italic")
+
+        # Stage labels on right margin
+        stage_labels = [
+            (15.2, 20.5, "STAGE -1", "#4caf50"),
+            (15.2, 19.0, "STAGE 0",  "#00897b"),
+            (15.2, 17.3, "STAGE 1-3","#7c4dff"),
+            (15.2, 15.4, "STAGE 4",  "#1565c0"),
+            (15.2, 13.8, "STAGE 5",  "#7c4dff"),
+            (15.2, 12.3, "STAGE 6",  "#ad1457"),
+            (15.2, 10.5, "TIER 1",   "#e65100"),
+            (15.2,  8.7, "TIER 2",   "#6a1b9a"),
+            (15.2,  7.0, "TIER 3",   "#546e7a"),
+            (15.2,  5.3, "TIER 4",   "#ad1457"),
+        ]
+        for (lx, ly, txt, col) in stage_labels:
+            ax.text(lx, ly, txt, color=col, fontsize=7.5, fontweight="bold",
+                    ha="left", va="center", alpha=0.8)
+            ax.plot([14.5, lx-0.2], [ly, ly], color=col, lw=0.8, alpha=0.3)
+
+        # Legend box
+        legend_items = [("─── Required path",GOLD),("─── Parallel options",SILVER),
+                        ("─── Optional bridge",MOSS),("─── Frontier path",BLOOD)]
+        ax.text(0.3, 4.5, "PATH LEGEND", color=GOLD, fontsize=7.5, fontweight="bold", alpha=0.8)
+        for i,(txt,col) in enumerate(legend_items):
+            ax.text(0.3, 4.0-i*0.4, txt, color=col, fontsize=7, alpha=0.75)
+
+        plt.tight_layout(pad=0)
+        st.pyplot(fig_tree, use_container_width=True)
+        plt.close()
+
+        st.markdown("### 🔗 Jump to Any Module")
+        # Grid of clickable buttons matching the tree
+        btn_rows = [
+            [("foundations","📐 Math Foundations","#4caf50"),("prereq","🧬 Deep Learning","#00897b")],
+            [("dp","🧮 DP","#6a1b9a"),("mc","🎲 MC","#7c4dff"),("td","⚡ TD","#e65100")],
+            [("vbrl","🎮 Value-Based","#1565c0"),("continuous","🎯 DDPG+TD3","#0288d1"),("ac","🎭 Actor-Critic","#7c4dff")],
+            [("imitation","🎓 Imitation","#ad1457"),("mbrl","🏗️ Model-Based","#e65100"),("offline","📦 Offline RL","#00897b")],
+            [("explore","🔍 Exploration","#f57f17"),("advanced","🚀 Advanced","#6a1b9a"),("transfer","🔄 Transfer/GRPO","#f57f17")],
+            [("engineering","🔧 Engineering","#546e7a"),("frontier","🔬 Frontier","#ad1457")],
+        ]
+        for row in btn_rows:
+            cols = st.columns(len(row))
+            for col_ui, (page_key, label, color) in zip(cols, row):
+                with col_ui:
+                    st.markdown(f'<div style="background:{color}22;border:1px solid {color}66;border-radius:8px;'
+                                f'padding:.3rem .5rem;text-align:center;margin:.15rem 0">'
+                                f'<span style="color:{color};font-size:.85rem;font-weight:700">{label}</span>'
+                                f'</div>', unsafe_allow_html=True)
+                    if st.button("Open →", key=f"tree_{page_key}", use_container_width=True):
+                        go(page_key)
+
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 3 — METHOD COMPARISON (UPDATED)
     # ════════════════════════════════════════════════════════════════════════
     with tab_compare:
         st.markdown("""
         <h2 style="color:white;font-size:1.5rem;margin-bottom:.3rem">⚖️ RL Method Family Comparison</h2>
-        <p style="color:#9e9ebb;margin-bottom:1.2rem">
-        Understanding the differences between method families is as important as knowing the algorithms themselves.
-        </p>
+        <p style="color:#9e9ebb;margin-bottom:1.2rem">Complete comparison across all algorithm families including 2025 additions.</p>
         """, unsafe_allow_html=True)
 
-        # Core axis 1: Model-based vs Model-free
         st.markdown("""
         <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1rem">
         <h3 style="color:white;font-size:1.1rem;margin-top:0">🔑 Axis 1: Does the agent know the environment dynamics?</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.8rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:.8rem">
         <div style="background:#1a0a2e;border-radius:8px;padding:1rem;border-left:3px solid #6a1b9a">
-            <b style="color:#ce93d8">🧮 Model-Based (DP)</b><br>
-            <span style="color:#9e9ebb;font-size:.88rem">Agent has full knowledge of p(s′,r|s,a)</span><br><br>
-            <b style="color:#4caf50;font-size:.82rem">✅ Advantages</b><br>
-            <span style="color:#b0b0cc;font-size:.83rem">• Exact optimal policy guaranteed<br>• No sampling noise<br>• No training needed</span><br><br>
-            <b style="color:#ef5350;font-size:.82rem">❌ Limitations</b><br>
-            <span style="color:#b0b0cc;font-size:.83rem">• Full model rarely available in reality<br>• Scales badly (curse of dimensionality)<br>• Cannot handle unknown environments</span><br><br>
-            <b style="color:#ce93d8;font-size:.82rem">📦 Algorithms:</b>
-            <span style="color:#9e9ebb;font-size:.83rem">Policy Iteration, Value Iteration, Async DP</span>
+            <b style="color:#ce93d8">🧮 Model-Based</b><br>
+            <span style="color:#9e9ebb;font-size:.85rem">Full dynamics known or learned via world model</span><br><br>
+            <span style="color:#4caf50;font-size:.82rem">✅ 10–100x fewer env steps<br>✅ Planning ahead in imagination</span><br>
+            <span style="color:#ef5350;font-size:.82rem">❌ Model errors compound<br>❌ Hard for contact dynamics</span><br><br>
+            <span style="color:#ce93d8;font-size:.82rem">📦 DP · Dyna-Q · MuZero · DreamerV3 · TD-MPC2</span>
         </div>
         <div style="background:#0a1a2e;border-radius:8px;padding:1rem;border-left:3px solid #1565c0">
-            <b style="color:#90caf9">🎲🎮🎭 Model-Free (MC, TD, Deep RL)</b><br>
-            <span style="color:#9e9ebb;font-size:.88rem">Agent learns purely from experience</span><br><br>
-            <b style="color:#4caf50;font-size:.82rem">✅ Advantages</b><br>
-            <span style="color:#b0b0cc;font-size:.83rem">• Works in unknown environments<br>• Scales to high-dimensional spaces<br>• Powers all modern AI (Atari, Go, ChatGPT)</span><br><br>
-            <b style="color:#ef5350;font-size:.82rem">❌ Limitations</b><br>
-            <span style="color:#b0b0cc;font-size:.83rem">• Needs many environment interactions<br>• Noisy gradient estimates<br>• Harder to train stably</span><br><br>
-            <b style="color:#90caf9;font-size:.82rem">📦 Algorithms:</b>
-            <span style="color:#9e9ebb;font-size:.83rem">MC, SARSA, Q-Learning, DQN, PPO, SAC</span>
+            <b style="color:#90caf9">🎮 Model-Free Online</b><br>
+            <span style="color:#9e9ebb;font-size:.85rem">Learns directly from environment interactions</span><br><br>
+            <span style="color:#4caf50;font-size:.82rem">✅ No model errors<br>✅ Works in any environment</span><br>
+            <span style="color:#ef5350;font-size:.82rem">❌ Needs many env steps<br>❌ Cannot plan ahead</span><br><br>
+            <span style="color:#90caf9;font-size:.82rem">📦 DQN · PPO · SAC · TD3 · A2C · DDPG</span>
+        </div>
+        <div style="background:#0a2a1a;border-radius:8px;padding:1rem;border-left:3px solid #00897b">
+            <b style="color:#80cbc4">📦 Offline RL</b><br>
+            <span style="color:#9e9ebb;font-size:.85rem">Fixed historical dataset, zero env interaction</span><br><br>
+            <span style="color:#4caf50;font-size:.82rem">✅ Healthcare · finance · robotics<br>✅ Uses existing logged data</span><br>
+            <span style="color:#ef5350;font-size:.82rem">❌ Distributional shift<br>❌ Cannot exceed data quality</span><br><br>
+            <span style="color:#80cbc4;font-size:.82rem">📦 BC · CQL · IQL · Decision Transformer · TD3+BC</span>
         </div>
         </div></div>
         """, unsafe_allow_html=True)
 
-        # Axis 2: When does the update happen?
         st.markdown("""
         <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1rem">
         <h3 style="color:white;font-size:1.1rem;margin-top:0">🔑 Axis 2: When does the agent update its estimate?</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:.8rem">
-        <div style="background:#0d1a0d;border-radius:8px;padding:1rem;border-left:3px solid #7c4dff">
-            <b style="color:#b39ddb">🎲 MC — Episode-end</b><br>
-            <span style="color:#9e9ebb;font-size:.82rem">Wait for episode to finish, then update using real return G</span><br><br>
-            <span style="color:#4caf50;font-size:.82rem">✅ Zero bias — uses actual reward</span><br>
-            <span style="color:#ef5350;font-size:.82rem">❌ High variance — G fluctuates<br>❌ Episodic tasks only</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.8rem;margin-top:.8rem">
+        <div style="background:#0d1a0d;border-radius:8px;padding:.9rem;border-left:3px solid #7c4dff">
+            <b style="color:#b39ddb">🎲 MC — Episode end</b><br>
+            <span style="color:#9e9ebb;font-size:.8rem">True returns G_t. Zero bias, high variance. Episodic only.</span>
         </div>
-        <div style="background:#1a0d0a;border-radius:8px;padding:1rem;border-left:3px solid #e65100">
+        <div style="background:#1a0d0a;border-radius:8px;padding:.9rem;border-left:3px solid #e65100">
             <b style="color:#ffb74d">⚡ TD — Every step</b><br>
-            <span style="color:#9e9ebb;font-size:.82rem">Update after each step using r + γV(s′) as target</span><br><br>
-            <span style="color:#4caf50;font-size:.82rem">✅ Low variance — 1-step look<br>✅ Works online & continuously</span><br>
-            <span style="color:#ef5350;font-size:.82rem">❌ Biased — bootstraps from estimates</span>
+            <span style="color:#9e9ebb;font-size:.8rem">δ=r+γV(s'). Some bias, low variance. Online + continuing.</span>
         </div>
-        <div style="background:#0a0d1a;border-radius:8px;padding:1rem;border-left:3px solid #1565c0">
-            <b style="color:#90caf9">🎮 Deep RL — Batched</b><br>
-            <span style="color:#9e9ebb;font-size:.82rem">Collect rollout/replay batch, update in mini-batches</span><br><br>
-            <span style="color:#4caf50;font-size:.82rem">✅ GPU-efficient batching<br>✅ Stable with replay buffer</span><br>
-            <span style="color:#ef5350;font-size:.82rem">❌ More complex infrastructure<br>❌ Off-policy corrections needed</span>
+        <div style="background:#0a0d1a;border-radius:8px;padding:.9rem;border-left:3px solid #1565c0">
+            <b style="color:#90caf9">🎮 Batch — Rollout/replay</b><br>
+            <span style="color:#9e9ebb;font-size:.8rem">Mini-batch SGD. GPU-efficient. DQN, PPO, SAC, GRPO.</span>
+        </div>
+        <div style="background:#1a0a1a;border-radius:8px;padding:.9rem;border-left:3px solid #ad1457">
+            <b style="color:#f48fb1">📦 Never — Fixed data</b><br>
+            <span style="color:#9e9ebb;font-size:.8rem">Offline only. CQL, IQL, BC, Decision Transformer.</span>
         </div>
         </div></div>
         """, unsafe_allow_html=True)
 
-        # Axis 3: On-policy vs Off-policy
         st.markdown("""
         <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1rem">
-        <h3 style="color:white;font-size:1.1rem;margin-top:0">🔑 Axis 3: Does the agent learn from its own behaviour or from stored data?</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.8rem">
+        <h3 style="color:white;font-size:1.1rem;margin-top:0">🔑 Axis 3: On-policy vs Off-policy vs Offline</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:.8rem">
         <div style="background:#1a1a0a;border-radius:8px;padding:1rem;border-left:3px solid #f57f17">
             <b style="color:#ffa726">🔵 On-Policy</b><br>
-            <span style="color:#9e9ebb;font-size:.88rem">Learn only from the current policy's own experience</span><br><br>
-            <span style="color:#b0b0cc;font-size:.83rem">Data collected by π<sub>θ</sub> is used to improve π<sub>θ</sub>. Must discard old data after update.</span><br><br>
-            <b style="color:#4caf50;font-size:.82rem">✅ More stable, easier to tune</b><br>
-            <b style="color:#ef5350;font-size:.82rem">❌ Sample inefficient — old data wasted</b><br><br>
-            <b style="color:#ffa726;font-size:.82rem">📦 Examples:</b>
-            <span style="color:#9e9ebb;font-size:.83rem">SARSA, MC Control, A2C, PPO, TRPO</span>
+            <span style="color:#9e9ebb;font-size:.85rem">Data from current policy only. Discard after each update.</span><br><br>
+            <span style="color:#4caf50;font-size:.82rem">✅ Stable · No distribution shift</span><br>
+            <span style="color:#ef5350;font-size:.82rem">❌ Wastes old data · Sample inefficient</span><br>
+            <span style="color:#ffa726;font-size:.82rem">📦 SARSA · MC · A2C · PPO · TRPO · GRPO</span>
         </div>
         <div style="background:#0a1a1a;border-radius:8px;padding:1rem;border-left:3px solid #00838f">
             <b style="color:#80deea">🟠 Off-Policy</b><br>
-            <span style="color:#9e9ebb;font-size:.88rem">Learn from data generated by any policy (even old ones)</span><br><br>
-            <span style="color:#b0b0cc;font-size:.83rem">Data stored in a replay buffer. Current policy π<sub>θ</sub> can learn from transitions collected by π<sub>old</sub>.</span><br><br>
-            <b style="color:#4caf50;font-size:.82rem">✅ Sample efficient — reuse data<br>✅ Can learn from human demos</b><br>
-            <b style="color:#ef5350;font-size:.82rem">❌ Needs IS correction (or ignores it)</b><br><br>
-            <b style="color:#80deea;font-size:.82rem">📦 Examples:</b>
-            <span style="color:#9e9ebb;font-size:.83rem">Q-Learning, DQN, Double DQN, SAC, TD3</span>
+            <span style="color:#9e9ebb;font-size:.85rem">Replay buffer reuses any policy's data.</span><br><br>
+            <span style="color:#4caf50;font-size:.82rem">✅ Sample efficient · Use human demos</span><br>
+            <span style="color:#ef5350;font-size:.82rem">❌ IS corrections · Extrapolation risk</span><br>
+            <span style="color:#80deea;font-size:.82rem">📦 Q-Learning · DQN · SAC · TD3 · DDPG</span>
+        </div>
+        <div style="background:#1a0a0a;border-radius:8px;padding:1rem;border-left:3px solid #ad1457">
+            <b style="color:#f48fb1">📦 Offline-Only</b><br>
+            <span style="color:#9e9ebb;font-size:.85rem">Static dataset. Distributional shift is the main challenge.</span><br><br>
+            <span style="color:#4caf50;font-size:.82rem">✅ Healthcare · finance · pre-training</span><br>
+            <span style="color:#ef5350;font-size:.82rem">❌ Q overestimation · Needs constraints</span><br>
+            <span style="color:#f48fb1;font-size:.82rem">📦 BC · CQL · IQL · DT · TD3+BC</span>
         </div>
         </div></div>
         """, unsafe_allow_html=True)
 
-        # Full property matrix
-        st.markdown("### 📊 Full Algorithm Property Matrix")
-        st.markdown("""
-        <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:12px;padding:1rem 1.5rem">
-        <table style="width:100%;border-collapse:collapse;font-size:.83rem;color:#b0b0cc">
-        <tr style="border-bottom:2px solid #2a2a3e">
-          <th style="text-align:left;padding:.5rem .4rem;color:white">Algorithm</th>
-          <th style="padding:.5rem .4rem;color:white">Model?</th>
-          <th style="padding:.5rem .4rem;color:white">On/Off</th>
-          <th style="padding:.5rem .4rem;color:white">Update</th>
-          <th style="padding:.5rem .4rem;color:white">Action space</th>
-          <th style="padding:.5rem .4rem;color:white">Bias</th>
-          <th style="padding:.5rem .4rem;color:white">Variance</th>
-          <th style="padding:.5rem .4rem;color:white">Sample eff.</th>
-          <th style="padding:.5rem .4rem;color:white">Stability</th>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e;background:#0d0d1a">
-          <td style="padding:.4rem;color:#ce93d8;font-weight:700">Policy Iteration (DP)</td>
-          <td style="text-align:center;padding:.4rem">✅ Full</td><td style="text-align:center">On</td>
-          <td style="text-align:center">Each sweep</td><td style="text-align:center">Any</td>
-          <td style="text-align:center;color:#4caf50">Zero</td><td style="text-align:center;color:#4caf50">Zero</td>
-          <td style="text-align:center">N/A</td><td style="text-align:center;color:#4caf50">★★★★★</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e">
-          <td style="padding:.4rem;color:#b39ddb;font-weight:700">Monte Carlo</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">Both</td>
-          <td style="text-align:center">Episode end</td><td style="text-align:center">Discrete</td>
-          <td style="text-align:center;color:#4caf50">Zero</td><td style="text-align:center;color:#ef5350">High</td>
-          <td style="text-align:center;color:#ef5350">Low</td><td style="text-align:center;color:#ffa726">★★★☆☆</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e;background:#0d0d1a">
-          <td style="padding:.4rem;color:#ffb74d;font-weight:700">SARSA</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">On</td>
-          <td style="text-align:center">Every step</td><td style="text-align:center">Discrete</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#4caf50">Low</td>
-          <td style="text-align:center;color:#ffa726">Medium</td><td style="text-align:center;color:#ffa726">★★★☆☆</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e">
-          <td style="padding:.4rem;color:#ffb74d;font-weight:700">Q-Learning</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">Off</td>
-          <td style="text-align:center">Every step</td><td style="text-align:center">Discrete</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#4caf50">Low</td>
-          <td style="text-align:center;color:#ffa726">Medium</td><td style="text-align:center;color:#ffa726">★★★☆☆</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e;background:#0d0d1a">
-          <td style="padding:.4rem;color:#90caf9;font-weight:700">DQN</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">Off</td>
-          <td style="text-align:center">Mini-batch</td><td style="text-align:center">Discrete</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#4caf50">Low</td>
-          <td style="text-align:center;color:#4caf50">High</td><td style="text-align:center;color:#ffa726">★★★★☆</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e">
-          <td style="padding:.4rem;color:#90caf9;font-weight:700">Rainbow</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">Off</td>
-          <td style="text-align:center">Mini-batch</td><td style="text-align:center">Discrete</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#4caf50">Low</td>
-          <td style="text-align:center;color:#4caf50">Very high</td><td style="text-align:center;color:#4caf50">★★★★★</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e;background:#0d0d1a">
-          <td style="padding:.4rem;color:#ce93d8;font-weight:700">REINFORCE</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">On</td>
-          <td style="text-align:center">Episode end</td><td style="text-align:center">Both</td>
-          <td style="text-align:center;color:#4caf50">Zero</td><td style="text-align:center;color:#ef5350">Very high</td>
-          <td style="text-align:center;color:#ef5350">Low</td><td style="text-align:center;color:#ef5350">★★☆☆☆</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e">
-          <td style="padding:.4rem;color:#ce93d8;font-weight:700">A2C / A3C</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">On</td>
-          <td style="text-align:center">n-step rollout</td><td style="text-align:center">Both</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#ffa726">Medium</td>
-          <td style="text-align:center;color:#ffa726">Medium</td><td style="text-align:center;color:#ffa726">★★★☆☆</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e;background:#0d0d1a">
-          <td style="padding:.4rem;color:#ce93d8;font-weight:700">PPO</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">On (clipped)</td>
-          <td style="text-align:center">Rollout batch</td><td style="text-align:center">Both</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#4caf50">Low</td>
-          <td style="text-align:center;color:#ffa726">Medium</td><td style="text-align:center;color:#4caf50">★★★★★</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1a1a2e">
-          <td style="padding:.4rem;color:#a5d6a7;font-weight:700">SAC</td>
-          <td style="text-align:center;padding:.4rem">❌</td><td style="text-align:center">Off</td>
-          <td style="text-align:center">Mini-batch</td><td style="text-align:center">Continuous</td>
-          <td style="text-align:center;color:#ffa726">Some</td><td style="text-align:center;color:#4caf50">Low</td>
-          <td style="text-align:center;color:#4caf50">Very high</td><td style="text-align:center;color:#4caf50">★★★★★</td>
-        </tr>
-        </table></div>
-        """, unsafe_allow_html=True)
+        st.markdown("### 📊 Full Algorithm Property Matrix (Updated 2025)")
+        import pandas as pd
+        st.dataframe(pd.DataFrame({
+            "Algorithm":["Policy Iteration (DP)","Monte Carlo","SARSA","Q-Learning",
+                         "DQN → Rainbow","DDPG","TD3","PPO","SAC","REINFORCE",
+                         "A2C / A3C","DreamerV3","CQL / IQL","Decision Transformer","GRPO (2025)"],
+            "Model?":["✅ Full","❌","❌","❌","❌","❌","❌","❌","❌","❌","❌","✅ Learned","❌","❌","❌"],
+            "On/Off":["On","Both","On","Off","Off","Off","Off","On (IS)","Off","On","On","Off","Offline","Offline","On"],
+            "Action space":["Any","Discrete","Discrete","Discrete","Discrete","Continuous","Continuous",
+                            "Both","Continuous","Both","Both","Both","Both","Both","Text tokens"],
+            "Bias":["Zero","Zero","Some","Some","Some","Some","Some","Some","Some","Zero","Some","Model err.","Some","Zero","Some"],
+            "Variance":["Zero","High","Low","Low","Low","Low","Low","Low","Low","Very high","Medium","Low","Low","Low","Low"],
+            "Sample eff.":["N/A","Low","Medium","Medium","High","High","High","Medium","Very high","Low","Medium","Very high","Dataset-limited","Dataset-limited","Medium"],
+            "Stability":["★★★★★","★★★☆☆","★★★☆☆","★★★☆☆","★★★★☆","★★★☆☆","★★★★☆","★★★★★","★★★★★","★★☆☆☆","★★★☆☆","★★★★★","★★★★☆","★★★☆☆","★★★★★"],
+            "Best for":["Known MDPs","Short episodes","Safe/tabular","Tabular","Atari","Baseline","Cont. control",
+                        "RLHF · fast sim","Real robots","Teaching","Parallel envs","Sample efficiency",
+                        "Healthcare·fin.","Multi-task offline","LLM training"],
+        }), use_container_width=True, hide_index=True)
 
     # ════════════════════════════════════════════════════════════════════════
-    # TAB 3 — WHEN TO USE WHICH
+    # TAB 4 — WHEN TO USE WHICH (now in new code)
     # ════════════════════════════════════════════════════════════════════════
     with tab_when:
         st.markdown("""
         <h2 style="color:white;font-size:1.5rem;margin-bottom:.3rem">🎯 Decision Guide — What Algorithm for Your Problem?</h2>
-        <p style="color:#9e9ebb;margin-bottom:1.2rem">
-        Work through these questions to find the right algorithm family for your RL problem.
-        </p>
+        <p style="color:#9e9ebb;margin-bottom:1.2rem">Answer these questions in order. Covers all algorithms including 2025 additions.</p>
         """, unsafe_allow_html=True)
 
-        # Decision tree as visual cards
         decision_tree = [
-            {
-                "q": "Q1: Do you have complete knowledge of the environment dynamics p(s′,r|s,a)?",
-                "yes": ("✅ YES → Use Dynamic Programming", "#6a1b9a",
-                        "You know the full MDP. Policy Iteration or Value Iteration will give the exact optimal policy with no sampling noise. This is rare in practice — only robotics simulators or board games with known rules qualify."),
-                "no": ("❌ NO → Continue to Q2", "#546e7a",
-                       "Most real problems. You must learn from experience."),
-            },
-            {
-                "q": "Q2: Can you run complete episodes? (Does the environment terminate?)",
-                "yes": ("✅ YES and you want simplicity → Monte Carlo", "#7c4dff",
-                        "MC methods use true returns G_t — zero bias, no bootstrapping errors. Good for short episodic tasks where you can afford to wait. Works well for board games, simple navigation."),
-                "no": ("❌ NO (or episodes are very long) → TD Learning / Deep RL", "#e65100",
-                       "TD methods update every step — essential for continuing tasks (traffic control, server management) or long-horizon tasks where waiting for episode end is too slow."),
-            },
-            {
-                "q": "Q3: Is the action space discrete (finite choices) or continuous (real-valued)?",
-                "yes": ("🎮 DISCRETE → Value-Based Methods (DQN family)", "#1565c0",
-                        "argmax over Q(s,a) works for discrete actions. Use DQN for pixel observations, Double DQN to fix overestimation, Rainbow to combine all improvements. Perfect for Atari, card games, combinatorial tasks."),
-                "no": ("🤖 CONTINUOUS → Policy Gradient Methods (PPO / SAC)", "#7c4dff",
-                       "argmax over continuous Q is intractable. Policy gradient directly parameterises π(a|s) as a Gaussian. PPO for on-policy (simpler, more stable); SAC for off-policy (better sample efficiency, max-entropy exploration)."),
-            },
-            {
-                "q": "Q4: Is data collection expensive? (Real robots, simulations with long wall time?)",
-                "yes": ("💸 YES → Off-policy + Replay Buffer (DQN / SAC / TD3)", "#00838f",
-                        "Replay buffers allow every transition to be reused many times. Off-policy methods (DQN, SAC) can train for thousands of gradient steps on the same collected data. Critical for real-robot RL where each episode costs money."),
-                "no": ("💰 NO → On-policy (PPO / A2C / TRPO)", "#f57f17",
-                       "If data is cheap (fast simulators), on-policy methods are simpler to tune and more stable. PPO is the default choice. A2C/A3C add parallelism for even faster data collection."),
-            },
-            {
-                "q": "Q5: Do you need a well-calibrated uncertainty estimate over returns?",
-                "yes": ("📊 YES → Distributional RL (C51 / IQN)", "#ad1457",
-                        "Distributional methods model the full return distribution Z(s,a) rather than just E[G]. This gives richer gradient signal, natural risk-awareness, and often better performance. Use when outcome variance matters (finance, safety-critical systems)."),
-                "no": ("📉 NO → Standard Q or Policy Gradient", "#546e7a",
-                       "Standard expected-value methods are simpler and often sufficient for most tasks."),
-            },
+            {"q":"Q1: Do you have complete knowledge of environment dynamics p(s′,r|s,a)?",
+             "yes":("✅ YES → Dynamic Programming","#6a1b9a","Policy Iteration or Value Iteration. Exact optimal policy. Only applies when you have the full MDP (known simulator rules, board games)."),
+             "no":("❌ NO → Q2","#546e7a","Most real problems. Must learn from experience.")},
+            {"q":"Q2: Do you have a fixed historical dataset and CANNOT interact with the environment?",
+             "yes":("📦 YES → Offline RL","#00897b","CQL or IQL for general offline RL. Decision Transformer for large multi-task datasets. TD3+BC for simplest continuous offline. BC as a fast baseline. If answers are verifiable (math/code): RLVR approach."),
+             "no":("🔄 NO → Q3 (online RL)","#546e7a","You can interact with the environment during training.")},
+            {"q":"Q3: Do you have expert demonstrations but the reward function is hard to specify?",
+             "yes":("🎓 YES → Imitation Learning","#ad1457","Behaviour Cloning (fast baseline). DAgger if you can query the expert on arbitrary states. GAIL for complex tasks without reward. AIRL if you need a transferable reward for a new environment."),
+             "no":("📊 NO → Q4 (reward-based RL)","#546e7a","You have a reward signal available.")},
+            {"q":"Q4: Is the action space discrete (finite choices) or continuous (real-valued)?",
+             "yes":("🎮 DISCRETE → Value-Based or PPO","#1565c0","DQN/Rainbow for pixel observations. PPO also works well for discrete. For LLM token generation: PPO+reward model (RLHF) or GRPO (simpler, no critic, DeepSeek-R1 style)."),
+             "no":("🤖 CONTINUOUS → Actor-Critic","#7c4dff","TD3 for simplicity. SAC for maximum sample efficiency and max-entropy exploration. PPO for stability. DDPG is a baseline only — TD3 is strictly better.")},
+            {"q":"Q5: Is real-world data collection expensive? (Physical robots, slow simulation, clinical trials)",
+             "yes":("💸 YES → Off-policy + Replay Buffer OR Model-Based","#00838f","SAC/TD3 (replay buffer reuses data many times). DreamerV3 for maximum sample efficiency via world model (10–100× fewer env steps). Consider offline pre-training with CQL/IQL then online fine-tuning with Cal-QL."),
+             "no":("💰 NO → On-policy PPO / A2C","#f57f17","Fast simulators make on-policy competitive. PPO is the default — simple, stable, well-understood. A2C for parallel workers and faster data collection.")},
+            {"q":"Q6: Are you training or aligning a large language model?",
+             "yes":("💬 YES → RLHF / GRPO / RLVR / DPO","#e65100","PPO with reward model (classic RLHF). GRPO to eliminate critic (simpler, 40% less memory). RLVR if task has verifiable correct answers (math, code) — no reward model. DPO if you only have preference pairs and want supervised training."),
+             "no":("🤖 NO → Standard RL algorithms above","#546e7a","Use the continuous/discrete choice from Q4/Q5.")},
+            {"q":"Q7: Multiple agents simultaneously OR tasks requiring long sequential subgoals?",
+             "yes":("🚀 YES → Advanced Specialisations","#6a1b9a","Multi-agent: MADDPG (continuous), QMIX (discrete), MAPPO (policy gradient). Hierarchical: GCRL + HER for long-horizon manipulation. Safe: CPO + Lagrangian PPO + CBF shielding."),
+             "no":("✅ Standard algorithms above cover your case","#546e7a","Q4–Q6 results apply.")},
         ]
 
         for i, node in enumerate(decision_tree):
             st.markdown(f"""
             <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:12px;
-                        padding:1.1rem 1.4rem;margin-bottom:.7rem">
-                <b style="color:#ffa726;font-size:.82rem">QUESTION {i+1}</b>
-                <p style="color:white;font-size:.98rem;font-weight:600;margin:.3rem 0 .8rem">{node['q']}</p>
+                        padding:1.1rem 1.4rem;margin-bottom:.6rem">
+                <b style="color:#ffa726;font-size:.8rem">QUESTION {i+1}</b>
+                <p style="color:white;font-size:.95rem;font-weight:600;margin:.3rem 0 .7rem">{node['q']}</p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
-                    <div style="background:{node['yes'][1]}18;border-left:3px solid {node['yes'][1]};
-                                border-radius:0 8px 8px 0;padding:.8rem 1rem">
-                        <b style="color:{node['yes'][1]};font-size:.85rem">{node['yes'][0]}</b><br>
-                        <span style="color:#b0b0cc;font-size:.83rem;line-height:1.5">{node['yes'][2]}</span>
+                    <div style="background:{node['yes'][1]}18;border-left:3px solid {node['yes'][1]};border-radius:0 8px 8px 0;padding:.8rem 1rem">
+                        <b style="color:{node['yes'][1]};font-size:.84rem">{node['yes'][0]}</b><br>
+                        <span style="color:#b0b0cc;font-size:.81rem;line-height:1.5">{node['yes'][2]}</span>
                     </div>
-                    <div style="background:{node['no'][1]}18;border-left:3px solid {node['no'][1]};
-                                border-radius:0 8px 8px 0;padding:.8rem 1rem">
-                        <b style="color:{node['no'][1]};font-size:.85rem">{node['no'][0]}</b><br>
-                        <span style="color:#b0b0cc;font-size:.83rem;line-height:1.5">{node['no'][2]}</span>
+                    <div style="background:{node['no'][1]}18;border-left:3px solid {node['no'][1]};border-radius:0 8px 8px 0;padding:.8rem 1rem">
+                        <b style="color:{node['no'][1]};font-size:.84rem">{node['no'][0]}</b><br>
+                        <span style="color:#b0b0cc;font-size:.81rem;line-height:1.5">{node['no'][2]}</span>
                     </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
-        # Quick reference
-        st.markdown("### ⚡ Quick Reference by Use Case")
+        st.markdown("### ⚡ Quick Reference by Use Case (2025)")
         cases = [
-            ("🕹️ Atari / discrete games",       "DQN → Double DQN → Rainbow",         "#1565c0"),
-            ("🤖 Robotics / locomotion",           "PPO (simulated) → SAC (real robot)",  "#7c4dff"),
-            ("💬 LLM alignment (RLHF)",           "PPO with reward model",               "#e65100"),
-            ("♟️ Perfect-info board games",       "MCTS + DP or AlphaZero pattern",      "#6a1b9a"),
-            ("🎲 Tabular / small state spaces",   "Q-Learning or SARSA",                 "#f57f17"),
-            ("🌡️ Continuous control (MuJoCo)",   "SAC or TD3",                          "#00838f"),
-            ("🏭 Offline data (no new envs)",     "CQL / IQL (offline RL)",              "#546e7a"),
-            ("👁️ Visual observations (pixels)",  "CNN encoder + DQN or PPO",            "#ad1457"),
-            ("📅 Long-horizon / sparse reward",   "PPO + curiosity / intrinsic rewards", "#558b2f"),
-            ("🌐 Multi-agent cooperation",         "MAPPO / QMIX / MADDPG",              "#0288d1"),
+            ("🕹️ Atari / discrete games","DQN → Double DQN → Rainbow","#1565c0"),
+            ("🤖 Robotics (simulation)","PPO (stable, on-policy)","#7c4dff"),
+            ("🤖 Robotics (real hardware)","SAC or TD3 + replay buffer","#00897b"),
+            ("💬 LLM RLHF (classic)","PPO + reward model","#e65100"),
+            ("💬 LLM RLHF (2025 style)","GRPO + RLVR (no critic needed)","#ff7043"),
+            ("🏃 Continuous control","SAC or TD3","#00838f"),
+            ("🏭 Offline dataset only","CQL or IQL → Cal-QL fine-tune","#546e7a"),
+            ("📸 Pixel observations","CNN encoder + DQN or PPO","#ad1457"),
+            ("♟️ Board games","MCTS + value network (AlphaZero)","#6a1b9a"),
+            ("🎓 Have expert demos","BC → DAgger → GAIL","#ad1457"),
+            ("🌍 Sample efficiency critical","DreamerV3 world model","#e65100"),
+            ("🌐 Multi-agent cooperative","MAPPO or QMIX","#0288d1"),
+            ("🛡️ Safety-critical","PPO-Lagrangian + CBF shielding","#ef5350"),
+            ("🔁 Continual / lifelong","EWC + experience replay","#f57f17"),
+            ("🎯 Multi-task (many tasks)","MT-SAC + PCGrad","#7c4dff"),
         ]
-        cols = st.columns(2)
+        cols_w = st.columns(2)
         for i, (case, alg, col) in enumerate(cases):
-            with cols[i % 2]:
-                st.markdown(f"""
-                <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;
-                            padding:.7rem 1rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.8rem">
-                    <span style="font-size:1.3rem">{case.split()[0]}</span>
-                    <div>
-                        <b style="color:white;font-size:.88rem">{' '.join(case.split()[1:])}</b><br>
-                        <span style="color:{col};font-size:.82rem;font-weight:600">{alg}</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            with cols_w[i % 2]:
+                st.markdown(f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
+                            f'padding:.6rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.8rem">'
+                            f'<span style="font-size:1.1rem">{case.split()[0]}</span>'
+                            f'<div><b style="color:white;font-size:.86rem">{" ".join(case.split()[1:])}</b><br>'
+                            f'<span style="color:{col};font-size:.81rem;font-weight:600">{alg}</span></div></div>',
+                            unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════
-    # TAB 4 — ALL MODULES
+    # TAB 5 — ALL MODULES
     # ════════════════════════════════════════════════════════════════════════
     with tab_all:
         st.markdown("""

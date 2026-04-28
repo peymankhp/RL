@@ -1,8 +1,7 @@
 """
-_foundations_mod.py — Mathematical & Programming Foundations
-Everything you need before starting Deep Learning Prerequisites.
-Tabs: Linear Algebra | Calculus & Optimisation | Probability & Statistics
-      Information Theory | Python & NumPy | Neural Network Math
+_foundations_mod.py — Mathematical & Programming Foundations (Complete Edition)
+10 tabs: Why | Linear Algebra | Calculus | Optimisation | Probability
+         Statistics | Information Theory | Python & NumPy | Neural Net Math | Self-Assessment
 """
 import streamlit as st
 import numpy as np
@@ -13,31 +12,33 @@ warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
 
-
 def _fig(nrows=1, ncols=1, w=12, h=5):
     fig, axes = plt.subplots(nrows, ncols, figsize=(w, h))
     fig.patch.set_facecolor(DARK)
     for ax in np.array(axes).flatten():
         ax.set_facecolor(DARK)
         ax.tick_params(colors="#9e9ebb", labelsize=8)
-        for sp in ax.spines.values():
-            sp.set_edgecolor(GRID)
+        for sp in ax.spines.values(): sp.set_edgecolor(GRID)
     return fig, axes
-
 
 def _card(color, icon, title, body):
     return (f'<div style="background:{color}18;border-left:4px solid {color};'
             f'padding:1rem 1.2rem;border-radius:0 10px 10px 0;margin-bottom:.9rem">'
-            f'<b>{icon} {title}</b><br>{body}</div>')
+            f'<b>{icon} {title}</b><br>'
+            f'<span style="color:#b0b0cc;font-size:.93rem;line-height:1.7">{body}</span></div>')
 
+def _proof(title, body):
+    return (f'<div style="background:#0a1520;border:1px solid #1a3555;border-radius:10px;'
+            f'padding:1rem 1.3rem;margin:.8rem 0">'
+            f'<b style="color:#42a5f5">Proof: {title}</b><br>'
+            f'<span style="color:#b0b0cc;font-size:.9rem;line-height:1.8">{body}</span></div>')
 
 def _insight(text):
     return (f'<div style="background:#0a1a2a;border-left:3px solid #0288d1;'
-            f'padding:.7rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;font-size:.93rem">'
-            f'💡 {text}</div>')
+            f'padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;'
+            f'font-size:.93rem;color:#b0b0cc;line-height:1.7">💡 {text}</div>')
 
-
-def _sec(emoji, title, sub, color="#00897b"):
+def _sec(emoji, title, sub, color="#00695c"):
     st.markdown(
         f'<div style="background:linear-gradient(90deg,{color}22,transparent);'
         f'border-left:4px solid {color};border-radius:0 10px 10px 0;'
@@ -47,769 +48,739 @@ def _sec(emoji, title, sub, color="#00897b"):
         unsafe_allow_html=True)
 
 
+
 def main_foundations():
     st.markdown(
         '<div style="background:linear-gradient(135deg,#0a2a0a,#0a1a2e,#1a0a2e);'
         'border:1px solid #2a2a4a;border-radius:16px;padding:2rem 2.5rem;margin-bottom:1.5rem">'
-        '<h2 style="color:white;margin:0;font-size:2rem">📐 Mathematical & Programming Foundations</h2>'
-        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem">'
-        'Stage -1: Everything you need before starting Deep Learning. '
-        'Linear algebra, calculus, probability, information theory, Python, and neural network math — '
-        'each derived from scratch with practical RL examples.'
+        '<h2 style="color:white;margin:0;font-size:2rem">📐 Mathematical &amp; Programming Foundations</h2>'
+        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem;line-height:1.6">'
+        'Stage -1: Six mathematical areas and two programming skills before Deep Learning. '
+        'Every concept derived from scratch, directly mapped to RL formulas, with interactive charts.'
         '</p></div>', unsafe_allow_html=True)
 
     tabs = st.tabs([
-        "🗺️ What You Need & Why",
+        "🗺️ Why & What",
         "🔢 Linear Algebra",
-        "📈 Calculus & Optimisation",
-        "🎲 Probability & Statistics",
+        "📈 Calculus",
+        "🎯 Optimisation",
+        "🎲 Probability",
+        "📊 Statistics",
         "📡 Information Theory",
         "🐍 Python & NumPy",
         "🧠 Neural Network Math",
         "✅ Self-Assessment",
     ])
-    (tab_ov, tab_la, tab_calc, tab_prob,
-     tab_info, tab_py, tab_nn, tab_test) = tabs
+    (tab_why, tab_la, tab_calc, tab_opt, tab_prob,
+     tab_stat, tab_info, tab_py, tab_nn, tab_test) = tabs
 
-    # ── OVERVIEW ─────────────────────────────────────────────────────────
-    with tab_ov:
-        _sec("🗺️", "What You Need Before Deep Learning",
-             "Honest prerequisites — what to study and why each topic appears in RL", "#00897b")
-
-        st.markdown(_card("#00897b", "📋", "The complete prerequisite map",
-            """Every formula in deep RL requires some combination of these six foundations.
-            Linear algebra: the neural network is a sequence of matrix multiplications.
-            Calculus: backpropagation is the chain rule applied recursively.
-            Probability: the policy π(a|s) is a probability distribution; we optimise expectations.
-            Information theory: KL divergence appears in PPO and TRPO; entropy bonus appears in SAC and A2C.
-            Python/NumPy: all implementations in this portal use these; GPU RL uses the same operations.
-            Neural network math: you need to derive backpropagation once from scratch before using PyTorch autograd.
-            None of these require deep expertise before starting. You need working knowledge —
-            able to apply the concept, not prove every theorem. This module builds exactly that."""),
+    # ── WHY ───────────────────────────────────────────────────────────────
+    with tab_why:
+        _sec("🗺️", "Why These Six Areas?",
+             "Every RL formula maps to one of these mathematical foundations", "#00695c")
+        st.markdown(_card("#00695c", "🎯", "Direct map from math to RL algorithms",
+            """<b>Linear algebra:</b> neural network = matrix multiplications.
+            Q(s,a) = W₂·relu(W₁·s+b₁)+b₂ is entirely linear algebra.<br>
+            <b>Calculus:</b> policy gradient ∇J(θ) = vector of partial derivatives;
+            backpropagation = chain rule applied recursively through every layer.<br>
+            <b>Optimisation:</b> gradient ascent θ←θ+α∇J; Adam/RMSProp update rules;
+            PPO trust region; TRPO KL constraint; CMA-ES in World Models.<br>
+            <b>Probability:</b> π(a|s) IS a probability distribution;
+            V(s) = E[G_t|s_t=s] is an expectation; PSRL uses Bayesian posteriors.<br>
+            <b>Statistics:</b> MC gradient estimation; 5-seed evaluation protocols;
+            bias-variance tradeoff in n-step returns and GAE.<br>
+            <b>Information theory:</b> H(π) entropy in SAC; D_KL(π||π_old) in PPO/TRPO;
+            cross-entropy = −logπ(a|s) policy loss; RLHF reward model loss.<br>
+            You need working fluency — ability to compute, implement, and intuit each concept."""),
             unsafe_allow_html=True)
 
         st.dataframe(pd.DataFrame({
-            "Topic": ["Linear Algebra", "Calculus & Optimisation", "Probability & Statistics",
-                      "Information Theory", "Python & NumPy", "Neural Network Math"],
-            "Why it matters in RL": [
-                "Policy network = matrix multiplications; value function = linear combination of features",
-                "Gradient ascent on J(θ); chain rule gives backpropagation; SGD updates all weights",
-                "Policy π(a|s) is a distribution; objectives are expectations E[...]; Bayes used in PSRL",
-                "Entropy bonus in SAC/A2C; KL divergence in PPO/TRPO; cross-entropy as policy loss",
-                "NumPy used throughout portal; PyTorch = NumPy with autograd; vectorised env batching",
-                "Backprop gives ∇J; activations define expressivity; loss functions define what to optimise",
+            "Foundation": ["Linear Algebra", "Calculus", "Optimisation", "Probability",
+                           "Statistics", "Information Theory", "Python & NumPy", "Neural Net Math"],
+            "Key RL formulas": [
+                "Q(s,a)=W₂relu(W₁s+b₁)+b₂; Fisher matrix F in TRPO; SVD for PCA",
+                "∇_θJ(θ): policy gradient; chain rule in backprop; Bellman contraction",
+                "θ←θ+α∇J; Adam; PPO clip; TRPO trust region; CMA-ES",
+                "π(a|s) = P(a|s); V(s) = E[G_t|s_t=s]; PSRL Bayesian posterior",
+                "MC gradient variance 1/N; GAE bias-variance; 5-seed protocols",
+                "H(π) in SAC/A2C; D_KL in PPO/TRPO; −logπ(a|s) policy loss",
+                "All portal simulations; PyTorch≈NumPy+autograd; env batching",
+                "Forward pass; backprop; He/Xavier init; loss functions; activations",
             ],
-            "Time to sufficient level": [
-                "2–3 weeks", "2–3 weeks", "2–3 weeks", "3–5 days",
-                "1–2 weeks", "1 week",
-            ],
-            "Starting resource": [
-                "3Blue1Brown Essence of Linear Algebra (YouTube)",
-                "3Blue1Brown Essence of Calculus (YouTube)",
-                "Probability for Machine Learning — Jason Brownlee (free)",
-                "Cover & Thomas Elements of Information Theory Ch.1–2",
-                "NumPy quickstart tutorial (numpy.org)",
-                "Andrej Karpathy micrograd (GitHub)",
-            ],
+            "Time needed": ["2 wks", "2 wks", "1 wk", "2 wks", "1 wk", "3 days", "1 wk", "1 wk"],
+            "Best resource": [
+                "3Blue1Brown LA (YouTube)", "3Blue1Brown Calculus (YouTube)",
+                "Goodfellow DL Ch.4 (free)", "Brownlee Prob for ML",
+                "Khan Academy Statistics", "Cover & Thomas Ch.1-2",
+                "numpy.org quickstart", "Karpathy micrograd (GitHub)"],
         }), use_container_width=True, hide_index=True)
 
     # ── LINEAR ALGEBRA ────────────────────────────────────────────────────
     with tab_la:
         _sec("🔢", "Linear Algebra — The Language of Neural Networks",
-             "Vectors, matrices, dot products, eigenvalues, SVD — all through the lens of RL", "#6a1b9a")
+             "Vectors, matrices, dot products, eigenvalues — inside every neural network and RL formula", "#6a1b9a")
 
-        st.markdown(_card("#6a1b9a", "🔢", "Why linear algebra is the first prerequisite",
-            """A neural network is literally a sequence of matrix multiplications followed by non-linear
-            functions. When you write Q(s,a) = W2·relu(W1·s + b1) + b2, every operation is linear
-            algebra: W1 and W2 are matrices, s is a vector, relu is element-wise, b1 and b2 are vectors.
-            Understanding what a matrix multiplication does geometrically — it rotates and scales
-            a vector — is what makes neural networks intuitive rather than magical.
-            The policy gradient ∇J is a vector in parameter space pointing toward higher reward.
-            The Fisher information matrix F appears in TRPO as a metric on the space of policies.
-            Eigenvalues determine how fast gradient descent converges. SVD underpins representation
-            learning. You do not need to prove theorems — you need to compute fluently."""), unsafe_allow_html=True)
+        st.markdown(_card("#6a1b9a", "🔢", "Why this is prerequisite #1",
+            """A neural network layer is: h = relu(W @ x + b). Every symbol here is linear algebra.
+            W is a matrix (n_out×n_in), x is a vector (n_in,), @ is matrix-vector multiplication,
+            relu is element-wise, b is a bias vector. If you cannot compute W@x by hand, you cannot
+            understand what the network does. The policy gradient ∇_θJ lives in parameter space
+            (it is a vector). The Fisher information matrix F = E[∇logπ ∇logπ^T] appears in TRPO.
+            Eigenvalues determine gradient descent convergence speed. SVD underlies PCA."""), unsafe_allow_html=True)
 
-        st.subheader("1. Vectors — The Fundamental Object")
+        st.subheader("1. Vectors — States, Actions, Parameters")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(r"""
-            A vector $\mathbf{v} \in \mathbb{R}^n$ is an ordered list of $n$ real numbers.
-            In RL: the state $s \in \mathbb{R}^n$ (CartPole has $n=4$: position, velocity, angle, angular velocity).
-            """)
-            st.latex(r"\mathbf{s} = \begin{bmatrix} x \\ \dot{x} \\ \theta \\ \dot{\theta} \end{bmatrix} \in \mathbb{R}^4")
-            st.markdown(r"""
-            **Dot product** (projects one vector onto another):
-            """)
-            st.latex(r"\mathbf{u} \cdot \mathbf{v} = \sum_{i=1}^n u_i v_i = \|\mathbf{u}\|\|\mathbf{v}\|\cos\theta")
-            st.markdown(r"In RL: the linear layer $\mathbf{w}^\top\mathbf{s}$ is a dot product — it measures how much the state aligns with the weight direction.")
+            st.markdown("**CartPole state vector:**")
+            st.latex(r"s = [x,\;\dot{x},\;\theta,\;\dot{\theta}]^\top \in \mathbb{R}^4")
+            st.markdown("**Dot product (the most-used operation):**")
+            st.latex(r"\mathbf{u}\cdot\mathbf{v} = \sum_{i=1}^n u_i v_i = \|\mathbf{u}\|\|\mathbf{v}\|\cos\theta_{uv}")
+            st.markdown("Linear value function: Q(s) = w^T φ(s) — a dot product of weights and features.")
+            st.markdown("**Vector norm (gradient clipping uses this):**")
+            st.latex(r"\|\mathbf{v}\| = \sqrt{\sum_i v_i^2}")
         with col2:
-            # Visualise dot product
-            np.random.seed(42)
-            fig_dot, ax_dot = _fig(1, 1, 5.5, 4)
             u = np.array([2.0, 1.0]); v = np.array([1.0, 2.0])
-            ax_dot.quiver(0, 0, u[0], u[1], angles='xy', scale_units='xy', scale=1,
-                          color="#7c4dff", width=0.03, label=f"u = {u}")
-            ax_dot.quiver(0, 0, v[0], v[1], angles='xy', scale_units='xy', scale=1,
-                          color="#ffa726", width=0.03, label=f"v = {v}")
+            fig_dot, ax_dot = _fig(1, 1, 5.5, 4)
+            ax_dot.quiver(0, 0, u[0], u[1], angles="xy", scale_units="xy", scale=1,
+                          color="#7c4dff", width=0.04, label=f"u={u}")
+            ax_dot.quiver(0, 0, v[0], v[1], angles="xy", scale_units="xy", scale=1,
+                          color="#ffa726", width=0.04, label=f"v={v}")
             proj = np.dot(u, v) / np.dot(v, v) * v
-            ax_dot.quiver(0, 0, proj[0], proj[1], angles='xy', scale_units='xy', scale=1,
-                          color="#4caf50", width=0.02, alpha=0.7, label=f"proj u→v")
+            ax_dot.quiver(0, 0, proj[0], proj[1], angles="xy", scale_units="xy", scale=1,
+                          color="#4caf50", width=0.02, alpha=0.7,
+                          label=f"projection, u·v={int(np.dot(u,v))}")
             ax_dot.set_xlim(-0.5, 3.5); ax_dot.set_ylim(-0.5, 3.0)
-            ax_dot.set_xlabel("x", color="white"); ax_dot.set_ylabel("y", color="white")
-            ax_dot.set_title(f"u·v = {np.dot(u,v):.1f}", color="white", fontweight="bold")
+            ax_dot.set_title(f"Dot product = {int(np.dot(u,v))}", color="white", fontweight="bold")
             ax_dot.legend(facecolor=CARD, labelcolor="white", fontsize=7)
             ax_dot.grid(alpha=0.15); ax_dot.axhline(0, color="#2a2a3e"); ax_dot.axvline(0, color="#2a2a3e")
             plt.tight_layout(); st.pyplot(fig_dot); plt.close()
 
-        st.subheader("2. Matrices — Transformations of Space")
-        st.markdown(r"""
-        A matrix $W \in \mathbb{R}^{m \times n}$ transforms an $n$-dimensional vector into an $m$-dimensional vector.
-        **Matrix-vector multiplication** is the core operation of every neural network layer:
-        """)
-        st.latex(r"\mathbf{h} = W\mathbf{x} + \mathbf{b} \quad W\in\mathbb{R}^{m\times n},\;\mathbf{x}\in\mathbb{R}^n,\;\mathbf{h}\in\mathbb{R}^m")
-        st.markdown(r"""
-        **Practical example:** First layer of a CartPole policy network:
-        - $\mathbf{s} \in \mathbb{R}^4$ (4 state features)
-        - $W_1 \in \mathbb{R}^{32 \times 4}$: 32 neurons, each with 4 weights (one per input feature)
-        - $\mathbf{h}_1 = W_1\mathbf{s} + \mathbf{b}_1 \in \mathbb{R}^{32}$: 32 hidden activations
+        st.subheader("2. Matrices — Every Neural Network Layer Is One")
+        st.markdown("**Matrix-vector multiply = the core operation of every layer:**")
+        st.latex(r"\mathbf{h} = W\mathbf{x} + \mathbf{b} \quad W\in\mathbb{R}^{m\times n},\;\mathbf{x}\in\mathbb{R}^n \;\Rightarrow\; \mathbf{h}\in\mathbb{R}^m")
+        st.markdown("**Backpropagation uses transpose:** if h = W @ x, then dL/dx = W^T @ dL/dh")
+        st.markdown("Each row of W is a feature detector — fires when input aligns with it.")
 
-        **Why the transformation matters geometrically:** $W$ rotates and stretches the input space.
-        Each row of $W$ is a "feature detector" — it fires (large output) when the input aligns with it.
-        """)
+        c1, c2 = st.columns(2)
+        a11 = c1.slider("W[0,0]", -3., 3., 2., 0.1, key="la_s11")
+        a12 = c1.slider("W[0,1]", -3., 3., 1., 0.1, key="la_s12")
+        a21 = c2.slider("W[1,0]", -3., 3., 0., 0.1, key="la_s21")
+        a22 = c2.slider("W[1,1]", -3., 3., 1.5, 0.1, key="la_s22")
+        Wm = np.array([[a11, a12], [a21, a22]])
+        sq = np.array([[0, 1, 1, 0, 0], [0, 0, 1, 1, 0]], dtype=float)
+        tr = Wm @ sq
+        fig_m, ax_m = _fig(1, 1, 9, 4)
+        ax_m.plot(sq[0], sq[1], color="#546e7a", lw=2, ls="--", label="Original unit square")
+        ax_m.fill(sq[0], sq[1], alpha=0.15, color="#546e7a")
+        ax_m.plot(tr[0], tr[1], color="#7c4dff", lw=2.5, label="After W multiplication")
+        ax_m.fill(tr[0], tr[1], alpha=0.2, color="#7c4dff")
+        ax_m.set_xlim(-4, 4); ax_m.set_ylim(-4, 4)
+        ax_m.axhline(0, color="#2a2a3e"); ax_m.axvline(0, color="#2a2a3e")
+        det = np.linalg.det(Wm)
+        eigs = np.linalg.eigvals(Wm).real
+        ax_m.set_title(f"det(W)={det:.2f} | eigenvalues ≈ {eigs.round(2)}", color="white", fontweight="bold")
+        ax_m.legend(facecolor=CARD, labelcolor="white", fontsize=8)
+        ax_m.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_m); plt.close()
+        if abs(det) > 1.5:
+            st.markdown("⚠️ **|det|>1:** space expands — gradient explosion risk in deep networks.")
+        elif abs(det) < 0.3:
+            st.markdown("⚠️ **|det|<1:** space contracts — gradient vanishing risk.")
+        else:
+            st.markdown("✅ **det ≈ 1:** volume roughly preserved — healthy for training.")
+
+        st.subheader("3. The Jacobian — Derivative of a Vector w.r.t. Another")
+        st.markdown("When input and output are both vectors, the derivative is a matrix:")
+        st.latex(r"J_{ij} = \frac{\partial f_i}{\partial x_j} \quad\Rightarrow\quad J = \frac{\partial \mathbf{f}}{\partial \mathbf{x}} \in \mathbb{R}^{m\times n}")
+        st.markdown("For linear layer h=Wx: Jacobian = W. For ReLU: diagonal matrix with 1[z>0]. Backprop computes J^T @ upstream_gradient efficiently without forming J.")
+
+        st.subheader("4. Implementation")
         st.code("""
 import numpy as np
-
-# CartPole state: [position, velocity, angle, angular_velocity]
-s = np.array([0.02, -0.01, 0.04, 0.03])   # shape (4,)
-
-# First hidden layer: 32 neurons × 4 inputs
-W1 = np.random.randn(32, 4) * np.sqrt(2/4)  # He initialisation
+s  = np.array([0.02, -0.01, 0.04, 0.03])     # CartPole state, shape (4,)
+W1 = np.random.randn(32, 4) * np.sqrt(2/4)   # He init, shape (32, 4)
 b1 = np.zeros(32)
-
-# Matrix-vector product: the core of every neural network layer
-h1 = W1 @ s + b1   # shape (32,) — 32 hidden activations
-h1 = np.maximum(0, h1)  # ReLU activation: max(0, x) element-wise
-print(h1.shape)  # (32,)
+h1 = W1 @ s + b1    # Matrix-vector multiply: (32,4)@(4,) = (32,) — one layer
+h1 = np.maximum(0, h1)  # ReLU activation element-wise
+# Backprop uses transpose:
+d_h1 = np.random.randn(32)  # upstream gradient from next layer
+d_s  = W1.T @ d_h1   # shape (4,) — gradient to previous layer
+d_W1 = np.outer(d_h1, s)   # shape (32,4) — gradient w.r.t. weights
 """, language="python")
-
-        st.subheader("3. Key Matrix Operations for Deep RL")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Transpose** — flip rows and columns:")
-            st.latex(r"(W^\top)_{ij} = W_{ji} \quad W\in\mathbb{R}^{m\times n} \Rightarrow W^\top\in\mathbb{R}^{n\times m}")
-            st.markdown(r"Used in backpropagation: $\nabla_\mathbf{x}\mathcal{L} = W^\top\nabla_\mathbf{h}\mathcal{L}$")
-            st.markdown("**Matrix multiplication** — compose transformations:")
-            st.latex(r"(AB)_{ij} = \sum_k A_{ik}B_{kj} \quad A\in\mathbb{R}^{m\times k},\;B\in\mathbb{R}^{k\times n}")
-            st.markdown(r"The full forward pass: $Q(s,a) = W_2\,\text{relu}(W_1 s + b_1) + b_2$")
-        with col2:
-            st.markdown("**Jacobian** — derivative of vector w.r.t. vector:")
-            st.latex(r"J = \frac{\partial\mathbf{f}}{\partial\mathbf{x}} \in \mathbb{R}^{m\times n} \quad J_{ij} = \frac{\partial f_i}{\partial x_j}")
-            st.markdown(r"Backpropagation is computing Jacobian-vector products efficiently (the chain rule).")
-            st.markdown("**Eigenvalues** — how much each direction is stretched:")
-            st.latex(r"W\mathbf{v} = \lambda\mathbf{v} \quad \text{(eigenvector }\mathbf{v}\text{, eigenvalue }\lambda\text{)}")
-            st.markdown(r"Largest eigenvalue of $W^\top W$ = spectral norm. Gradient explosion occurs when this is very large.")
-
-        st.subheader("4. Interactive: Matrix Multiplication")
-        st.markdown("Try it — enter a 2×2 matrix and see what it does to the unit square:")
-        c1, c2 = st.columns(2)
-        a11 = c1.slider("W[0,0]", -3.0, 3.0, 2.0, 0.1, key="la_a11")
-        a12 = c1.slider("W[0,1]", -3.0, 3.0, 1.0, 0.1, key="la_a12")
-        a21 = c2.slider("W[1,0]", -3.0, 3.0, 0.0, 0.1, key="la_a21")
-        a22 = c2.slider("W[1,1]", -3.0, 3.0, 1.5, 0.1, key="la_a22")
-        W = np.array([[a11, a12], [a21, a22]])
-        square = np.array([[0,1,1,0,0],[0,0,1,1,0]], dtype=float)
-        transformed = W @ square
-        fig_mat, ax_mat = _fig(1, 1, 9, 4)
-        ax_mat.plot(square[0], square[1], color="#546e7a", lw=2, ls="--", label="Original unit square")
-        ax_mat.fill(square[0], square[1], alpha=0.15, color="#546e7a")
-        ax_mat.plot(transformed[0], transformed[1], color="#7c4dff", lw=2.5, label="After W multiplication")
-        ax_mat.fill(transformed[0], transformed[1], alpha=0.2, color="#7c4dff")
-        ax_mat.set_xlim(-4, 4); ax_mat.set_ylim(-4, 4)
-        ax_mat.axhline(0, color="#2a2a3e", lw=0.8); ax_mat.axvline(0, color="#2a2a3e", lw=0.8)
-        ax_mat.set_title(f"det(W)={np.linalg.det(W):.2f} (area scaling factor)", color="white", fontweight="bold")
-        ax_mat.legend(facecolor=CARD, labelcolor="white", fontsize=8)
-        ax_mat.grid(alpha=0.12); plt.tight_layout(); st.pyplot(fig_mat); plt.close()
 
     # ── CALCULUS ─────────────────────────────────────────────────────────
     with tab_calc:
-        _sec("📈", "Calculus & Optimisation — Derivatives Power Everything",
-             "Gradients, chain rule, gradient descent — the engine of all policy learning", "#e65100")
+        _sec("📈", "Calculus — Derivatives Power Every RL Update",
+             "Gradients, chain rule, backpropagation — the mathematics of all policy learning", "#e65100")
 
-        st.markdown(_card("#e65100", "📈", "Why calculus is the engine of deep RL",
-            """Every policy gradient update is gradient ascent. Every value function update is gradient
-            descent. Backpropagation — the algorithm that makes training neural networks possible —
-            is nothing more than the chain rule applied recursively. When you see θ ← θ + α∇J(θ),
-            the ∇J(θ) is a vector of partial derivatives: how much does the total reward change if
-            you nudge each weight by a tiny amount? Computing this efficiently for a million-parameter
-            network requires the chain rule applied through dozens of layer operations simultaneously.
-            If you do not understand derivatives, gradient descent is magic. Once you do, it becomes
-            straightforward: always move in the direction that increases (ascent) or decreases (descent)
-            your objective function, scaled by the learning rate α."""), unsafe_allow_html=True)
+        st.markdown(_card("#e65100", "📈", "Why calculus is unavoidable in RL",
+            """Every RL parameter update is: θ ← θ + α∇J(θ). The gradient ∇J is a vector of partial
+            derivatives — how does total reward change if we nudge each weight by a tiny amount?
+            For a million-parameter network, computing this efficiently requires the chain rule
+            applied backward through the computation graph — this IS backpropagation.
+            The Bellman operator is a contraction (a calculus result proving TD convergence).
+            GAE is a geometric series (calculus/series). PPO convergence uses Lipschitz gradient bounds.
+            Understanding derivatives makes all of this intuitive rather than magical."""), unsafe_allow_html=True)
 
-        st.subheader("1. Derivatives — Instantaneous Rate of Change")
+        st.subheader("1. Derivatives — From the Limit Definition")
+        st.markdown("**The fundamental definition** (origin of all derivatives):")
+        st.latex(r"f'(x) = \frac{df}{dx} = \lim_{h\to 0}\frac{f(x+h)-f(x)}{h}")
+        st.markdown("**Every derivative you use in RL daily:**")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(r"**Definition from first principles (limit definition):**")
-            st.latex(r"\frac{df}{dx} = \lim_{h\to 0}\frac{f(x+h)-f(x)}{h}")
-            st.markdown(r"**Interpretation:** slope of $f$ at point $x$ — how fast $f$ changes per unit increase in $x$.")
-            st.markdown(r"**Key derivatives you must know:**")
-            st.latex(r"\frac{d}{dx}x^n = nx^{n-1}, \quad \frac{d}{dx}e^x = e^x, \quad \frac{d}{dx}\ln x = \frac{1}{x}")
-            st.latex(r"\frac{d}{dx}\sigma(x) = \sigma(x)(1-\sigma(x)) \quad\text{(sigmoid — used in reward models)}")
+            st.latex(r"\frac{d}{dx}x^n = nx^{n-1}")
+            st.latex(r"\frac{d}{dx}e^x = e^x")
+            st.latex(r"\frac{d}{dx}\ln x = \frac{1}{x}")
+            st.latex(r"\frac{d}{dx}\sigma(x) = \sigma(x)(1-\sigma(x))")
         with col2:
-            x = np.linspace(-3, 3, 200)
-            fig_deriv, ax_deriv = _fig(1, 1, 5.5, 4)
-            ax_deriv.plot(x, x**2, color="#7c4dff", lw=2.5, label="f(x) = x²")
-            ax_deriv.plot(x, 2*x, color="#ffa726", lw=2, label="f\'(x) = 2x")
-            x0 = 1.5; tangent = x**2 + 2*x0*(x - x0)  # wait, tangent at x0=1.5
-            # slope at x0=1.5 is 2*1.5=3, tangent: y - 1.5²= 3(x-1.5) → y = 3x - 4.5+2.25 = 3x-2.25
-            tang = 3*x - 2.25
-            ax_deriv.plot(x, tang, color="#4caf50", lw=1.5, ls="--", alpha=0.7, label=f"tangent at x={x0}")
-            ax_deriv.scatter([x0], [x0**2], color="#ef5350", s=80, zorder=5)
-            ax_deriv.set_ylim(-4, 6); ax_deriv.set_xlabel("x", color="white"); ax_deriv.set_ylabel("y", color="white")
-            ax_deriv.set_title("Derivative = slope of tangent line", color="white", fontweight="bold")
-            ax_deriv.legend(facecolor=CARD, labelcolor="white", fontsize=7)
-            ax_deriv.grid(alpha=0.12); ax_deriv.axhline(0, color="#2a2a3e"); ax_deriv.axvline(0, color="#2a2a3e")
-            plt.tight_layout(); st.pyplot(fig_deriv); plt.close()
+            st.latex(r"\frac{d}{dx}\max(0,x) = \mathbf{1}[x>0] \quad\text{(ReLU)}")
+            st.latex(r"\frac{d}{dx}\tanh(x) = 1-\tanh^2(x)")
+            st.latex(r"\frac{d}{dx}\|x\|^2 = 2x")
+            st.latex(r"\frac{d}{dx}\log p(x) = \frac{p'(x)}{p(x)} \quad\text{(score fn.)}")
 
-        st.subheader("2. Partial Derivatives & Gradients — Multi-Variable Functions")
-        st.markdown(r"""
-        A neural network has millions of parameters. The loss function $\mathcal{L}(\theta_1,\theta_2,\ldots,\theta_n)$
-        depends on all of them simultaneously. The **partial derivative** $\frac{\partial\mathcal{L}}{\partial\theta_i}$
-        measures how $\mathcal{L}$ changes when we nudge only $\theta_i$, holding all others fixed.
-        The **gradient** collects all partial derivatives into a vector:
-        """)
+        fn_choice = st.selectbox("Visualise function and its derivative",
+                                  ["x²", "relu", "sigmoid", "tanh", "ln(x)"], key="calc_fn")
+        xr = np.linspace(-3, 3, 300)
+        fn_map = {
+            "x²":     (xr**2, 2*xr, "2x"),
+            "relu":   (np.maximum(0, xr), (xr > 0).astype(float), "1[x>0]"),
+            "sigmoid":(1/(1+np.exp(-xr)),
+                       (1/(1+np.exp(-xr)))*(1-1/(1+np.exp(-xr))), "σ(1−σ)"),
+            "tanh":   (np.tanh(xr), 1-np.tanh(xr)**2, "1−tanh²"),
+            "ln(x)":  (np.where(xr>0.01, np.log(np.maximum(xr,0.01)), np.nan),
+                       np.where(xr>0.01, 1/np.maximum(xr,0.01), np.nan), "1/x"),
+        }
+        fy, dfy, dn = fn_map[fn_choice]
+        fig_c, ax_c = _fig(1, 1, 10, 4)
+        ax_c.plot(xr, fy, color="#7c4dff", lw=2.5, label=f"f(x) = {fn_choice}")
+        ax_c.plot(xr, dfy, color="#ffa726", lw=2, ls="--", label=f"f'(x) = {dn}")
+        ax_c.axhline(0, color="#2a2a3e"); ax_c.axvline(0, color="#2a2a3e")
+        ax_c.set_ylim(-2.5, 2.5); ax_c.set_xlabel("x", color="white"); ax_c.set_ylabel("y", color="white")
+        ax_c.set_title(f"{fn_choice} and its derivative", color="white", fontweight="bold")
+        ax_c.legend(facecolor=CARD, labelcolor="white", fontsize=9); ax_c.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_c); plt.close()
+
+        st.subheader("2. Partial Derivatives and Gradients")
+        st.markdown("For a function of many parameters θ = [θ₁, θ₂, ..., θₙ], the **gradient** collects all partial derivatives:")
         st.latex(r"\nabla_\theta\mathcal{L} = \left[\frac{\partial\mathcal{L}}{\partial\theta_1},\;\frac{\partial\mathcal{L}}{\partial\theta_2},\;\ldots,\;\frac{\partial\mathcal{L}}{\partial\theta_n}\right]^\top")
-        st.markdown(r"""
-        **The gradient always points toward the steepest increase of $\mathcal{L}$.**
-        For gradient descent (minimise loss): $\theta \leftarrow \theta - \alpha\nabla_\theta\mathcal{L}$
-        For gradient ascent (maximise reward): $\theta \leftarrow \theta + \alpha\nabla_\theta J$
-        """)
+        st.markdown("The gradient points toward the **steepest increase** of L.")
+        st.markdown("**Gradient descent** (minimise loss): θ ← θ − α∇L | **Gradient ascent** (maximise reward J): θ ← θ + α∇J")
 
-        # Gradient visualisation
-        x_g, y_g = np.meshgrid(np.linspace(-3,3,30), np.linspace(-3,3,30))
-        z_g = x_g**2 + 2*y_g**2  # simple bowl
-        gx, gy = 2*x_g, 4*y_g    # gradient
-        fig_grad, ax_grad = _fig(1, 1, 9, 4.5)
-        ax_grad.contourf(x_g, y_g, z_g, levels=20, cmap="RdYlGn_r", alpha=0.7)
-        skip = 3
-        ax_grad.quiver(x_g[::skip,::skip], y_g[::skip,::skip],
-                       -gx[::skip,::skip], -gy[::skip,::skip],
-                       color="white", alpha=0.8, scale=80, width=0.003)
-        ax_grad.set_xlabel("θ₁", color="white"); ax_grad.set_ylabel("θ₂", color="white")
-        ax_grad.set_title("Gradient descent: arrows point toward minimum (loss = x²+2y²)",
-                          color="white", fontweight="bold")
-        plt.tight_layout(); st.pyplot(fig_grad); plt.close()
+        x_g, y_g = np.meshgrid(np.linspace(-3,3,25), np.linspace(-3,3,25))
+        z_g = x_g**2 + 2*y_g**2
+        fig_g, ax_g = _fig(1, 1, 10, 4.5)
+        ax_g.contourf(x_g, y_g, z_g, levels=20, cmap="RdYlGn_r", alpha=0.7)
+        sk = 2; gx, gy = 2*x_g, 4*y_g
+        ax_g.quiver(x_g[::sk,::sk], y_g[::sk,::sk],
+                    -gx[::sk,::sk]/5, -gy[::sk,::sk]/5,
+                    color="white", alpha=0.7, scale=20, width=0.004)
+        ax_g.set_xlabel("θ₁", color="white"); ax_g.set_ylabel("θ₂", color="white")
+        ax_g.set_title("Gradient descent on L = θ₁² + 2θ₂² — arrows show descent direction",
+                       color="white", fontweight="bold")
+        plt.tight_layout(); st.pyplot(fig_g); plt.close()
 
         st.subheader("3. Chain Rule — The Heart of Backpropagation")
-        st.markdown(r"""
-        **The chain rule** computes derivatives of composed functions. If $\mathcal{L} = f(g(x))$:
-        """)
-        st.latex(r"\frac{d\mathcal{L}}{dx} = \frac{d\mathcal{L}}{dg}\cdot\frac{dg}{dx}")
-        st.markdown(r"""
-        For a 2-layer network $\mathcal{L}(\theta) = \text{loss}(W_2\cdot\text{relu}(W_1\cdot s))$:
-        """)
-        st.latex(r"\frac{\partial\mathcal{L}}{\partial W_1} = \frac{\partial\mathcal{L}}{\partial\mathbf{h}_2}\cdot\frac{\partial\mathbf{h}_2}{\partial\mathbf{h}_1}\cdot\frac{\partial\mathbf{h}_1}{\partial W_1}")
-        st.markdown(r"""
-        Backpropagation applies the chain rule from the output (loss) backward through every layer.
-        **The key insight:** each layer's gradient depends only on its input and the gradient from the next layer.
-        This is why gradients are computed backward (output → input) — each layer passes its gradient
-        to the previous layer.
+        st.markdown("For composed functions f(g(x)): the derivative is the product of derivatives at each step.")
+        st.latex(r"\frac{d\mathcal{L}}{dx} = \frac{d\mathcal{L}}{dh}\cdot\frac{dh}{dx} \quad\text{(chain rule — applied recursively through all layers)}")
+        st.markdown(_proof("Backprop through one ReLU layer: h = relu(Wx + b)",
+            """Given dL/dh from the layer above (upstream gradient):<br>
+            Step 1 — Through ReLU: dL/dz = dL/dh * (z > 0)  [element-wise: zero for negatives]<br>
+            Step 2 — Through bias: dL/db = dL/dz  [identity: ∂z/∂b = 1]<br>
+            Step 3 — Through W: dL/dW = outer(x, dL/dz)  [∂(Wx)/∂W: outer product]<br>
+            Step 4 — Through x: dL/dx = W.T @ dL/dz  [∂(Wx)/∂x = W^T]<br><br>
+            This is the COMPLETE backprop algorithm for one linear+ReLU layer.
+            Stack it recursively for n layers and you have full backpropagation."""), unsafe_allow_html=True)
 
-        **Worked example:** Policy network forward and backward pass:
-        """)
         st.code("""
-# Forward pass
-s   = state          # shape (4,)
-h1  = W1 @ s + b1   # shape (32,) — linear
-h1r = np.maximum(0, h1)  # relu activation
-logits = W2 @ h1r + b2  # shape (2,) — action logits
-probs = softmax(logits)  # shape (2,) — action probs
+# Manual backprop — what PyTorch autograd does internally
+z1 = W1 @ s + b1; h1 = np.maximum(0, z1)       # forward
+z2 = W2 @ h1 + b2; e = np.exp(z2-z2.max()); p = e/e.sum()  # softmax
 
-# Loss: negative log prob of taken action a
-loss = -np.log(probs[a]) * G_t  # REINFORCE loss
-
-# Backward pass (chain rule applied in reverse)
-d_logits = probs.copy(); d_logits[a] -= 1  # ∂loss/∂logits (softmax-CE gradient)
-d_W2 = np.outer(h1r, d_logits)             # ∂loss/∂W2
-d_h1r = W2.T @ d_logits                    # ∂loss/∂h1r
-d_h1 = d_h1r * (h1 > 0)                    # ∂relu: 1 if positive, 0 if negative
-d_W1 = np.outer(s, d_h1)                   # ∂loss/∂W1
-
-# Update (gradient ascent for RL)
-W1 += alpha * (-d_W1) * G_t  # negative because chain gives -∇J
+# Backward (chain rule right to left):
+d_z2 = p.copy(); d_z2[action] -= 1; d_z2 *= -advantage   # CE grad × return
+d_W2 = np.outer(h1, d_z2); d_b2 = d_z2                   # through W2
+d_h1 = W2.T @ d_z2; d_z1 = d_h1 * (z1 > 0)              # through ReLU
+d_W1 = np.outer(s, d_z1); d_b1 = d_z1                     # through W1
 """, language="python")
 
-        st.subheader("4. Gradient Descent Variants")
+    # ── OPTIMISATION ──────────────────────────────────────────────────────
+    with tab_opt:
+        _sec("🎯", "Optimisation — Finding the Best Policy Parameters",
+             "Gradient descent, Adam, learning rates, convergence — all RL updates are optimisation", "#f57f17")
+
+        st.markdown(_card("#f57f17", "🎯", "Why optimisation theory matters",
+            """RL training IS optimisation. Actor update = gradient ascent on J(θ). Critic update =
+            gradient descent on TD loss. PPO = constrained optimisation (clip enforces trust region).
+            TRPO = KL-constrained trust region with natural gradient.
+            Understanding why gradient descent works, what makes it fail (saddle points, high curvature),
+            and how Adam/RMSProp address these is essential for debugging RL training failures.
+            The learning rate is the single most impactful hyperparameter in RL — too small = slow,
+            too large = diverges, optimal = the sweet spot that changes during training."""), unsafe_allow_html=True)
+
+        st.subheader("1. Gradient Descent — The Fundamental Algorithm")
+        st.latex(r"\theta_{t+1} = \theta_t - \alpha\nabla_\theta\mathcal{L}(\theta_t)")
+        st.markdown("**Convergence guarantee** (convex, L-smooth functions): step size α ≤ 1/L ensures each step decreases loss:")
+        st.latex(r"\mathcal{L}(\theta_{t+1}) \leq \mathcal{L}(\theta_t) - \frac{\alpha}{2}\|\nabla\mathcal{L}(\theta_t)\|^2")
+
+        def gd_path(lr, n=50):
+            x, y = 3.0, 2.5; path = [(x, y)]
+            for _ in range(n): x -= lr*2*x; y -= lr*10*y; path.append((x, y))
+            return np.array(path)
+        xm, ym = np.meshgrid(np.linspace(-4,4,60), np.linspace(-3,3,60))
+        zm = xm**2 + 5*ym**2
+        fig_o, axes_o = _fig(1, 3, 15, 4)
+        configs = [(0.05, "lr=0.05 — too small, slow"), (0.18, "lr=0.18 — optimal"), (0.22, "lr=0.22 — oscillates")]
+        for ax, (lr, title) in zip(axes_o, configs):
+            p = gd_path(lr)
+            ax.contourf(xm, ym, zm, levels=15, cmap="RdYlGn_r", alpha=0.7)
+            ax.plot(p[:,0], p[:,1], "w-", lw=1.5, alpha=0.8)
+            ax.plot(p[:,0], p[:,1], "wo", ms=2, alpha=0.7)
+            ax.plot(p[0,0], p[0,1], "rs", ms=8); ax.plot(0, 0, "g*", ms=10)
+            ax.set_title(title, color="white", fontsize=9, fontweight="bold")
+            ax.set_xlim(-4, 4); ax.set_ylim(-3, 3)
+        plt.tight_layout(); st.pyplot(fig_o); plt.close()
+
+        st.subheader("2. Adam — The Default Optimiser for RL")
+        st.markdown("Adam combines momentum (gradient history) with adaptive per-parameter learning rates:")
+        st.latex(r"m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t \quad\text{(1st moment: gradient mean)}")
+        st.latex(r"v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2 \quad\text{(2nd moment: gradient variance)}")
+        st.latex(r"\hat m_t = \frac{m_t}{1-\beta_1^t},\quad \hat v_t = \frac{v_t}{1-\beta_2^t} \quad\text{(bias correction for early steps)}")
+        st.latex(r"\theta_{t+1} = \theta_t - \frac{\alpha}{\sqrt{\hat v_t}+\varepsilon}\hat m_t")
+        st.markdown("Parameters with large gradients → smaller effective lr. Parameters with small gradients → larger effective lr. Default: β₁=0.9, β₂=0.999, ε=1e-8, lr=3e-4.")
+
         st.dataframe(pd.DataFrame({
-            "Algorithm": ["SGD", "SGD + Momentum", "RMSProp", "Adam"],
-            "Update rule": [
-                "θ ← θ - α·∇L",
-                "v ← βv - α·∇L; θ ← θ + v",
-                "s ← βs + (1-β)(∇L)²; θ ← θ - α·∇L/√(s+ε)",
-                "m ← β₁m+(1-β₁)∇L; v ← β₂v+(1-β₂)(∇L)²; θ ← θ - α·m̂/√(v̂+ε)",
-            ],
-            "Key property": [
-                "Simple but sensitive to α; oscillates in ravines",
-                "Builds up velocity in consistent directions; dampens oscillations",
-                "Adapts learning rate per parameter; good for sparse gradients",
-                "Combines momentum + RMSProp; default for most RL; robust α choice",
-            ],
-            "Used in RL": ["Rarely", "Sometimes with DDPG", "RMSProp in A3C", "Adam in DQN, PPO, SAC"],
+            "Optimiser": ["SGD", "Momentum", "RMSProp", "Adam", "AdamW"],
+            "Update rule": ["θ -= α·g", "v=βv-αg; θ+=v", "s=βs+(1-β)g²; θ-=α·g/√s",
+                            "θ -= α·m̂/√v̂", "Adam + weight decay λ·θ"],
+            "Key advantage": ["Simple", "Builds velocity in consistent directions",
+                              "Adapts lr per parameter", "Momentum + adaptive lr (robust)",
+                              "Better generalisation for LLMs"],
+            "Used in RL for": ["Rarely", "Classic policy gradient", "A3C (original paper)",
+                               "DQN, PPO, SAC, DDPG, TD3 (default)", "LLM RLHF fine-tuning"],
         }), use_container_width=True, hide_index=True)
 
     # ── PROBABILITY ───────────────────────────────────────────────────────
     with tab_prob:
-        _sec("🎲", "Probability & Statistics — RL Is a Probabilistic Framework",
-             "Distributions, expectations, Bayes, conditional probability — foundations of stochastic policies", "#7c4dff")
+        _sec("🎲", "Probability — The Language of Stochastic Policies",
+             "Distributions, expectations, Bayes — RL is fundamentally probabilistic at every level", "#7c4dff")
 
         st.markdown(_card("#7c4dff", "🎲", "Why probability is unavoidable in RL",
-            """The policy π(a|s) IS a probability distribution over actions given state. The reward signal
-            is often stochastic. The environment transition p(s'|s,a) is a conditional probability.
-            The value function V(s) = E[G_t|s_t=s] is an expectation. The policy gradient theorem
-            is derived by differentiating through an expectation. Monte Carlo methods estimate
-            expectations via sampling. Bayesian approaches maintain probability distributions over
-            unknown quantities (PSRL maintains a posterior over MDP dynamics). You cannot read a single
-            RL paper without encountering expectations, conditional probabilities, and distributions.
-            This section builds the probabilistic intuition from first principles."""), unsafe_allow_html=True)
+            """The policy π(a|s) IS a probability distribution — for each state, it assigns a probability
+            to each possible action. The value function V(s) = E[G_t | s_t=s] is an expectation over
+            future returns. The policy gradient theorem derives E_τ[Σ∇logπ·r] — an expectation over
+            trajectories. Monte Carlo methods estimate expectations by sampling. PSRL maintains a
+            Bayesian posterior over MDP dynamics. Thompson sampling draws from a posterior distribution.
+            The proof that the baseline doesn't bias the gradient requires E[∇logπ] = 0.
+            You cannot read a single RL equation without encountering probability."""), unsafe_allow_html=True)
 
-        st.subheader("1. Probability Fundamentals")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(r"""
-            **Probability axioms (Kolmogorov):**
-            """)
-            st.latex(r"P(A) \geq 0 \quad \forall A")
-            st.latex(r"P(\Omega) = 1 \quad\text{(total probability = 1)}")
-            st.latex(r"P(A\cup B) = P(A)+P(B) \quad\text{if }A\cap B=\emptyset")
-            st.markdown(r"**Conditional probability:**")
-            st.latex(r"P(A|B) = \frac{P(A\cap B)}{P(B)} \quad\text{(prob of A given B occurred)}")
-            st.markdown(r"**In RL:** $\pi(a|s) = P(\text{action}=a \mid \text{state}=s)$")
-        with col2:
-            st.markdown(r"**Bayes' theorem** (used in model-based RL):")
-            st.latex(r"P(\theta|D) = \frac{P(D|\theta)\cdot P(\theta)}{P(D)}")
-            st.markdown(r"""
-            - $P(\theta)$ — prior: belief about model parameters before data
-            - $P(D|\theta)$ — likelihood: probability of observed data given model
-            - $P(\theta|D)$ — posterior: updated belief after seeing data
-            - PSRL maintains posterior $P(\text{MDP}|\text{experience})$
-            """)
+        st.subheader("1. Kolmogorov Axioms — Foundation of All Probability")
+        st.latex(r"P(A) \geq 0 \quad \forall A \qquad P(\Omega)=1 \qquad P(A\cup B)=P(A)+P(B)\;\text{if }A\cap B=\emptyset")
+        st.markdown("**Conditional probability** — the most important concept for RL:")
+        st.latex(r"P(A|B) = \frac{P(A\cap B)}{P(B)} \quad\Rightarrow\quad \pi(a|s) = P(\text{action}=a\,|\,\text{state}=s)")
+        st.markdown("The policy is a conditional probability distribution: given the state, what is the probability of each action?")
 
-        st.subheader("2. Expectation — The Most Important Operation in RL")
-        st.markdown(r"""
-        The expected value of a random variable $X$ weighted by its probability:
-        """)
-        st.latex(r"\mathbb{E}[X] = \sum_x x\cdot P(X=x) \quad\text{(discrete)}")
-        st.latex(r"\mathbb{E}[X] = \int x\cdot p(x)\,dx \quad\text{(continuous)}")
-        st.markdown(r"""
-        **Properties (used constantly in RL derivations):**
-        """)
-        st.latex(r"\mathbb{E}[aX+bY] = a\mathbb{E}[X]+b\mathbb{E}[Y] \quad\text{(linearity)}")
-        st.latex(r"\mathbb{E}[g(X)] = \sum_x g(x)P(X=x) \quad\text{(law of the unconscious statistician)}")
-        st.markdown(r"""
-        **In RL:** The objective is $J(\theta) = \mathbb{E}_{\tau\sim\pi_\theta}[\sum_t r_t]$ — the
-        expected total reward. Monte Carlo estimation: run $N$ episodes, average the total rewards.
-        Each episode is one sample from the distribution of trajectories.
-        """)
-        st.code("""
-# Monte Carlo estimation of E[total_reward] — what REINFORCE does
-N = 1000  # number of episodes
-total_rewards = []
-for _ in range(N):
-    trajectory = collect_episode(env, policy)
-    total_rewards.append(sum(r for _,_,r in trajectory))
+        st.subheader("2. Expectation and Variance")
+        st.latex(r"\mathbb{E}[X] = \sum_x x\,P(X=x) \quad\text{(discrete)} \qquad \mathbb{E}[aX+bY] = a\mathbb{E}[X]+b\mathbb{E}[Y]\;\text{(linearity)}")
+        st.latex(r"\text{Var}[X] = \mathbb{E}[(X-\mathbb{E}[X])^2] = \mathbb{E}[X^2]-(\mathbb{E}[X])^2")
+        st.markdown("**In RL:** J(θ) = E_τ[Σr_t] is an expectation. Monte Carlo: run N episodes, average total rewards. Variance of returns → variance of gradient estimate → affects convergence speed.")
 
-E_reward = np.mean(total_rewards)  # estimate of J(θ)
-std_err = np.std(total_rewards) / np.sqrt(N)  # ± this much uncertainty
-""", language="python")
-
-        st.subheader("3. Key Probability Distributions in RL")
+        st.subheader("3. Key Distributions in RL")
         st.dataframe(pd.DataFrame({
-            "Distribution": ["Categorical / Multinomial", "Gaussian / Normal", "Beta", "Dirichlet"],
-            "Formula": [
-                "P(X=k) = p_k, Σp_k = 1",
-                "p(x) = exp(-(x-μ)²/2σ²) / (σ√2π)",
-                "p(x) = x^(α-1)(1-x)^(β-1) / B(α,β)",
-                "p(p) ∝ Πp_k^(αk-1)",
-            ],
-            "Where used in RL": [
-                "Discrete action policy: π(a|s) = softmax(logits)",
+            "Distribution": ["Categorical", "Gaussian N(μ,σ²)", "Beta(α,β)", "Dirichlet(α)"],
+            "Formula": ["P(X=k)=p_k, Σp_k=1", "p(x)∝exp(-(x-μ)²/2σ²)",
+                        "p(x)∝x^(α-1)(1-x)^(β-1)", "p(p)∝Πp_k^(αk-1)"],
+            "RL application": [
+                "Discrete action policy — softmax(logits)",
                 "Continuous action policy in PPO/SAC: a ~ N(μ(s), σ²(s))",
-                "Thompson Sampling prior for bandit arms",
-                "Bayesian prior over categorical distributions (PSRL)",
+                "Thompson sampling prior for Bernoulli bandit arms",
+                "PSRL posterior over categorical transition probabilities",
             ],
-            "Key property": [
-                "Sums to 1; differentiable via softmax parameterisation",
-                "Conjugate prior for normal likelihood; reparameterisable",
-                "Conjugate to Binomial; models probabilities in [0,1]",
-                "Conjugate to Categorical; models distribution over distributions",
+            "Key trick": [
+                "Differentiable via Gumbel-softmax reparameterisation",
+                "Reparameterisation: a = μ + σε, ε~N(0,1) — gradient flows through",
+                "Conjugate to Binomial: update α+=r, β+=1-r after each step",
+                "Conjugate to Categorical: α_k += N(s,a,s') counts",
             ],
         }), use_container_width=True, hide_index=True)
 
-        st.subheader("4. Variance — Why REINFORCE is Hard")
-        st.markdown(r"""
-        **Variance** measures how spread out a distribution is:
-        """)
-        st.latex(r"\text{Var}[X] = \mathbb{E}[(X-\mathbb{E}[X])^2] = \mathbb{E}[X^2] - (\mathbb{E}[X])^2")
-        st.markdown(r"""
-        **Why high variance is a problem for RL:** The REINFORCE gradient estimator:
-        """)
-        st.latex(r"\hat g = \frac{1}{N}\sum_i G_i\cdot\nabla_\theta\log\pi_\theta(a_i|s_i)")
-        st.markdown(r"""
-        has variance proportional to $\text{Var}[G_t]$ — how much episode returns fluctuate.
-        High variance → noisy gradient estimate → need more samples to converge.
-        **Baseline trick reduces variance:** $\text{Var}[G_t - b] = \text{Var}[G_t] - 2\text{Cov}[G_t,b] + \text{Var}[b]$.
-        With $b = \mathbb{E}[G_t]$, this reduces variance significantly.
-        """)
+        st.subheader("4. Bayes' Theorem — Used in PSRL and Bayesian RL")
+        st.latex(r"P(\theta|\mathcal{D}) = \frac{P(\mathcal{D}|\theta)\cdot P(\theta)}{P(\mathcal{D})} \propto P(\mathcal{D}|\theta)\cdot P(\theta)")
+        st.markdown("PSRL: maintain a posterior P(MDP | experience). Each episode, **sample one MDP** from the posterior and act optimally in it. This is Thompson Sampling extended to full MDPs — it automatically balances exploration and exploitation.")
+
+    # ── STATISTICS ────────────────────────────────────────────────────────
+    with tab_stat:
+        _sec("📊", "Statistics — Evaluating and Comparing RL Algorithms",
+             "Variance, bias-variance, confidence intervals — critical for reproducible RL research", "#0288d1")
+
+        st.markdown(_card("#0288d1", "📊", "Why statistics is essential for RL practitioners",
+            """Henderson et al. (2018) showed PPO on HalfCheetah varied from 2000 to 6000 reward
+            across 5 seeds — a 3× range. Without statistics, you cannot tell if algorithm A beats B
+            or just got luckier random seeds. Variance of the gradient estimator directly determines
+            how many environment steps you need to converge. The bias-variance tradeoff is the
+            fundamental lens for understanding n-step returns, GAE, and the difference between
+            Monte Carlo and TD methods. Confidence intervals tell you how many seeds to run.
+            Every serious RL practitioner and researcher needs working statistics."""), unsafe_allow_html=True)
+
+        st.subheader("1. Standard Error — The Core of MC Gradient Estimation")
+        st.latex(r"\text{SE}[\hat\mu_N] = \frac{\sigma}{\sqrt{N}} \quad\text{(how accurate is averaging N samples?)}")
+        st.markdown("To **halve** the standard error: need **4× more** samples. To reduce it **10×**: need **100× more** samples. This is why high-variance REINFORCE is so slow — you pay a quadratic cost to reduce gradient noise.")
+
+        np.random.seed(42)
+        true_mean = 150.0; ns = [5, 10, 25, 50, 100, 250, 500]
+        stds = [np.std([np.random.normal(true_mean, 40, n).mean() for _ in range(200)]) for n in ns]
+        fig_v, axes_v = _fig(1, 2, 13, 4)
+        axes_v[0].plot(ns, stds, color="#ef5350", lw=2.5, marker="o", ms=7, label="Empirical std")
+        axes_v[0].plot(ns, [40/np.sqrt(n) for n in ns], color="#4caf50", lw=2, ls="--", label="40/√N (theory)")
+        axes_v[0].set_xlabel("N (episodes averaged)", color="white")
+        axes_v[0].set_ylabel("Std of gradient estimate", color="white")
+        axes_v[0].set_title("SE ∝ 1/√N — the fundamental cost of MC gradient estimation",
+                            color="white", fontweight="bold")
+        axes_v[0].legend(facecolor=CARD, labelcolor="white"); axes_v[0].grid(alpha=0.12)
+        for n, col in [(5, "#ef5350"), (50, "#ffa726"), (500, "#4caf50")]:
+            axes_v[1].hist([np.random.normal(true_mean, 40, n).mean() for _ in range(200)],
+                           bins=25, alpha=0.6, color=col, label=f"N={n}")
+        axes_v[1].axvline(true_mean, color="white", ls="--", lw=2, label="True mean=150")
+        axes_v[1].set_xlabel("Estimated return", color="white"); axes_v[1].set_ylabel("Count", color="white")
+        axes_v[1].set_title("Distribution of estimates: more samples → tighter", color="white", fontweight="bold")
+        axes_v[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_v[1].grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_v); plt.close()
+
+        st.subheader("2. Bias-Variance Tradeoff in RL Advantage Estimators")
+        st.latex(r"\text{MSE}[\hat\theta] = \text{Bias}[\hat\theta]^2 + \text{Var}[\hat\theta]")
+        st.markdown("In RL, this tradeoff appears directly in how we estimate the advantage A(s,a) = Q(s,a) - V(s):")
+        st.dataframe(pd.DataFrame({
+            "Estimator": ["MC return G_t", "1-step TD δ_t", "n-step return", "GAE(γ,λ)"],
+            "Bias": ["Zero", "High (V is imperfect)", "γⁿ × V_error (shrinks with n)", "Tunable via λ∈[0,1]"],
+            "Variance": ["Very high (sums all future random rewards)", "Low (only 1 random reward)", "Grows with n", "Tunable via λ"],
+            "Formula": ["Σ γ^k r_{t+k}", "r_t+γV(s')−V(s)", "Σ_{k<n} γ^k r + γⁿV(s_{t+n})", "Σ_k (γλ)^k δ_{t+k}"],
+            "Equivalent λ": ["λ=1", "λ=0", "Fixed n", "λ∈[0,1]"],
+        }), use_container_width=True, hide_index=True)
+
+        st.subheader("3. Reproducibility — The RL Research Crisis and the Solution")
+        st.code("""
+# The correct evaluation protocol (required for publication-quality results):
+seeds = [0, 1, 2, 3, 4]  # minimum 5 seeds; 10 preferred
+final_rewards = [train_and_evaluate(seed=s, steps=1_000_000) for s in seeds]
+
+mean   = np.mean(final_rewards)
+std    = np.std(final_rewards)
+stderr = std / np.sqrt(len(seeds))  # standard error of the mean
+
+print(f"Result: {mean:.0f} ± {stderr:.0f} (n={len(seeds)} seeds)")
+# NEVER report: "our method gets 6000 reward" from a single lucky seed
+# Always report: mean ± stderr over at least 5 seeds
+""", language="python")
 
     # ── INFORMATION THEORY ────────────────────────────────────────────────
     with tab_info:
-        _sec("📡", "Information Theory — Directly Used in RL Algorithms",
-             "Entropy · KL divergence · Cross-entropy — the language of PPO, SAC, and reward models", "#ad1457")
+        _sec("📡", "Information Theory — Entropy, KL Divergence, Cross-Entropy",
+             "H(π) in SAC, D_KL in PPO/TRPO, −logπ as policy loss — in every modern RL algorithm", "#ad1457")
 
-        st.markdown(_card("#ad1457", "📡", "Why information theory appears in RL formulas",
-            """Three specific information-theoretic quantities appear directly in RL algorithm formulas:
-            (1) Entropy H(π) — the SAC objective maximises reward plus policy entropy; the A2C/A3C
-            entropy bonus prevents premature policy collapse; PPO includes an entropy bonus term.
-            (2) KL divergence D_KL(π_new||π_old) — the constraint in TRPO; approximated by the
-            clip in PPO; the penalty in RLHF/DPO.
-            (3) Cross-entropy — the policy loss in REINFORCE and PPO is the cross-entropy between
-            the desired distribution and the policy distribution. Understanding these quantities
-            makes algorithm formulas readable rather than opaque."""), unsafe_allow_html=True)
+        st.markdown(_card("#ad1457", "📡", "Three quantities that appear directly in RL formulas",
+            """(1) <b>Entropy H(π)</b>: SAC objective = E[r + αH(π)]; A2C/A3C entropy bonus −c₂H(π);
+            PPO entropy term prevents premature policy collapse.
+            (2) <b>KL divergence D_KL(π||π_old)</b>: TRPO constraint; approximated by clip in PPO;
+            penalty β·D_KL(π||π_ref) in RLHF prevents reward hacking.
+            (3) <b>Cross-entropy H(P,Q)</b>: the policy loss −logπ(a|s) in REINFORCE and PPO is
+            cross-entropy between the one-hot distribution and the policy; RLHF reward model
+            training uses cross-entropy on preference pairs."""), unsafe_allow_html=True)
 
-        st.subheader("1. Entropy — Measuring Uncertainty / Diversity")
-        st.markdown(r"""
-        **Definition:** Entropy measures how uncertain or spread-out a distribution is.
-        For a discrete distribution $P$ over $K$ outcomes:
-        """)
-        st.latex(r"H(P) = -\sum_{k=1}^K P(k)\log P(k) \quad\text{(units: bits if log₂, nats if ln)}")
-        st.markdown(r"""
-        **Where it comes from:** The optimal code length for outcome $k$ is $-\log P(k)$.
-        Entropy is the expected code length — the minimum average bits to encode a random outcome.
+        st.subheader("1. Entropy — Measuring Policy Diversity and Uncertainty")
+        st.latex(r"H(P) = -\sum_k P(k)\log P(k) = \mathbb{E}_{x\sim P}[-\log P(x)]")
+        st.markdown("**Derivation from optimal coding:** The optimal code length for event k with probability P(k) is −log₂P(k) bits. Entropy is the **expected optimal code length** — the minimum average bits needed to encode a random draw.")
+        st.markdown("Key properties: H ≥ 0 always. H = 0 iff deterministic (one event has prob=1). H = log|A| iff uniform (maximum diversity).")
+        st.markdown("**SAC objective** explicitly maximises entropy:")
+        st.latex(r"J^{\text{SAC}}(\pi) = \mathbb{E}_\tau\!\left[\sum_t\gamma^t\bigl(r_t + \alpha H(\pi(\cdot|s_t))\bigr)\right]")
 
-        **Key properties:**
-        - $H(P) \geq 0$ always
-        - $H(P) = 0$ if one outcome has probability 1 (deterministic — no uncertainty)
-        - $H(P) = \log K$ if all outcomes are equally likely (maximum entropy — maximum uncertainty)
-        - In RL: $H(\pi(\cdot|s)) = -\sum_a \pi(a|s)\log\pi(a|s)$ — how random the policy is
+        p_v = st.slider("P(action=0)", 0.01, 0.99, 0.5, 0.01, key="info_p_v")
+        p2 = np.array([p_v, 1-p_v])
+        H_v = -sum(p * np.log(p) for p in p2 if p > 0)
+        H_max = np.log(2)
+        xr = np.linspace(0.01, 0.99, 200)
+        Hc = -xr*np.log(xr) - (1-xr)*np.log(1-xr)
+        fig_e, axes_e = _fig(1, 2, 12, 3.5)
+        axes_e[0].bar(["Action 0", "Action 1"], p2, color=["#ad1457", "#546e7a"])
+        axes_e[0].set_title(f"H={H_v:.3f} nats ({100*H_v/H_max:.0f}% of max)",
+                            color="white", fontweight="bold")
+        axes_e[0].set_ylabel("Probability", color="white"); axes_e[0].grid(alpha=0.1, axis="y")
+        axes_e[1].plot(xr, Hc, color="#ad1457", lw=2.5)
+        axes_e[1].axvline(p_v, color="#ef5350", ls="--", lw=2, label=f"Current H={H_v:.3f}")
+        axes_e[1].axhline(H_max, color="#4caf50", ls=":", lw=1.5, label=f"Max H={H_max:.3f}")
+        axes_e[1].set_xlabel("P(action=0)", color="white"); axes_e[1].set_ylabel("H(π)", color="white")
+        axes_e[1].set_title("Entropy — maximum at uniform distribution", color="white", fontweight="bold")
+        axes_e[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_e[1].grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_e); plt.close()
 
-        **Why we maximise entropy in SAC:** Higher entropy → more exploratory policy →
-        less likely to get stuck in local optima. The SAC objective $r + \alpha H(\pi)$ explicitly
-        rewards the policy for being uncertain (keeping options open).
-        """)
-        # Entropy visualisation
-        p = np.linspace(0.001, 0.999, 200)
-        H = -(p*np.log(p) + (1-p)*np.log(1-p))
-        fig_ent, ax_ent = _fig(1, 1, 9, 3.5)
-        ax_ent.plot(p, H, color="#ad1457", lw=2.5)
-        ax_ent.axvline(0.5, color="#4caf50", ls="--", lw=1.5, label="Max entropy at p=0.5")
-        ax_ent.fill_between(p, 0, H, alpha=0.15, color="#ad1457")
-        ax_ent.set_xlabel("P(action=0)", color="white"); ax_ent.set_ylabel("H(π) [nats]", color="white")
-        ax_ent.set_title("Binary policy entropy — maximised when actions are equally likely",
-                         color="white", fontweight="bold")
-        ax_ent.legend(facecolor=CARD, labelcolor="white"); ax_ent.grid(alpha=0.12)
-        plt.tight_layout(); st.pyplot(fig_ent); plt.close()
-
-        st.subheader("2. KL Divergence — Distance Between Distributions")
-        st.markdown(r"""
-        **Definition:** KL divergence measures how much distribution $Q$ differs from distribution $P$:
-        """)
+        st.subheader("2. KL Divergence — How Far the Policy Has Moved")
         st.latex(r"D_\text{KL}(P\|Q) = \sum_k P(k)\log\frac{P(k)}{Q(k)} = \mathbb{E}_{x\sim P}\!\left[\log\frac{P(x)}{Q(x)}\right]")
-        st.markdown(r"""
-        **Key properties:**
-        - $D_\text{KL}(P\|Q) \geq 0$ always (Gibbs' inequality)
-        - $D_\text{KL}(P\|Q) = 0$ if and only if $P = Q$
-        - **Not symmetric:** $D_\text{KL}(P\|Q) \neq D_\text{KL}(Q\|P)$ in general
+        st.markdown(_proof("KL divergence is always ≥ 0 (Gibbs' inequality)",
+            """By Jensen's inequality applied to the concave function log:<br>
+            D_KL(P||Q) = -E_{x~P}[log(Q(x)/P(x))]<br>
+            ≥ -log(E_{x~P}[Q(x)/P(x)])  — Jensen's: -log(E) ≤ E[-log] for concave log<br>
+            = -log(∑_x P(x)·Q(x)/P(x)) = -log(∑_x Q(x)) = -log(1) = 0 ✓<br>
+            Equality holds if and only if P = Q everywhere."""), unsafe_allow_html=True)
+        st.markdown("**PPO:** clip r_t ∈ [1-ε, 1+ε] approximately enforces D_KL(π_new||π_old) ≤ ε²/2 per update. **RLHF:** β·D_KL(π||π_ref) prevents the fine-tuned LLM from drifting into reward-hacking territory.")
 
-        **In RL algorithms:**
-        - TRPO constraint: $D_\text{KL}(\pi_\text{new}\|\pi_\text{old}) \leq \delta$ — trust region
-        - PPO: $D_\text{KL}$ implicitly bounded by the clip $\varepsilon$
-        - RLHF: $\beta D_\text{KL}(\pi_\theta\|\pi_\text{ref})$ — prevents reward hacking
-        - SAC: $D_\text{KL}(\pi\|e^{Q/Z})$ — SAC policy update minimises this KL
-        """)
+        mu2 = st.slider("New policy mean μ₂", -2.0, 2.0, 0.5, 0.1, key="kl_mu2_v")
+        xkl = np.linspace(-5, 5, 300); sig = 1.0
+        p1 = np.exp(-xkl**2 / (2*sig**2)) / (sig*np.sqrt(2*np.pi))
+        p2kl = np.exp(-(xkl-mu2)**2 / (2*sig**2)) / (sig*np.sqrt(2*np.pi))
+        kl_val = (mu2**2) / (2*sig**2)
+        fig_kl, ax_kl = _fig(1, 1, 10, 3.5)
+        ax_kl.plot(xkl, p1, color="#0288d1", lw=2.5, label="π_old: N(0,1)")
+        ax_kl.plot(xkl, p2kl, color="#e65100", lw=2.5, label=f"π_new: N({mu2:.1f},1)")
+        ax_kl.fill_between(xkl, 0, np.minimum(p1, p2kl), alpha=0.2, color="#4caf50", label="Overlap region")
+        status_kl = "✅ safe" if kl_val < 0.015 else "⚠️ borderline" if kl_val < 0.05 else "❌ too large"
+        ax_kl.set_title(f"KL(π_new||π_old) = {kl_val:.3f} — {status_kl} (PPO enforces KL ≤ ε²/2 ≈ 0.02)",
+                        color="white", fontweight="bold")
+        ax_kl.set_xlabel("Action value", color="white"); ax_kl.set_ylabel("Density", color="white")
+        ax_kl.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_kl.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_kl); plt.close()
 
         st.subheader("3. Cross-Entropy — The Policy Training Loss")
-        st.markdown(r"""
-        **Definition:** Cross-entropy between target distribution $P$ and predicted distribution $Q$:
-        """)
-        st.latex(r"H(P, Q) = -\sum_k P(k)\log Q(k) = H(P) + D_\text{KL}(P\|Q)")
-        st.markdown(r"""
-        **In RL — the policy gradient loss is cross-entropy:**
-        The REINFORCE/PPO loss $-\log\pi_\theta(a|s)$ is the cross-entropy between the
-        one-hot distribution over action $a$ and the policy $\pi_\theta$.
-        Minimising cross-entropy is equivalent to maximising log-probability of the taken action.
-
-        **Practical example:** Policy predicts [0.3, 0.5, 0.2] for 3 actions. Agent took action 1 (index).
-        """)
-        st.code("""
-probs = np.array([0.3, 0.5, 0.2])  # policy predictions
-a = 1  # taken action (one-hot: [0,1,0])
-
-# Cross-entropy loss (policy gradient uses this with reward weighting)
-loss = -np.log(probs[a])   # = -log(0.5) = 0.693
-# This is the "how surprised were we by the taken action" metric
-# Gradient descent on this loss increases probs[a]
-""", language="python")
+        st.latex(r"H(P,Q) = -\sum_k P(k)\log Q(k) = H(P) + D_\text{KL}(P\|Q)")
+        st.markdown("**The policy loss is cross-entropy:**")
+        st.latex(r"H(\delta_a, \pi_\theta) = -\sum_k \delta(k=a)\log\pi_\theta(k|s) = -\log\pi_\theta(a|s)")
+        st.markdown("The one-hot δ(k=a) collapses the sum to one term. Minimising cross-entropy = maximising log-probability of taken action. Weighted by advantage → REINFORCE/PPO gradient update.")
 
     # ── PYTHON & NUMPY ────────────────────────────────────────────────────
     with tab_py:
         _sec("🐍", "Python & NumPy — The Implementation Layer",
-             "Vectorised operations, broadcasting, arrays — everything the portal simulations use", "#0288d1")
+             "Vectorised ops, broadcasting, all essential RL patterns — used throughout the portal", "#0288d1")
 
-        st.markdown(_card("#0288d1", "🐍", "Why NumPy mastery matters for RL implementation",
-            """All the algorithms in this portal are implemented in NumPy — no PyTorch, no TensorFlow.
-            This is intentional: if you can implement REINFORCE or Q-learning in NumPy, you understand
-            the algorithm. PyTorch autograd and GPU acceleration are engineering tools built on top of
-            the same mathematical operations. Understanding NumPy broadcasting, vectorised operations,
-            and array indexing makes you able to: read other people's RL implementations, debug gradient
-            issues at the numerical level, and implement new ideas before using a deep learning framework.
-            PyTorch tensors behave almost identically to NumPy arrays — the API is nearly identical."""), unsafe_allow_html=True)
-
-        st.subheader("1. Arrays — The Core Data Structure")
+        st.subheader("1. Array Fundamentals")
         st.code("""
 import numpy as np
 
-# Creating arrays
-s = np.array([0.02, -0.01, 0.04, 0.03])  # 1D: CartPole state, shape (4,)
-W = np.random.randn(32, 4)               # 2D: weight matrix, shape (32, 4)
-Q = np.zeros((100, 4))                   # 2D: Q-table, shape (100, 4)
-replay = np.zeros((10000, 4))            # 2D: replay buffer states
+s   = np.array([0.02, -0.01, 0.04, 0.03])    # 1D vector, shape (4,)
+W   = np.random.randn(32, 4) * np.sqrt(2/4)  # 2D matrix, shape (32,4)
+Q   = np.zeros((100, 4))                       # Q-table, shape (100,4)
+eye = np.eye(4)                                # 4×4 identity matrix
 
-# Key attributes
-print(s.shape)   # (4,)  — dimensions
+# Attributes
+print(W.shape)   # (32, 4)  — dimensions
 print(W.dtype)   # float64
-print(s.ndim)    # 1  — number of dimensions
+print(W.ndim)    # 2  — number of dimensions
+
+# Indexing
+W[0]        # first row, shape (4,)
+W[:, 0]     # first column, shape (32,)
+W[0:5, 2]   # rows 0-4 of column 2, shape (5,)
 
 # Reshape (critical for batching)
-s_batch = s.reshape(1, -1)  # (4,) → (1, 4): add batch dimension
-s_flat = W.reshape(-1)       # (32, 4) → (128,): flatten
+s.reshape(1, -1)   # (4,) → (1,4): add batch dimension
+W.reshape(-1)      # (32,4) → (128,): flatten all
 """, language="python")
 
-        st.subheader("2. Vectorised Operations — Why Loops Are Avoided")
+        st.subheader("2. Vectorised Operations — Why Python Loops Are Avoided")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Slow (explicit loop):**")
-            st.code("""
-# Q-value update for N=1000 states
-results = []
-for i in range(1000):
-    results.append(Q[i] + alpha * (r[i] + gamma*Q_next[i] - Q[i]))
-# ~1ms per loop = 1 second total
-""", language="python")
+            st.markdown("**Slow — Python loop:**")
+            st.code("for i in range(1000):\n    Q[i] += alpha*(r[i]+gamma*Qn[i]-Q[i])\n# ~1ms/element = 1 second total", language="python")
         with col2:
-            st.markdown("**Fast (vectorised):**")
-            st.code("""
-# Same operation, vectorised — 1000x faster
-Q = Q + alpha * (r + gamma*Q_next - Q)
-# All 1000 states updated in one GPU operation
-# Runs in microseconds
-""", language="python")
+            st.markdown("**Fast — vectorised (1000× faster):**")
+            st.code("Q += alpha * (r + gamma*Qn - Q)\n# NumPy C loop: ~1 microsecond", language="python")
 
-        st.subheader("3. Broadcasting — Operating on Different-Shaped Arrays")
+        st.subheader("3. Broadcasting Rules")
         st.code("""
-# Broadcasting rules: dimensions are aligned right-to-left
-# Missing dimensions are expanded (broadcast) to match
+# Broadcasting: dimensions aligned right-to-left, missing dims broadcast
 
-states = np.random.randn(64, 4)   # batch of 64 states, shape (64, 4)
-W      = np.random.randn(32, 4)   # weight matrix, shape (32, 4)
-
-# Matrix multiplication: (64,4) @ (4,32) = (64,32)
-h = states @ W.T + np.zeros(32)   # biases broadcast over batch
+states = np.random.randn(64, 4)    # batch of 64 states
+W      = np.random.randn(32, 4)    # weight matrix
+h = states @ W.T + np.zeros(32)   # (64,4)@(4,32)+(32,)=(64,32) — bias broadcasts
 
 # Advantage normalisation (used in PPO)
-advantages = np.random.randn(512)  # shape (512,)
-advantages_norm = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-# mean() and std() collapse to scalars, which broadcast over all 512 elements
+adv = np.random.randn(512)
+adv_norm = (adv - adv.mean()) / (adv.std() + 1e-8)
 """, language="python")
 
-        st.subheader("4. Common RL NumPy Patterns")
+        st.subheader("4. Essential RL Patterns")
         st.code("""
-import numpy as np
+# 1. Softmax (numerical stability)
+def softmax(x): e = np.exp(x - x.max()); return e/e.sum()
 
-# 1. Softmax — converts logits to probabilities
-def softmax(x):
-    e = np.exp(x - x.max())  # subtract max for numerical stability
-    return e / e.sum()
+# 2. Epsilon-greedy action selection
+def eps_greedy(Q, eps=0.1):
+    if np.random.rand() < eps: return np.random.randint(len(Q))
+    return np.argmax(Q)
 
-# 2. Sample from categorical distribution
-probs = softmax(np.array([1.0, 2.0, 0.5]))
-action = np.random.choice(3, p=probs)
-
-# 3. Compute discounted returns (reward-to-go) — used in REINFORCE
+# 3. Discounted returns (backward pass)
 def discounted_returns(rewards, gamma=0.99):
-    G = 0.0; returns = []
-    for r in reversed(rewards):
-        G = r + gamma * G
-        returns.insert(0, G)
-    return np.array(returns)
+    G = 0.0; R = []
+    for r in reversed(rewards): G = r + gamma*G; R.insert(0, G)
+    return np.array(R)
 
-# 4. Epsilon-greedy action selection
-def eps_greedy(Q_values, eps=0.1):
-    if np.random.rand() < eps:
-        return np.random.randint(len(Q_values))
-    return np.argmax(Q_values)
-
-# 5. Experience replay buffer
+# 4. Replay buffer (DQN/SAC/TD3)
 class ReplayBuffer:
-    def __init__(self, capacity, obs_dim):
-        self.buf = np.zeros((capacity, obs_dim*2 + 3))  # s,a,r,s',done
-        self.ptr = self.size = 0; self.cap = capacity
-    def add(self, s, a, r, s2, done):
-        self.buf[self.ptr] = np.concatenate([s,[a,r],s2,[done]])
-        self.ptr = (self.ptr+1) % self.cap; self.size = min(self.size+1, self.cap)
+    def __init__(self, cap, obs_dim):
+        self.s  = np.zeros((cap, obs_dim)); self.a  = np.zeros(cap)
+        self.r  = np.zeros(cap);           self.s2 = np.zeros((cap, obs_dim))
+        self.d  = np.zeros(cap, dtype=bool); self.ptr = self.size = 0; self.cap = cap
+    def add(self, s, a, r, s2, d):
+        i = self.ptr; self.s[i]=s; self.a[i]=a; self.r[i]=r; self.s2[i]=s2; self.d[i]=d
+        self.ptr = (self.ptr+1)%self.cap; self.size = min(self.size+1, self.cap)
     def sample(self, n):
         idx = np.random.randint(0, self.size, n)
-        return self.buf[idx]
+        return self.s[idx], self.a[idx], self.r[idx], self.s2[idx], self.d[idx]
+
+# 5. GAE — Generalised Advantage Estimation (PPO)
+def compute_gae(rewards, values, dones, last_val, gamma=0.99, lam=0.95):
+    T = len(rewards); A = np.zeros(T); gae = 0.0
+    for t in reversed(range(T)):
+        next_v = last_val if t==T-1 else values[t+1]*(1-dones[t])
+        delta = rewards[t] + gamma*next_v - values[t]
+        gae = delta + gamma*lam*(1-dones[t])*gae; A[t] = gae
+    return A, A + values   # advantages, returns
 """, language="python")
 
     # ── NEURAL NETWORK MATH ──────────────────────────────────────────────
     with tab_nn:
-        _sec("🧠", "Neural Network Math — From Equations to Code",
-             "Activations, forward pass, backpropagation from scratch — understand before using PyTorch", "#558b2f")
+        _sec("🧠", "Neural Network Math — Implement Backprop Once, Use Forever",
+             "Activations, forward pass, manual backprop, weight init — understand before using autograd", "#558b2f")
 
-        st.markdown(_card("#558b2f", "🧠", "Why implement backprop once before using autograd",
-            """PyTorch and TensorFlow compute gradients automatically via autograd. This is incredibly
-            convenient but hides what is actually happening. If you have never implemented backpropagation
-            manually, you will struggle to: debug gradient issues (exploding, vanishing, wrong shapes),
-            understand why certain architectural choices (residual connections, layer norm) help,
-            implement custom loss functions for new RL algorithms, and read theoretical RL papers
-            that give gradient expressions explicitly. Implement it once in NumPy (this section does it
-            for a 2-layer policy network), then use PyTorch for everything else. The effort is
-            approximately 2 hours and the payoff is permanent clarity."""), unsafe_allow_html=True)
+        st.markdown(_card("#558b2f", "🧠", "Why implement backprop manually before using PyTorch",
+            """PyTorch computes gradients automatically via autograd. This is convenient but hides the
+            mechanics. If you have never implemented backpropagation manually, you will struggle to:
+            debug gradient issues (exploding, vanishing, wrong shapes), understand why architectural
+            choices (residual connections, layer norm) help, implement custom loss functions for new
+            RL algorithms, and read theoretical RL papers that give gradient expressions explicitly.
+            Implement it once in NumPy (this section does it), then use PyTorch for everything else.
+            The effort is ~2 hours and the understanding is permanent."""), unsafe_allow_html=True)
 
-        st.subheader("1. Activation Functions — Why Non-Linearity Matters")
-        st.markdown(r"""
-        Without activation functions, a neural network is just one big matrix multiplication —
-        it can only learn linear functions. Activation functions introduce non-linearity:
-        """)
-        x_act = np.linspace(-4, 4, 200)
-        fig_act, axes_act = _fig(1, 4, 16, 3.5)
+        st.subheader("1. Activation Functions — Why Non-Linearity Is Essential")
+        st.markdown("Without activations: W₃(W₂(W₁x)) = (W₃W₂W₁)x = Wx — just one big linear map. Non-linearity makes networks universal approximators.")
+        xact = np.linspace(-3, 3, 200)
         acts = [
-            ("ReLU", np.maximum(0, x_act), "max(0,x)", "#7c4dff", "Most common hidden layers; no vanishing gradient for x>0"),
-            ("Sigmoid", 1/(1+np.exp(-x_act)), "1/(1+e^-x)", "#0288d1", "Output layer for probabilities; gates in LSTMs"),
-            ("Tanh", np.tanh(x_act), "tanh(x)", "#00897b", "Output in [-1,1]; better than sigmoid for hidden layers"),
-            ("GELU", x_act * (1 + np.vectorize(lambda x: __import__('math').erf(x/np.sqrt(2)))(x_act))/2,
-             "x·Φ(x)", "#e65100", "Used in Transformers (BERT, GPT); smooth ReLU variant"),
+            ("ReLU",    np.maximum(0, xact), (xact>0).astype(float), "#7c4dff",
+             "Default hidden layers. No vanishing gradient for x>0. Use He init."),
+            ("Sigmoid", 1/(1+np.exp(-xact)),
+             (1/(1+np.exp(-xact)))*(1-1/(1+np.exp(-xact))), "#0288d1",
+             "Output layer for probs. LSTM gates. Reward model outputs."),
+            ("Tanh",    np.tanh(xact), 1-np.tanh(xact)**2, "#00897b",
+             "Output in [-1,1]. Better than sigmoid for hidden layers."),
+            ("GELU",    xact*0.5*(1+np.tanh(np.sqrt(2/np.pi)*(xact+0.044715*xact**3))),
+             np.ones_like(xact)*0.5, "#e65100",
+             "Transformers, GPT, BERT. Smooth ReLU variant."),
         ]
-        for ax, (name, vals, form, col, desc) in zip(axes_act, acts):
-            ax.plot(x_act, vals, color=col, lw=2.5)
-            ax.set_title(f"{name}\n{form}", color="white", fontsize=8, fontweight="bold")
-            ax.axhline(0, color="#2a2a3e"); ax.axvline(0, color="#2a2a3e")
-            ax.grid(alpha=0.12)
-        plt.tight_layout(); st.pyplot(fig_act); plt.close()
+        fig_a, axes_a = _fig(1, 4, 16, 3.5)
+        for ax, (nm, f, df, col, usage) in zip(axes_a, acts):
+            ax.plot(xact, f, color=col, lw=2.5, label="f(x)")
+            ax.plot(xact, df, color=col, lw=1.5, ls="--", alpha=0.7, label="f'(x)")
+            ax.set_title(nm, color="white", fontsize=9, fontweight="bold")
+            ax.axhline(0, color="#2a2a3e"); ax.axvline(0, color="#2a2a3e"); ax.grid(alpha=0.1)
+            ax.legend(facecolor=CARD, labelcolor="white", fontsize=6)
+        plt.tight_layout(); st.pyplot(fig_a); plt.close()
 
-        st.subheader("2. Forward Pass — Computing the Network Output")
+        st.subheader("2. Complete Forward + Backward Pass Implementation")
         st.code("""
-import numpy as np
-
 class TwoLayerPolicy:
-    \"\"\"2-layer policy network for CartPole (4 inputs → 2 action probs)\"\"\"
-    def __init__(self, in_dim=4, hid=32, out_dim=2, seed=0):
+    \"\"\"2-layer policy for CartPole: 4 inputs → 32 hidden → 2 action probs\"\"\"
+    def __init__(self, seed=0):
         np.random.seed(seed)
-        # He initialisation: variance = 2/fan_in (good for ReLU)
-        self.W1 = np.random.randn(in_dim, hid) * np.sqrt(2/in_dim)
-        self.b1 = np.zeros(hid)
-        self.W2 = np.random.randn(hid, out_dim) * np.sqrt(2/hid)
-        self.b2 = np.zeros(out_dim)
-        # Cache for backward pass
-        self.cache = {}
+        # He initialisation: variance = 2/fan_in for ReLU networks
+        self.W1 = np.random.randn(4, 32) * np.sqrt(2/4)   # (in, hid)
+        self.b1 = np.zeros(32)
+        self.W2 = np.random.randn(32, 2) * np.sqrt(2/32)  # (hid, out)
+        self.b2 = np.zeros(2)
+        self.cache = {}  # store intermediates for backward pass
 
     def forward(self, x):
-        # Layer 1: linear + ReLU
-        z1 = x @ self.W1 + self.b1  # shape (hid,)
-        h1 = np.maximum(0, z1)       # ReLU: element-wise max(0, z1)
+        z1 = x @ self.W1 + self.b1      # linear: (4,)@(4,32)=(32,)
+        h1 = np.maximum(0, z1)           # ReLU: zero out negatives
+        z2 = h1 @ self.W2 + self.b2     # linear: (32,)@(32,2)=(2,)
+        e  = np.exp(z2 - z2.max())      # stability: subtract max
+        p  = e / e.sum()                 # softmax: action probabilities
+        self.cache = dict(x=x, z1=z1, h1=h1, z2=z2, p=p)
+        return p
 
-        # Layer 2: linear + softmax
-        z2 = h1 @ self.W2 + self.b2  # shape (out_dim,)
-        e = np.exp(z2 - z2.max())    # numerical stability
-        probs = e / e.sum()           # softmax probabilities
-
-        # Cache intermediates for backprop
-        self.cache = {'x': x, 'z1': z1, 'h1': h1, 'z2': z2, 'probs': probs}
-        return probs
-""", language="python")
-
-        st.subheader("3. Backpropagation — Chain Rule Applied")
-        st.code("""
     def backward(self, action, advantage):
-        \"\"\"
-        Compute gradients via backpropagation.
-        Loss = -log(probs[action]) * advantage  (REINFORCE policy gradient)
-        Goal: compute d_Loss/d_W1, d_Loss/d_b1, d_Loss/d_W2, d_Loss/d_b2
-        \"\"\"
-        x, z1, h1, z2, probs = [self.cache[k] for k in ['x','z1','h1','z2','probs']]
+        \"\"\"Chain rule applied backward. Returns gradients for all weights.\"\"\"
+        x, z1, h1, z2, p = (self.cache[k] for k in ['x','z1','h1','z2','p'])
 
-        # --- Backward through softmax + log + advantage weighting ---
-        # d(Loss)/d(z2): gradient of -log(probs[a])*adv w.r.t. z2
-        # Softmax-CE gradient: probs - one_hot(action), scaled by -advantage
-        d_z2 = probs.copy()
-        d_z2[action] -= 1.0      # ∂(-log p_a)/∂logits = p - 1_{a}
-        d_z2 *= -advantage        # policy gradient: maximise → negate for descent
+        # Output layer: d(cross-entropy)/d(logits) for softmax
+        d_z2 = p.copy(); d_z2[action] -= 1.0    # gradient of CE loss
+        d_z2 *= -advantage                        # REINFORCE: scale by return
 
-        # --- Backward through Layer 2: z2 = h1 @ W2 + b2 ---
-        d_W2 = np.outer(h1, d_z2)   # ∂z2/∂W2 = h1 (outer product)
-        d_b2 = d_z2                  # ∂z2/∂b2 = 1
-        d_h1 = self.W2 @ d_z2       # ∂z2/∂h1 = W2^T @ d_z2
+        # Backward through W2: z2 = h1 @ W2 + b2
+        d_W2 = np.outer(h1, d_z2)   # (32,2) gradient for W2
+        d_b2 = d_z2                   # (2,) gradient for b2
+        d_h1 = self.W2 @ d_z2        # (32,) — chain through W2
 
-        # --- Backward through ReLU: h1 = max(0, z1) ---
-        d_z1 = d_h1 * (z1 > 0)      # ∂relu/∂z1 = 1 if z1>0 else 0
+        # Backward through ReLU: h1 = max(0, z1)
+        d_z1 = d_h1 * (z1 > 0)      # (32,) — zero gradient for negatives
 
-        # --- Backward through Layer 1: z1 = x @ W1 + b1 ---
-        d_W1 = np.outer(x, d_z1)    # ∂z1/∂W1 = x
-        d_b1 = d_z1                  # ∂z1/∂b1 = 1
+        # Backward through W1: z1 = x @ W1 + b1
+        d_W1 = np.outer(x, d_z1)    # (4,32) gradient for W1
+        d_b1 = d_z1                   # (32,) gradient for b1
 
         return d_W1, d_b1, d_W2, d_b2
 
     def update(self, grads, lr=0.01):
         d_W1, d_b1, d_W2, d_b2 = grads
-        # Gradient DESCENT on the loss = gradient ASCENT on J(θ)
-        self.W1 -= lr * d_W1   # (loss was negated above, so this is +∇J)
-        self.b1 -= lr * d_b1
-        self.W2 -= lr * d_W2
-        self.b2 -= lr * d_b2
+        # Gradient ascent on J (loss was negated in backward, so this is +∇J)
+        self.W1 -= lr * d_W1; self.b1 -= lr * d_b1
+        self.W2 -= lr * d_W2; self.b2 -= lr * d_b2
 """, language="python")
 
-        st.subheader("4. Weight Initialisation — Why It Matters")
-        st.markdown(r"""
-        Poor initialisation causes gradients to vanish (all activations → 0) or explode (all → ∞).
-        **He initialisation** (for ReLU networks):
-        """)
-        st.latex(r"W \sim \mathcal{N}\!\left(0,\;\frac{2}{n_\text{in}}\right) \quad\text{(fan-in: number of inputs to each neuron)}")
-        st.markdown(r"""
-        **Why 2/n_in?** With ReLU, approximately half the neurons are zeroed out (negative inputs).
-        So the effective variance is halved. Multiplying by 2 compensates, keeping the variance of
-        activations roughly constant through layers. Without this, deep networks fail to train.
+        st.subheader("3. Weight Initialisation — He vs Xavier")
+        st.markdown("**He initialisation** (designed for ReLU networks):")
+        st.latex(r"W \sim \mathcal{N}\!\left(0,\;\frac{2}{n_\text{in}}\right)")
+        st.markdown("Why 2/n_in? ReLU zeros ~half of neurons. Multiply initial variance by 2 to compensate and keep activation variance constant through layers. **Xavier** (for tanh/sigmoid): 2/(n_in+n_out).")
 
-        **Xavier initialisation** (for tanh/sigmoid):
-        """)
-        st.latex(r"W \sim \mathcal{N}\!\left(0,\;\frac{2}{n_\text{in}+n_\text{out}}\right) \quad\text{(harmonic mean of fan-in and fan-out)}")
+        np.random.seed(42); n = 100; nl = 10
+        fig_ini, axes_ini = _fig(1, 2, 12, 4)
+        for ax, scale, title, col in [
+            (axes_ini[0], 1.0, "Bad init (scale=1): activations die or explode", "#ef5350"),
+            (axes_ini[1], np.sqrt(2/n), "He init (√2/n): stable activations through 10 layers", "#4caf50")
+        ]:
+            xv = np.random.randn(1000, n)
+            for _ in range(nl):
+                xv = np.maximum(0, xv @ (np.random.randn(n, n) * scale))
+            ax.hist(xv.flatten(), bins=50, color=col, alpha=0.7)
+            ax.set_xlabel("Activation value", color="white")
+            ax.set_ylabel("Count", color="white")
+            ax.set_title(title, color="white", fontweight="bold", fontsize=9)
+            ax.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_ini); plt.close()
 
-    # ── SELF-ASSESSMENT ───────────────────────────────────────────────────
+    # ── SELF-ASSESSMENT ────────────────────────────────────────────────────
     with tab_test:
-        _sec("✅", "Self-Assessment — Are You Ready?",
-             "Check your understanding before moving to Deep Learning Prerequisites", "#ffa726")
-
-        st.markdown("Answer these questions mentally. If you can answer all of them confidently, proceed to Stage 0.")
+        _sec("✅", "Self-Assessment — Are You Ready for Stage 0?",
+             "Answer all questions confidently before starting Deep Learning Prerequisites", "#ffa726")
+        st.markdown("Try each question without looking. Click to reveal. If you cannot answer confidently, go back to that tab.")
 
         questions = [
             ("🔢 Linear Algebra", [
-                ("What is the result of a 3×4 matrix multiplied by a 4×1 vector? What shape?", "3×1 vector. Dimensions: (rows of A) × (cols of B). Each element of result = dot product of one row of matrix with the vector."),
-                ("Why can't we matrix-multiply a (4,3) and a (4,3) matrix directly?", "Inner dimensions must match: (4,3)@(4,3) fails because 3≠4. We'd need (4,3)@(3,4) = (4,4), or transpose one: (4,3)@(3,4)."),
-                ("What does the transpose of a matrix do?", "Swaps rows and columns. (m,n) → (n,m). Used in backprop: gradient of Wx is W^T times output gradient."),
+                ("What shape is the output of (32,4) @ (4,)?",
+                 "(32,). Matrix (m,n) @ vector (n,) → vector (m,). Each of the 32 rows dot-products with the 4-element input to give one scalar output."),
+                ("Why does backprop use W.T @ gradient?",
+                 "If h=W@x, then ∂L/∂x = W^T @ ∂L/∂h. This comes from the Jacobian of the linear map being W itself, and backprop uses the transpose Jacobian."),
+                ("What does det(W) < 0.01 mean for a neural network layer?",
+                 "The matrix is near-singular — it collapses almost all input information to a near-zero dimensional subspace. Gradients vanish. This is the vanishing gradient problem in matrix form."),
             ]),
             ("📈 Calculus", [
-                ("What is the derivative of sigmoid σ(x) = 1/(1+e^(-x))?", "σ'(x) = σ(x)(1-σ(x)). Derivation: apply quotient rule to 1/(1+e^(-x))."),
-                ("If L = (y - ŷ)², what is ∂L/∂ŷ?", "∂L/∂ŷ = -2(y-ŷ) = 2(ŷ-y). Chain rule: ∂L/∂ŷ = 2(ŷ-y)·1."),
-                ("In RL, why do we do gradient ASCENT not descent?", "We maximise reward J(θ), not minimise. So θ ← θ + α∇J. Loss functions are minimised (descent), reward functions are maximised (ascent)."),
+                ("d/dx relu(x) = ?",
+                 "1 if x>0, else 0 (Heaviside step function). In NumPy: (x > 0).astype(float). Used in every backprop through a ReLU layer."),
+                ("If L = (y_hat - y)², what is ∂L/∂y_hat?",
+                 "2(y_hat - y). Chain rule: d/dy_hat [(y_hat-y)²] = 2(y_hat-y)·1. This is the gradient of MSE loss."),
+                ("In RL, why do we write θ ← θ + α∇J (not θ - α∇J)?",
+                 "We MAXIMISE reward J(θ), so we do gradient ASCENT — move parameters in the direction of steepest increase (+). Loss minimisation uses descent (−)."),
             ]),
-            ("🎲 Probability", [
-                ("What is E[G_t] if G_t is uniformly distributed between 0 and 100?", "50. For Uniform[a,b]: E[X] = (a+b)/2 = (0+100)/2 = 50."),
-                ("Why does the baseline b(s) not change the policy gradient expectation?", "E[∇log π · b(s)] = b(s)·∇E[π] = b(s)·∇1 = 0, because probabilities always sum to 1."),
-                ("What is conditional probability P(a|s) and why is it the right model for policies?", "P(a|s) = probability of action a given state s. Policy is conditional because the right action depends on the current state — π(a|s) gives a distribution over actions for each specific state."),
+            ("🎲 Probability & Statistics", [
+                ("What is E[G_t | s_t = s] in RL?",
+                 "The value function V(s) — the expected total discounted future reward starting from state s following policy π. This is what the Critic estimates."),
+                ("Why does baseline b(s) not bias the policy gradient?",
+                 "E_{a~π}[∇logπ(a|s)·b(s)] = b(s)·∇∑_a π(a|s) = b(s)·∇1 = 0. The gradient of a sum that always equals 1 is zero."),
+                ("5 seeds give rewards [150,200,180,120,160]. What do you report?",
+                 "Mean±stderr: mean=162, std=29.3, stderr=29.3/√5=13.1. Report: 162±13 (n=5 seeds). Never report just the best single seed."),
             ]),
             ("📡 Information Theory", [
-                ("What is the entropy of a fair coin? Of a biased coin with P(H)=0.99?", "Fair: H = -0.5·log(0.5) - 0.5·log(0.5) = log(2) ≈ 0.693 nats. Biased: H = -0.99·log(0.99) - 0.01·log(0.01) ≈ 0.056 nats."),
-                ("Why is D_KL(P||Q) ≥ 0?", "Jensen's inequality: E_P[log(Q/P)] ≤ log(E_P[Q/P]) = log(1) = 0. So -E_P[log(Q/P)] ≥ 0, i.e., D_KL(P||Q) ≥ 0."),
-                ("If PPO clips the probability ratio r_t(θ) to [1-ε, 1+ε], what KL divergence does this roughly enforce?", "KL ≤ ε approximately, since for small ε: D_KL ≈ (ratio-1)²/2 ≈ ε²/2. PPO's clip is a first-order approximation of TRPO's KL constraint."),
+                ("Entropy of uniform 4-action policy?",
+                 "H = -4×(0.25×log(0.25)) = log(4) ≈ 1.386 nats. This is the maximum possible entropy for 4 actions."),
+                ("PPO shows KL(π_new||π_old) = 0.15. Acceptable?",
+                 "No. PPO clip ε=0.2 approximately enforces KL ≤ ε²/2 ≈ 0.02. KL=0.15 is 7.5× too large — reduce learning rate or stop early."),
+                ("Why is -log π(a|s) called cross-entropy loss?",
+                 "H(one_hot(a), π) = -∑_k δ(k=a)·logπ(k|s) = -logπ(a|s). The one-hot collapses the sum to a single term."),
             ]),
         ]
 
@@ -821,21 +792,20 @@ class TwoLayerPolicy:
                 with st.expander(f"❓ {q}"):
                     st.markdown(f'<div style="background:#0a2a0a;border-left:3px solid #4caf50;'
                                 f'padding:.7rem 1rem;border-radius:0 8px 8px 0">'
-                                f'<b style="color:#4caf50">Answer:</b> '
-                                f'<span style="color:#b0b0cc">{ans}</span></div>', unsafe_allow_html=True)
+                                f'<b style="color:#4caf50">✅ Answer:</b> '
+                                f'<span style="color:#b0b0cc;line-height:1.7">{ans}</span></div>',
+                                unsafe_allow_html=True)
 
         st.divider()
-        st.subheader("📚 Best Resources to Study These Foundations")
-        resources = [
-            ("🎥", "3Blue1Brown — Essence of Linear Algebra", "15 videos, each 5–20 min. Visual-first — builds geometric intuition before formulas.", "https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab"),
-            ("🎥", "3Blue1Brown — Essence of Calculus", "12 videos. Chain rule, gradients, and the fundamental theorem. Required watching.", "https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr"),
-            ("📄", "Michael Nielsen — Neural Networks and Deep Learning", "Free online book. Chapter 2 derives backpropagation from first principles in full.", "http://neuralnetworksanddeeplearning.com"),
-            ("💻", "Andrej Karpathy — micrograd", "170 lines of Python implementing autograd from scratch. Read it, then reimplement it.", "https://github.com/karpathy/micrograd"),
-            ("💻", "NumPy Official Tutorial", "numpy.org/doc/stable/user/quickstart.html — arrays, broadcasting, vectorisation.", "https://numpy.org/doc/stable/user/quickstart.html"),
-            ("📄", "Mathematics for Machine Learning — Deisenroth et al.", "Free PDF. Covers all six topics in depth with ML context throughout.", "https://mml-book.github.io"),
-            ("📄", "Dive into Deep Learning — Chapters 1–4", "Interactive Jupyter notebooks. Linear algebra, autograd, linear networks, MLPs.", "https://d2l.ai"),
-        ]
-        for icon, title, desc, url in resources:
+        st.subheader("📚 The 6 Best Resources")
+        for icon, title, desc, url in [
+            ("🎥","3Blue1Brown — Essence of Linear Algebra","15 visual videos. Build geometric intuition before formulas. Essential.","https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab"),
+            ("🎥","3Blue1Brown — Essence of Calculus","12 videos. Chain rule, gradients, the fundamental theorem.","https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr"),
+            ("💻","Andrej Karpathy — micrograd","170 lines of Python implementing autograd from scratch. Read every line, then reimplement without looking.","https://github.com/karpathy/micrograd"),
+            ("📖","Michael Nielsen — Neural Networks and Deep Learning","Free online book. Chapter 2 derives backpropagation completely from scratch.","http://neuralnetworksanddeeplearning.com"),
+            ("📖","Mathematics for Machine Learning — Deisenroth et al.","Free PDF. All 6 topics with ML context throughout. Graduate-level but accessible.","https://mml-book.github.io"),
+            ("💻","NumPy Official Quickstart","Master arrays, broadcasting, vectorisation. Takes 2 hours.","https://numpy.org/doc/stable/user/quickstart.html"),
+        ]:
             st.markdown(f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
                         f'padding:.6rem 1rem;margin:.3rem 0">'
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
