@@ -106,10 +106,10 @@ def show_home():
             </div>
         </div>
         <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem">
-            <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">📚 31+ algorithms</span>
-            <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">📐 110+ interactive charts</span>
+            <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">📚 60+ algorithms</span>
+            <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">📐 130+ interactive charts</span>
             <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">🧪 5 live environments</span>
-            <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">🎯 Based on Sutton & Barto</span>
+            <span style="background:#ffffff11;border:1px solid #ffffff22;color:#b0bec5;border-radius:20px;padding:.3rem .9rem;font-size:.85rem">📖 12 modules · 4 tiers</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -137,7 +137,23 @@ def show_home():
         # ── Stage cards ───────────────────────────────────────────────────
         stages = [
             {
+                "step": "STAGE -1",
+                "icon": "📐",
+                "title": "Math & CS Foundations",
+                "subtitle": "Linear algebra, calculus, probability, info theory, Python — absolute prerequisites",
+                "color": "#00695c",
+                "badge": "START ABSOLUTELY HERE",
+                "badge_color": "#00695c",
+                "duration": "~3–4 weeks",
+                "why": "Every formula in deep RL uses one of these six areas. A neural network IS matrix multiplications (linear algebra). Backprop IS the chain rule (calculus). The policy π(a|s) IS a probability distribution (probability). KL divergence appears in PPO and TRPO (information theory). All portal simulations use NumPy (Python). Without these foundations, every subsequent module will feel like magic rather than engineering.",
+                "covers": ["Linear algebra: vectors, matrices, dot product, transpose, Jacobian", "Calculus: derivatives, gradients, chain rule, gradient descent variants", "Probability: distributions, expectations, Bayes, variance, Monte Carlo", "Information theory: entropy H(π), KL divergence, cross-entropy — all in RL formulas", "Python & NumPy: vectorised ops, broadcasting, replay buffer patterns", "Neural network math: activations, forward pass, manual backprop from scratch"],
+                "milestone": "Implement 2-layer policy network forward+backward pass in pure NumPy — no PyTorch",
+                "btn_key": "rm_found",
+                "btn_page": "foundations",
+            },
+            {
                 "step": "STAGE 0",
+                "icon": "🧬",
                 "icon": "🧬",
                 "title": "Deep Learning Prerequisites",
                 "subtitle": "Neural network foundations — essential for everything that follows",
@@ -225,6 +241,66 @@ def show_home():
                 "milestone": "Implement PPO from scratch; run it on a MuJoCo locomotion task; understand why it outperforms vanilla AC",
                 "btn_key": "rm_ac",
                 "btn_page": "ac",
+            },
+            {
+                "step": "TIER 1 — Critical Gaps",
+                "icon": "🏗️",
+                "title": "Model-Based RL · Offline RL · Exploration",
+                "subtitle": "The three most impactful areas beyond standard deep RL",
+                "color": "#e65100",
+                "badge": "10–100× sample efficiency",
+                "badge_color": "#e65100",
+                "duration": "~3–4 weeks",
+                "why": "Model-based RL (Dyna-Q, DreamerV3) achieves 10–100× better sample efficiency by planning in imagination. Offline RL (CQL, IQL, Decision Transformer) enables learning from fixed datasets without environment interaction — critical for healthcare, robotics, and any costly domain. Exploration (UCB, ICM, RND) addresses the fundamental unsolved problem of finding reward in sparse environments.",
+                "covers": ["Dyna-Q: model-based planning in tabular settings", "World Models + MuZero + DreamerV3", "CQL + IQL + Decision Transformer + TD3+BC", "UCB + Thompson Sampling (bandit algorithms)", "ICM (curiosity) + RND (novelty bonus)"],
+                "milestone": "Implement CQL on a D4RL offline dataset; implement RND on Montezuma's Revenge",
+                "btn_key": "rm_t1a",
+                "btn_page": "mbrl",
+            },
+            {
+                "step": "TIER 2 — Specialisations",
+                "icon": "🚀",
+                "title": "MARL · Hierarchical RL · Safe RL · Meta-RL",
+                "subtitle": "Domain-specific extensions for multi-agent, long-horizon, safe, and adaptive settings",
+                "color": "#6a1b9a",
+                "badge": "Real-world deployment",
+                "badge_color": "#6a1b9a",
+                "duration": "~4–6 weeks (pick 1–2 specialisations)",
+                "why": "Real-world RL applications almost always require one of these specialisations: MARL for anything with multiple interacting agents; Hierarchical RL for tasks requiring temporal abstraction; Safe RL for any deployment where failures have real costs; Meta-RL for fast adaptation with limited data.",
+                "covers": ["MADDPG + QMIX + MAPPO (multi-agent)", "Options framework + Goal-conditioned RL + HER", "Feudal Networks + hierarchical value decomposition", "CPO + Lagrangian methods (safe RL)", "MAML + RL² (meta-learning)"],
+                "milestone": "Run QMIX on SMAC (StarCraft Multi-Agent Challenge) OR implement MAML on a few-shot navigation task",
+                "btn_key": "rm_t2",
+                "btn_page": "advanced",
+            },
+            {
+                "step": "TIER 3 — Engineering",
+                "icon": "🔧",
+                "title": "Debugging · Reward Design · Distributed · Tracking",
+                "subtitle": "The practical skills that separate successful practitioners from theorists",
+                "color": "#546e7a",
+                "badge": "Production RL",
+                "badge_color": "#546e7a",
+                "duration": "~2 weeks (ongoing practice)",
+                "why": "Most RL project failures are engineering failures, not algorithm failures. Knowing how to diagnose Q-value explosion, design safe reward functions with potential-based shaping, scale training to 1000+ parallel workers with IMPALA/Ape-X, and reproduce results with proper seed protocols is what makes the difference between a research prototype and a deployed system.",
+                "covers": ["6 RL failure modes + diagnostic metrics", "Potential-based reward shaping (theorem)", "RLHF reward modelling pipeline", "IMPALA + Ape-X + EnvPool distributed RL", "W&B + Optuna + reproducibility checklist"],
+                "milestone": "Set up full W&B experiment tracking; run 5-seed PPO comparison; implement 1 debugging fix from the checklist",
+                "btn_key": "rm_t3",
+                "btn_page": "engineering",
+            },
+            {
+                "step": "TIER 4 — Frontier",
+                "icon": "🔬",
+                "title": "RLHF · Sim-to-Real · Diffusion · Theory",
+                "subtitle": "Research-level topics — the cutting edge of 2025 RL",
+                "color": "#ad1457",
+                "badge": "Research level",
+                "badge_color": "#ad1457",
+                "duration": "~ongoing (research)",
+                "why": "RLHF and DPO are what power every modern AI assistant. Sim-to-real transfer is the core bottleneck for real robot deployment. Diffusion models for RL represent an emerging paradigm for planning in complex environments. RL theory provides the mathematical toolkit to evaluate algorithms beyond benchmark numbers.",
+                "covers": ["RLHF pipeline: SFT → reward model → PPO", "DPO: direct preference optimisation", "Domain randomisation + system identification", "Diffuser + Decision Diffuser", "PAC-MDP + regret bounds + policy gradient convergence"],
+                "milestone": "Fine-tune a small LLM with PPO using TRL library; explain the monotonic improvement theorem to someone else",
+                "btn_key": "rm_t4",
+                "btn_page": "frontier",
             },
         ]
 
@@ -570,24 +646,63 @@ def show_home():
         """, unsafe_allow_html=True)
 
         modules = [
-            ("prereq", "🧬", "Deep Learning Prerequisites", "#00897b", "#80cbc4",
+            # Stage -1
+            ("foundations","📐","Math & CS Foundations","#00695c","#80cbc4",
+             "Linear Algebra · Calculus & Optimisation · Probability · Info Theory · Python/NumPy · NN Math",
+             "Stage -1 · Self-assessment quiz · 3B1B + micrograd resources"),
+            # Stage 0
+            ("prereq","🧬","Deep Learning Prerequisites","#00897b","#80cbc4",
              "RNNs & LSTMs · Normalisation · Optimisers · Autograd · PyTorch Loop · Transformers",
-             "9 topics · 37 formulas · 28-term glossary"),
-            ("dp",     "🧮", "Dynamic Programming",         "#6a1b9a", "#ce93d8",
+             "Stage 0 · 9 topics · 37 formulas · PyTorch training loop"),
+            # Stage 1-3
+            ("dp","🧮","Dynamic Programming","#6a1b9a","#ce93d8",
              "Policy Evaluation · Policy Improvement · Policy Iteration · Value Iteration · Async DP · GPI",
-             "6 algorithms · 4×4 GridWorld · S&B §4"),
-            ("mc",     "🎲", "Monte Carlo Methods",         "#7c4dff", "#b39ddb",
-             "First-Visit · Every-Visit · On-policy Control · Off-policy IS · Weighted IS · Incremental MC",
-             "9 algorithms · 5×5 GridWorld · S&B §5"),
-            ("td",     "⚡", "Temporal-Difference Learning","#e65100", "#ffb74d",
+             "Stage 1 · 6 algorithms · 4×4 GridWorld · S&B §4"),
+            ("mc","🎲","Monte Carlo Methods","#7c4dff","#b39ddb",
+             "First-Visit · Every-Visit · On-policy · Off-policy IS · Weighted IS · Incremental MC",
+             "Stage 2 · 9 algorithms · 5×5 GridWorld · S&B §5"),
+            ("td","⚡","Temporal-Difference Learning","#e65100","#ffb74d",
              "TD(0) · SARSA · Q-Learning · Expected SARSA · Double Q · n-step TD · SARSA(λ)",
-             "7 algorithms · CliffWalking 4×12 · S&B §6–7, §12"),
-            ("vbrl",   "🎮", "Value-Based Deep RL",         "#1565c0", "#90caf9",
+             "Stage 3 · 7 algorithms · CliffWalking 4×12 · S&B §6–7, §12"),
+            # Stage 4-5
+            ("vbrl","🎮","Value-Based Deep RL","#1565c0","#90caf9",
              "DQN · Double DQN · Dueling DQN · PER · C51 · Rainbow · IQN",
-             "7 algorithms · CartPole · Mnih 2015 → Hessel 2018"),
-            ("ac",     "🎭", "Actor-Critic & Policy Gradient","#7c4dff","#ce93d8",
+             "Stage 4 · 7 algorithms · CartPole · Mnih 2015 → Hessel 2018"),
+            ("continuous","🎯","Continuous Control: DDPG & TD3","#0288d1","#81d4fa",
+             "Why continuous actions · DDPG · TD3 (twin Q + delayed + smoothing) · vs SAC",
+             "Stage 4b · 2 algorithms · Pendulum · Lillicrap 2015, Fujimoto 2018"),
+            ("ac","🎭","Actor-Critic & Policy Gradient","#7c4dff","#ce93d8",
              "REINFORCE · Actor-Critic · A2C · A3C · PPO · TRPO · SAC",
-             "7 algorithms · CartPole · Schulman 2017"),
+             "Stage 5 · 7 algorithms · CartPole · Schulman 2017"),
+            # Stage 6 — Imitation
+            ("imitation","🎓","Imitation Learning","#ad1457","#f48fb1",
+             "Behaviour Cloning · DAgger · GAIL · AIRL · Inverse RL · MaxEnt IRL",
+             "Stage 6 · 5 methods · BC baseline + adversarial IRL · Ho 2016, Fu 2018"),
+            # Tier 1
+            ("mbrl","🏗️","Model-Based RL","#e65100","#ff7043",
+             "Dyna-Q · World Models · MuZero · DreamerV3 · MPC + PETS + TD-MPC2",
+             "Tier 1 · 6 algorithms · GridWorld + latent planning · Hafner 2023"),
+            ("offline","📦","Offline / Batch RL","#00897b","#80cbc4",
+             "BC · CQL · IQL · Decision Transformer · TD3+BC",
+             "Tier 1 · 5 algorithms · D4RL benchmark · Kumar 2020, Chen 2021"),
+            ("explore","🔍","Exploration Methods","#f57f17","#ffd54f",
+             "UCB · Thompson Sampling · ICM (Curiosity) · RND · PSRL",
+             "Tier 1 · 4 algorithms · Multi-armed bandit + deep RL · Pathak 2017, Burda 2018"),
+            # Tier 2
+            ("advanced","🚀","Advanced Specialisations","#6a1b9a","#b39ddb",
+             "MARL (MADDPG, QMIX, MAPPO) · Hierarchical RL · Safe RL · Meta-RL (MAML, RL²)",
+             "Tier 2 · 12+ algorithms · SMAC + AntMaze + Safety-Gym"),
+            ("transfer","🔄","Transfer, Multi-Task & Modern Training","#f57f17","#ffcc80",
+             "Continual RL (EWC) · Multi-Task RL (PCGrad) · PBT · GRPO (2025) · RLVR",
+             "Tier 2+3 · 7 methods · DeepSeek-R1 pipeline · Jaderberg 2017, DeepSeek 2025"),
+            # Tier 3
+            ("engineering","🔧","Practical RL Engineering","#546e7a","#90a4ae",
+             "RL Debugging · Reward Design · Distributed RL (IMPALA/Ape-X) · W&B Tracking",
+             "Tier 3 · Practitioner skills · 6 failure modes · Reproducibility checklist"),
+            # Tier 4
+            ("frontier","🔬","Frontier RL Research","#ad1457","#f48fb1",
+             "RLHF at Scale · World Models+RL · Exploration (Large) · Safe RL (Formal) · Foundation Models · Offline→Online",
+             "Tier 4 · 6 open problems · GRPO+RLVR · DreamerV3 · CBF · Gato/RT-2"),
         ]
 
         for page_key, icon, title, color, text_col, topics, meta in modules:
@@ -702,11 +817,111 @@ def load_mc():
 
 
 @st.cache_resource(show_spinner=False)
+def load_foundations():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("foundations_mod", "_foundations_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["foundations_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_continuous():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("continuous_mod", "_continuous_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["continuous_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_imitation():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("imitation_mod", "_imitation_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["imitation_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_transfer():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("transfer_mod", "_transfer_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["transfer_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
 def load_td():
     import importlib.util, sys
     spec = importlib.util.spec_from_file_location("td_mod", "_td_mod.py")
     mod  = importlib.util.module_from_spec(spec)
     sys.modules["td_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_mbrl():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("mbrl_mod", "_mbrl_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["mbrl_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_offline():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("offline_mod", "_offline_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["offline_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_explore():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("explore_mod", "_explore_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["explore_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_advanced():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("advanced_mod", "_advanced_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["advanced_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_engineering():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("engineering_mod", "_engineering_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["engineering_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_frontier():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("frontier_mod", "_frontier_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["frontier_mod"] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -718,6 +933,26 @@ page = st.session_state.portal_page
 
 if page == "home":
     show_home()
+
+elif page == "foundations":
+    show_back_bar("Math & CS Foundations", "#80cbc4", "📐")
+    mod = load_foundations()
+    mod.main_foundations()
+
+elif page == "continuous":
+    show_back_bar("Continuous Control: DDPG & TD3", "#81d4fa", "🎯")
+    mod = load_continuous()
+    mod.main_continuous()
+
+elif page == "imitation":
+    show_back_bar("Imitation Learning", "#f48fb1", "🎓")
+    mod = load_imitation()
+    mod.main_imitation()
+
+elif page == "transfer":
+    show_back_bar("Transfer, Multi-Task & Modern Training", "#ffcc80", "🔄")
+    mod = load_transfer()
+    mod.main_transfer()
 
 elif page == "ac":
     show_back_bar("Actor-Critic & Policy Gradient", "#ce93d8", "🎭")
@@ -748,6 +983,36 @@ elif page == "td":
     show_back_bar("Temporal-Difference Learning", "#ffb74d", "⚡")
     mod = load_td()
     mod.main_td()
+
+elif page == "mbrl":
+    show_back_bar("Model-Based RL", "#ff7043", "🏗️")
+    mod = load_mbrl()
+    mod.main_mbrl()
+
+elif page == "offline":
+    show_back_bar("Offline / Batch RL", "#80cbc4", "📦")
+    mod = load_offline()
+    mod.main_offline()
+
+elif page == "explore":
+    show_back_bar("Exploration Methods", "#ffd54f", "🔍")
+    mod = load_explore()
+    mod.main_explore()
+
+elif page == "advanced":
+    show_back_bar("Advanced Specialisations", "#b39ddb", "🚀")
+    mod = load_advanced()
+    mod.main_advanced()
+
+elif page == "engineering":
+    show_back_bar("Practical RL Engineering", "#90a4ae", "🔧")
+    mod = load_engineering()
+    mod.main_engineering()
+
+elif page == "frontier":
+    show_back_bar("Frontier RL Research", "#f48fb1", "🔬")
+    mod = load_frontier()
+    mod.main_frontier()
 
 else:
     go("home")
