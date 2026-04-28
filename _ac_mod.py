@@ -288,449 +288,1015 @@ def train_ppo(n_iterations=50, horizon=512, n_epochs=4,
     return all_ep_rewards
 
 
+
 def main_ac():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+    import matplotlib.gridspec as gridspec
+    import pandas as pd
+
+    DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
+    ALG = {"REINFORCE":"#7c4dff","AC":"#0288d1","A2C":"#00897b",
+           "A3C":"#f57f17","PPO":"#e65100","TRPO":"#ad1457","SAC":"#558b2f"}
+
+    def _fig(nr=1, nc=1, w=13, h=5):
+        fig, axes = plt.subplots(nr, nc, figsize=(w, h))
+        fig.patch.set_facecolor(DARK)
+        for ax in np.array(axes).flatten():
+            ax.set_facecolor(DARK)
+            ax.tick_params(colors="#9e9ebb", labelsize=8)
+            for sp in ax.spines.values(): sp.set_edgecolor(GRID)
+        return fig, axes
+
+    def _card(color, icon, title, body):
+        return (f'<div style="background:{color}18;border-left:4px solid {color};'
+                f'padding:1.1rem 1.3rem;border-radius:0 10px 10px 0;margin-bottom:.9rem">'
+                f'<b style="font-size:1rem">{icon} {title}</b><br>'
+                f'<span style="color:#b0b0cc;font-size:.93rem;line-height:1.7">{body}</span></div>')
+
+    def _proof_box(title, content):
+        return (f'<div style="background:#0a1a2e;border:1px solid #1a3a5e;border-radius:10px;'
+                f'padding:1rem 1.3rem;margin:.7rem 0">'
+                f'<b style="color:#42a5f5">📐 Proof: {title}</b><br>'
+                f'<span style="color:#b0b0cc;font-size:.9rem;line-height:1.8">{content}</span></div>')
+
+    def _example_box(title, content, color="#00897b"):
+        return (f'<div style="background:{color}0e;border:1px solid {color}44;border-radius:10px;'
+                f'padding:1rem 1.3rem;margin:.7rem 0">'
+                f'<b style="color:{color}">🎯 Example: {title}</b><br>'
+                f'<span style="color:#b0b0cc;font-size:.9rem;line-height:1.8">{content}</span></div>')
+
+    def _insight(t):
+        return (f'<div style="background:#0a1a2a;border-left:3px solid #0288d1;'
+                f'padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;font-size:.93rem;'
+                f'color:#b0b0cc;line-height:1.7">💡 {t}</div>')
+
+    def _warn(t):
+        return (f'<div style="background:#2a1a0a;border-left:3px solid #ffa726;'
+                f'padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;font-size:.93rem;'
+                f'color:#b0b0cc;line-height:1.7">⚠️ {t}</div>')
+
+    def smooth(a, w=12):
+        return np.convolve(a, np.ones(w)/w, mode="valid") if len(a)>w else np.array(a,float)
+
     st.markdown(
         '<div style="background:linear-gradient(135deg,#1a0a2e,#0a1a0a,#2a0a0a);'
         'border:1px solid #2a2a4a;border-radius:16px;padding:2rem 2.5rem;margin-bottom:1.5rem">'
-        '<h2 style="color:white;margin:0;font-size:2rem">🎭 Actor-Critic &amp; Policy Gradient</h2>'
-        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem">'
-        'From REINFORCE to PPO — every policy gradient method decoded, '
-        'all derivations from first principles, runnable simulations.'
+        '<h2 style="color:white;margin:0;font-size:2.1rem">🎭 Actor-Critic &amp; Policy Gradient Methods</h2>'
+        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem;line-height:1.6">'
+        'A complete derivation of every policy gradient algorithm — from first principles to production code. '
+        'Each method explained by the problem it solves, the mathematics that solves it (with full proofs), '
+        'and practical examples showing the before/after effect of each innovation.'
         '</p></div>', unsafe_allow_html=True)
 
     tabs = st.tabs([
-        '🗺️ Overview', '🎲 REINFORCE', '🎭 Actor-Critic',
-        '🤝 A2C & A3C', '🔐 PPO', '🏛️ TRPO & SAC',
-        '📈 Dashboard', '📚 Study Plan',
+        "🗺️ Overview & Why PG?",
+        "🎲 REINFORCE",
+        "🎭 Actor-Critic",
+        "🤝 A2C & A3C",
+        "🔐 PPO",
+        "🏛️ TRPO & SAC",
+        "📈 Dashboard",
+        "📚 Study Plan",
     ])
-    (tab_ov, tab_rf, tab_ac_t, tab_a2c,
-     tab_ppo, tab_trpo, tab_dash, tab_plan) = tabs
+    tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_plan = tabs
 
-    # ── OVERVIEW ──────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 0 — OVERVIEW
+    # ══════════════════════════════════════════════════════════════════
     with tab_ov:
-        st.markdown(r"""
-        <div style="background:#12121f;border-radius:12px;padding:1.4rem 1.8rem;border:1px solid #2a2a3e">
-        <h3 style="color:white;margin-top:0">🏛️ The Policy Gradient Theorem — Foundation of Everything</h3>
-        All actor-critic methods derive from one result. The goal is to find θ that maximises:
-        </div>""", unsafe_allow_html=True)
-        st.latex(r"J(\theta) = \mathbb{E}_{\tau \sim p_\theta(\tau)}\!\left[\sum_t r(s_t,a_t)\right]")
-        st.markdown(r"""
-        Direct differentiation is hard — the trajectory distribution $p_\theta(\tau)$ involves
-        unknown environment dynamics. The **log-derivative trick** eliminates them:
-        """)
-        st.latex(r"\nabla_\theta J = \mathbb{E}_{\tau \sim p_\theta}\!\left[\nabla_\theta \log p_\theta(\tau)\cdot r(\tau)\right]")
-        st.markdown(r"""
-        Expanding the trajectory log-probability — initial state and dynamics have no $\theta$:
-        """)
-        st.latex(r"\nabla_\theta \log p_\theta(\tau) = \sum_{t=1}^T \nabla_\theta \log\pi_\theta(a_t|s_t)")
-        st.markdown(r"This is the key: we only need to differentiate the **policy**, not the environment. Full result:")
-        st.latex(r"\boxed{\nabla_\theta J(\theta) = \mathbb{E}_{\tau}\!\left[\sum_{t}\nabla_\theta\log\pi_\theta(a_t|s_t)\cdot\sum_{t}r(s_t,a_t)\right]}")
+        st.markdown(_card("#7c4dff","🤔","Why Policy Gradient? The Fundamental Motivation",
+            """Value-based methods (DQN, Rainbow) learn a Q-function Q(s,a) and derive a policy by
+            argmax_a Q(s,a). This works perfectly for discrete actions — Atari has 18 buttons,
+            you can compute Q for all 18 and pick the best. But consider a robot arm: action =
+            [torque on joint 1, torque on joint 2, ..., torque on joint 6], each a real number
+            in [-5, 5]. That is an infinite, continuous action space — argmax over all real-valued
+            actions is intractable. Policy gradient methods solve this by directly parameterising
+            the policy: instead of Q(s,a) → argmax → action, we learn π_θ(a|s) directly —
+            a neural network that outputs action probabilities (discrete) or a Gaussian distribution
+            (continuous). The network is trained by gradient ascent on expected cumulative reward.
+            This approach also handles stochastic policies naturally (important for partial
+            observability and multi-agent settings), and is the foundation of RLHF — every modern
+            AI assistant (ChatGPT, Claude, Gemini) was aligned using PPO, a policy gradient method."""),
+            unsafe_allow_html=True)
 
         st.divider()
+        st.subheader("🏛️ The Policy Gradient Theorem — Complete Derivation from First Principles")
         st.markdown(r"""
-        **Three variance-reducing improvements applied in sequence:**
-
-        **1. Causality** — policy at $t$ cannot affect rewards before $t$:
+        **The objective:** Find parameters $\theta$ of policy $\pi_\theta(a|s)$ that maximise
+        total expected discounted reward. We define this objective $J(\theta)$ as:
         """)
-        st.latex(r"\nabla_\theta J \approx \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t})\underbrace{\sum_{t'=t}^T r(s_{i,t'},a_{i,t'})}_{\hat Q_{i,t}\text{ (reward-to-go)}}")
-        st.markdown("**2. Baseline** — subtract $b(s_t)$ without changing expectation (reduces variance):")
-        st.latex(r"\nabla_\theta J \approx \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t})\underbrace{(\hat Q_{i,t} - b(s_{i,t}))}_{A_{i,t}\text{ (advantage)}}")
-        st.markdown("**3. Actor-Critic** — replace Monte Carlo $\\hat Q$ with learned $V(s)$ as baseline:")
-        st.latex(r"A_t \approx \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)")
+        st.latex(r"J(\theta) = \mathbb{E}_{\tau \sim p_\theta(\tau)}\!\left[\sum_{t=0}^T \gamma^t r(s_t,a_t)\right]")
+        st.markdown(r"""
+        where $\tau = (s_0, a_0, r_0, s_1, a_1, r_1, \ldots, s_T, a_T, r_T)$ is a trajectory
+        and $p_\theta(\tau)$ is the probability of that trajectory under policy $\pi_\theta$:
+        """)
+        st.latex(r"p_\theta(\tau) = p(s_0)\prod_{t=0}^T \pi_\theta(a_t|s_t)\,p(s_{t+1}|s_t,a_t)")
+        st.markdown(r"""
+        **The challenge:** Computing $\nabla_\theta J(\theta)$ requires differentiating through
+        $p_\theta(\tau)$, which involves $p(s_0)$ and $p(s_{t+1}|s_t,a_t)$ — the environment
+        dynamics that we do not know and cannot differentiate through.
+        """)
+        st.markdown(_proof_box("The Log-Derivative Trick (REINFORCE gradient)",
+            """We start from the definition of J(θ) as an integral:<br>
+            J(θ) = ∫ p_θ(τ) r(τ) dτ<br><br>
+            Taking the gradient with respect to θ:<br>
+            ∇_θ J(θ) = ∫ ∇_θ p_θ(τ) r(τ) dτ<br><br>
+            Key identity: ∇_θ p_θ(τ) = p_θ(τ) · ∇_θ log p_θ(τ)<br>
+            (This follows from the chain rule: d/dθ log f(θ) = f'(θ)/f(θ), so f'(θ) = f(θ)·d/dθ log f(θ))<br><br>
+            Substituting:<br>
+            ∇_θ J(θ) = ∫ p_θ(τ) · ∇_θ log p_θ(τ) · r(τ) dτ = E_τ[∇_θ log p_θ(τ) · r(τ)]<br><br>
+            Now expand log p_θ(τ):<br>
+            log p_θ(τ) = log p(s_0) + Σ_t log π_θ(a_t|s_t) + Σ_t log p(s_{t+1}|s_t,a_t)<br><br>
+            Critical step: ∂/∂θ [log p(s_0)] = 0 (no θ dependence)<br>
+            Critical step: ∂/∂θ [log p(s_{t+1}|s_t,a_t)] = 0 (dynamics have no θ)<br><br>
+            Therefore: ∇_θ log p_θ(τ) = Σ_t ∇_θ log π_θ(a_t|s_t)<br><br>
+            FINAL RESULT: ∇_θ J(θ) = E_τ[Σ_t ∇_θ log π_θ(a_t|s_t) · Σ_t r(s_t,a_t)]"""),
+            unsafe_allow_html=True)
 
+        st.latex(r"\boxed{\nabla_\theta J(\theta) = \mathbb{E}_\tau\!\left[\sum_t \nabla_\theta\log\pi_\theta(a_t|s_t) \cdot \sum_t r(s_t,a_t)\right]}")
+        st.markdown(r"""
+        **What this means in plain English:**
+        The term $\nabla_\theta \log\pi_\theta(a_t|s_t)$ is called the **score function**.
+        It is the direction in parameter space $\theta$ that makes action $a_t$ more likely
+        in state $s_t$. Multiplied by the total return, this says:
+        - If total return was **positive** (good episode): push $\theta$ toward making the
+          actions taken more probable — reinforce them
+        - If total return was **negative** (bad episode): push $\theta$ away from those actions
+        - The bigger the return, the stronger the push
+
+        This is gradient **ascent** on $J(\theta)$ — we want to maximise reward.
+        """)
+        st.markdown(_insight("""
+        <b>The key miracle:</b> The environment dynamics p(s_{t+1}|s_t,a_t) completely vanish
+        from the gradient computation. We never need to know or differentiate through the
+        environment model. This is why policy gradient methods are model-free —
+        we only need to be able to sample from the environment and evaluate the policy.
+        """), unsafe_allow_html=True)
+
+        # Three variance-reduction steps visualised
         st.divider()
-        st.subheader("📊 Algorithm Family Comparison")
+        st.subheader("📉 Three Steps to Reduce Variance — The Complete Picture")
+        st.markdown(r"""
+        The raw gradient estimate has very high variance. Three successive improvements reduce it:
+        """)
+        steps = [
+            ("Step 1: Causality", "#7c4dff",
+             r"Policy at time $t$ cannot affect rewards BEFORE $t$. Including them adds pure noise.",
+             r"\nabla_\theta J \approx \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t})\underbrace{\sum_{t'=t}^T\gamma^{t'-t}r_{t'}}_{\hat Q_{i,t}\ \text{(reward-to-go)}}"),
+            ("Step 2: Baseline Subtraction", "#0288d1",
+             r"Subtract $b(s_t)$ without biasing the gradient — reduces variance by centring returns.",
+             r"\nabla_\theta J \approx \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t})(\hat Q_{i,t}-b(s_{i,t}))"),
+            ("Step 3: Learned Value Baseline", "#00897b",
+             r"Use $V(s_t)$ as baseline — the advantage $A_t = Q - V$ tells us if action was better than average.",
+             r"A_t = Q(s_t,a_t) - V(s_t) \approx \delta_t = r_t+\gamma V(s_{t+1})-V(s_t)"),
+        ]
+        for title, col, desc, formula in steps:
+            st.markdown(f'<div style="background:{col}12;border-left:4px solid {col};'
+                        f'border-radius:0 10px 10px 0;padding:.9rem 1.2rem;margin:.5rem 0">'
+                        f'<b style="color:{col}">{title}</b><br>'
+                        f'<span style="color:#b0b0cc;font-size:.9rem">{desc}</span></div>',
+                        unsafe_allow_html=True)
+            st.latex(formula)
+
+        # Family tree chart
+        st.divider()
+        st.subheader("📊 Algorithm Comparison Table")
         st.dataframe(pd.DataFrame({
-            "Method":    ["REINFORCE","REINFORCE+b","AC (1-step)","A2C","A3C","PPO","TRPO","SAC"],
-            "Advantage": ["MC return G_t","G_t − b(s)","1-step δ","n-step return","n-step return","GAE(λ)","GAE(λ)","Soft Q − V"],
-            "On/Off":    ["On","On","On","On","On","On (clipped IS)","On","Off"],
-            "Stability": ["Low","Low","Medium","High","High","Very high","Very high","Very high"],
-            "Complexity":["Simple","Simple","Simple","Medium","Medium","Medium","High","High"],
-            "Year":      ["1992","1992","1984","2016","2016","2017","2015","2018"],
+            "Method":["REINFORCE","REINFORCE+baseline","Actor-Critic","A2C","PPO","SAC"],
+            "Advantage estimate":["MC return $G_t$","$G_t - b$","1-step TD $\\delta_t$","n-step return","GAE$(\\gamma,\\lambda)$","Soft $Q-V$"],
+            "Update frequency":["Episode end","Episode end","Every step","n steps","Rollout batch","Replay buffer"],
+            "On/Off-policy":["On","On","On","On","On (clipped IS)","Off"],
+            "Variance":["Very high","High","Low","Medium","Low","Very low"],
+            "Bias":["Zero","Zero","Some","Less","Less","Some"],
+            "Year":["1992","1992","1984","2016","2017","2018"],
         }), use_container_width=True, hide_index=True)
 
-    # ── REINFORCE ─────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 1 — REINFORCE
+    # ══════════════════════════════════════════════════════════════════
     with tab_rf:
-        st.subheader("🎲 REINFORCE — Monte Carlo Policy Gradient (Williams 1992)")
+        st.subheader("🎲 REINFORCE — Monte Carlo Policy Gradient (Williams, 1992)")
+
+        st.markdown(_card("#7c4dff","📖","What problem REINFORCE solves",
+            """Before REINFORCE, there was no general method to train stochastic policies with
+            function approximation. Supervised learning requires labelled correct actions —
+            but in RL, we never observe the correct action, only the eventual reward.
+            REINFORCE (Williams 1992) was the first practical policy gradient algorithm.
+            Its insight: treat the return as a weight on the gradient of the log-probability.
+            Actions that led to high returns get their probabilities increased;
+            actions that led to low returns get their probabilities decreased.
+            No correct action label is needed — the return signal serves as a noisy
+            supervision signal. REINFORCE works for any differentiable policy (neural network,
+            linear model, etc.), any action space (discrete or continuous), and requires no
+            model of the environment. Its Achilles heel is high variance: the total return
+            G_t fluctuates wildly between episodes due to random future events, making the
+            gradient estimate noisy. This variance problem motivated every subsequent algorithm
+            in this module — each one is REINFORCE with a specific variance-reduction technique added."""),
+            unsafe_allow_html=True)
+
+        st.subheader("1. Complete Algorithm Derivation")
         st.markdown(r"""
-        REINFORCE collects a complete episode, computes reward-to-go returns, then updates
-        the policy to make high-return actions more likely. Simple, unbiased, but high variance.
+        Starting from the policy gradient theorem (derived in the Overview tab):
         """)
-        with st.expander("📐 Full REINFORCE Derivation", expanded=True):
-            st.markdown("**Objective:**")
-            st.latex(r"J(\theta) = \mathbb{E}_{\tau\sim p_\theta}\!\left[\sum_t r(s_t,a_t)\right] \approx \frac{1}{N}\sum_i\sum_t r(s_{i,t},a_{i,t})")
-            st.markdown("**Log-derivative trick + causality + baseline:**")
-            st.latex(r"\nabla_\theta J \approx \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t})\bigl(\hat Q_{i,t} - b(s_{i,t})\bigr)")
-            st.markdown(r"Where $\hat Q_{i,t} = \sum_{t'=t}^T \gamma^{t'-t} r_{t'}$ (reward-to-go, computed backward).")
-            st.markdown(r"**Why baseline does not bias the gradient:**")
-            st.latex(r"\mathbb{E}_{a\sim\pi}\!\bigl[\nabla_\theta\log\pi_\theta(a|s)\cdot b(s)\bigr] = b(s)\nabla_\theta\underbrace{\sum_a\pi_\theta(a|s)}_{=1} = 0")
-            st.markdown("**Update rule (gradient ASCENT):**")
-            st.latex(r"\theta \leftarrow \theta + \alpha\frac{1}{N}\sum_i\sum_t\nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t})(\hat Q_{i,t}-b)")
+        st.latex(r"\nabla_\theta J(\theta) = \mathbb{E}_\tau\!\left[\sum_t \nabla_\theta\log\pi_\theta(a_t|s_t) \cdot \sum_{t'} r_{t'}\right]")
+        st.markdown(r"**Step 1 — Apply causality.** The policy at time $t$ can only affect rewards at time $t' \geq t$. Including earlier rewards adds noise without signal:")
+        st.latex(r"\nabla_\theta J = \mathbb{E}_\tau\!\left[\sum_t \nabla_\theta\log\pi_\theta(a_t|s_t) \cdot \underbrace{\sum_{t'=t}^T \gamma^{t'-t}r_{t'}}_{G_t = \text{reward-to-go}}\right]")
+        st.markdown(r"**Step 2 — Monte Carlo estimate.** Run $N$ full episodes, average the gradients:")
+        st.latex(r"\nabla_\theta J \approx \frac{1}{N}\sum_{i=1}^N\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t}) \cdot G_{i,t}")
+        st.markdown(r"**Step 3 — Gradient ascent update:**")
+        st.latex(r"\theta \leftarrow \theta + \alpha \cdot \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t}) \cdot G_{i,t}")
 
-        st.code(r"""
-# REINFORCE Algorithm
-for episode = 1 … N:
-    τ = {(s₁,a₁,r₁),...,(sT,aT,rT)} ~ π_θ    # collect trajectory
-    G = 0
-    for t = T … 1:
-        G = rₜ + γ·G                            # reward-to-go (backward)
-        b = V(sₜ) if using baseline else 0
-        θ ← θ + α · ∇log π_θ(aₜ|sₜ) · (G − b) # gradient ascent!
-""", language="text")
+        st.subheader("2. The Baseline — Proof That It Doesn't Bias the Gradient")
+        st.markdown(r"""
+        A baseline $b(s_t)$ is any function of the state (not the action). We can subtract it
+        from $G_t$ without changing the expected gradient. Here is the full proof:
+        """)
+        st.markdown(_proof_box("Baseline Does Not Bias the Gradient",
+            """We need to show: E_τ[∇_θ log π_θ(a|s) · b(s)] = 0<br><br>
+            Expand the expectation over actions (the state s is fixed):<br>
+            E_{a∼π}[∇_θ log π_θ(a|s) · b(s)]<br>
+            = b(s) · E_{a∼π}[∇_θ log π_θ(a|s)]   (b(s) is constant w.r.t. action a)<br>
+            = b(s) · Σ_a π_θ(a|s) · ∇_θ log π_θ(a|s)<br>
+            = b(s) · Σ_a π_θ(a|s) · ∇_θπ_θ(a|s) / π_θ(a|s)   (definition of log derivative)<br>
+            = b(s) · Σ_a ∇_θπ_θ(a|s)   (cancel π_θ(a|s))<br>
+            = b(s) · ∇_θ Σ_a π_θ(a|s)   (swap sum and gradient, valid for finite actions)<br>
+            = b(s) · ∇_θ 1   (probabilities always sum to 1)<br>
+            = b(s) · 0 = 0 ✓<br><br>
+            Since adding b(s) to the gradient formula contributes zero in expectation,
+            the gradient is unchanged. But variance IS reduced because b(s) centres the
+            return signal around zero rather than its mean."""), unsafe_allow_html=True)
 
-        c1,c2,c3 = st.columns(3)
-        n_ep_r = c1.slider("Episodes", 50, 400, 200, 25, key="rf_ep")
-        lr_r   = c1.select_slider("Learning rate α", [1e-4,5e-4,1e-3,5e-3,1e-2], 1e-2, key="rf_lr")
-        use_b  = c2.checkbox("Use baseline V(s)", True, key="rf_bl")
-        gam_r  = c2.slider("γ", 0.9, 1.0, 0.99, 0.01, key="rf_gm")
-        sd_r   = c3.number_input("Seed", 0, 999, 42, key="rf_sd")
+        st.markdown(r"""
+        **With optimal baseline $b^*(s_t) = \mathbb{E}[G_t | s_t]$ (average return from this state):**
+        """)
+        st.latex(r"\nabla_\theta J \approx \frac{1}{N}\sum_i\sum_t \nabla_\theta\log\pi_\theta(a_{i,t}|s_{i,t}) \cdot (G_{i,t} - b(s_{i,t}))")
 
-        if st.button("▶️ Train REINFORCE", type="primary", key="btn_rf"):
-            with st.spinner("Training REINFORCE…"):
-                rw, pg = train_reinforce(n_ep_r, lr_r, gam_r, use_b, int(sd_r))
-            st.session_state["rf_res"] = (rw, pg)
+        st.subheader("3. Why High Variance Is a Fundamental Problem")
+        st.markdown(r"""
+        Consider running two episodes with the same state $s$ and same action $a$:
+        - **Episode 1 (lucky):** opponent makes mistakes, environment is favourable → $G_t = 180$
+        - **Episode 2 (unlucky):** everything goes wrong → $G_t = 20$
 
-        if "rf_res" in st.session_state:
-            rw, pg = st.session_state["rf_res"]
-            fig_rf, axes_rf = _fig(1, 3, 17, 4)
-            sm = smooth(rw, 15)
-            axes_rf[0].plot(rw, color=ALG_COL["REINFORCE"], alpha=0.15, lw=0.6)
-            axes_rf[0].plot(range(len(sm)), sm, color=ALG_COL["REINFORCE"], lw=2.5, label="REINFORCE")
-            axes_rf[0].axhline(195, color="#4caf50", ls="--", lw=1.2, label="Solved=195")
-            axes_rf[0].set_xlabel("Episode", color="white"); axes_rf[0].set_ylabel("Reward", color="white")
-            axes_rf[0].set_title("Learning Curve", color="white", fontweight="bold")
-            axes_rf[0].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_rf[0].grid(alpha=0.12)
-            var_c = [np.var(rw[max(0,i-20):i+1]) for i in range(len(rw))]
-            axes_rf[1].plot(smooth(var_c, 15), color="#ffa726", lw=2)
-            axes_rf[1].set_xlabel("Episode", color="white"); axes_rf[1].set_ylabel("Variance", color="white")
-            axes_rf[1].set_title("Reward Variance (the core REINFORCE problem)", color="white", fontweight="bold")
-            axes_rf[1].grid(alpha=0.12)
-            axes_rf[2].plot(smooth(pg, 20), color="#ef5350", lw=2)
-            axes_rf[2].set_xlabel("Episode", color="white"); axes_rf[2].set_ylabel("||∇J||", color="white")
-            axes_rf[2].set_title("Policy Gradient Norm", color="white", fontweight="bold")
-            axes_rf[2].grid(alpha=0.12)
-            plt.tight_layout(); st.pyplot(fig_rf); plt.close()
-            c1,c2,c3 = st.columns(3)
-            c1.metric("Best episode", f"{max(rw):.0f}/200")
-            c2.metric("Late mean (last 30)", f"{np.mean(rw[-30:]):.1f}")
-            c3.metric("Final variance", f"{np.var(rw[-30:]):.1f}")
+        The gradient updates are:
+        """)
+        st.latex(r"\text{Episode 1: } \Delta\theta_1 = \alpha \cdot 180 \cdot \nabla\log\pi(a|s)")
+        st.latex(r"\text{Episode 2: } \Delta\theta_2 = \alpha \cdot 20 \cdot \nabla\log\pi(a|s)")
+        st.markdown(r"""
+        The gradient in episode 1 is **9× larger** than episode 2 for the same $(s,a)$ pair.
+        The network has no way to know if action $a$ was inherently good or just lucky.
+        To get a reliable gradient estimate, we need to average over many episodes —
+        typically hundreds to thousands. This is the core efficiency problem of REINFORCE.
 
-    # ── ACTOR-CRITIC ──────────────────────────────────────────────────────
+        **Variance of the estimator:**
+        """)
+        st.latex(r"\text{Var}[\nabla_\theta J] = \frac{1}{N}\,\text{Var}\!\left[\sum_t \nabla\log\pi \cdot G_t\right] \propto \frac{\text{Var}[G_t]}{N}")
+        st.markdown(r"To halve the standard error, we need 4× more episodes. To reduce it by 10×, we need 100× more episodes. This is why REINFORCE is slow in practice.")
+
+        # Interactive training
+        st.subheader("🎛️ Interactive Training — See the Variance Problem Live")
+        c1, c2, c3 = st.columns(3)
+        n_ep_r = c1.slider("Episodes", 50, 500, 300, 25, key="rf2_ep")
+        lr_r   = c1.select_slider("Learning rate α", [1e-4,5e-4,1e-3,5e-3,1e-2], 1e-2, key="rf2_lr")
+        use_b  = c2.checkbox("Use baseline b(s) = V(s)", True, key="rf2_bl")
+        gam_r  = c2.slider("γ (discount)", 0.9, 1.0, 0.99, 0.01, key="rf2_gm")
+        sd_r   = c3.number_input("Random seed", 0, 999, 42, key="rf2_sd")
+
+        if st.button("▶️ Train REINFORCE (both with and without baseline)", type="primary", key="btn_rf2"):
+            with st.spinner("Training…"):
+                rw_b,   pg_b  = train_reinforce(n_ep_r, lr_r, gam_r, True,  int(sd_r))
+                rw_nb,  pg_nb = train_reinforce(n_ep_r, lr_r, gam_r, False, int(sd_r))
+            st.session_state["rf2_res"] = (rw_b, pg_b, rw_nb, pg_nb)
+
+        if "rf2_res" in st.session_state:
+            rw_b, pg_b, rw_nb, pg_nb = st.session_state["rf2_res"]
+            fig, axes = _fig(2, 2, 16, 8)
+            # Reward curves
+            for rw, lbl, col, ax in [(rw_b,"With baseline",ALG["REINFORCE"],axes[0,0]),
+                                      (rw_nb,"No baseline","#ef5350",axes[0,0])]:
+                sm = smooth(rw, 20)
+                ax.plot(rw, color=col, alpha=0.12, lw=0.5)
+                ax.plot(range(len(sm)), sm, color=col, lw=2.5, label=f"{lbl} (mean={np.mean(rw[-40:]):.1f})")
+            axes[0,0].axhline(195, color="#4caf50", ls="--", lw=1.2, label="Solved = 195")
+            axes[0,0].set_xlabel("Episode", color="white"); axes[0,0].set_ylabel("Reward", color="white")
+            axes[0,0].set_title("Learning Curves", color="white", fontweight="bold")
+            axes[0,0].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes[0,0].grid(alpha=0.12)
+            # Variance
+            w = 30
+            var_b  = [np.var(rw_b [max(0,i-w):i+1]) for i in range(len(rw_b))]
+            var_nb = [np.var(rw_nb[max(0,i-w):i+1]) for i in range(len(rw_nb))]
+            axes[0,1].plot(smooth(var_b,15),  color=ALG["REINFORCE"], lw=2.5, label="With baseline")
+            axes[0,1].plot(smooth(var_nb,15), color="#ef5350", lw=2, label="No baseline")
+            axes[0,1].set_xlabel("Episode", color="white"); axes[0,1].set_ylabel("Return variance", color="white")
+            axes[0,1].set_title("Return Variance (the core REINFORCE problem)", color="white", fontweight="bold")
+            axes[0,1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes[0,1].grid(alpha=0.12)
+            # Gradient norms
+            axes[1,0].plot(smooth(pg_b,15),  color=ALG["REINFORCE"], lw=2.5, label="With baseline")
+            axes[1,0].plot(smooth(pg_nb,15), color="#ef5350", lw=2, label="No baseline")
+            axes[1,0].set_xlabel("Episode", color="white"); axes[1,0].set_ylabel("||∇J||", color="white")
+            axes[1,0].set_title("Policy Gradient Norm Over Training", color="white", fontweight="bold")
+            axes[1,0].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes[1,0].grid(alpha=0.12)
+            # Distribution of returns
+            axes[1,1].hist(rw_b[-100:],  bins=25, color=ALG["REINFORCE"], alpha=0.6, label="With baseline (last 100)")
+            axes[1,1].hist(rw_nb[-100:], bins=25, color="#ef5350", alpha=0.6, label="No baseline (last 100)")
+            axes[1,1].set_xlabel("Episode reward", color="white"); axes[1,1].set_ylabel("Count", color="white")
+            axes[1,1].set_title("Return Distribution (last 100 episodes)", color="white", fontweight="bold")
+            axes[1,1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes[1,1].grid(alpha=0.12)
+            plt.tight_layout(); st.pyplot(fig); plt.close()
+            c1,c2,c3,c4 = st.columns(4)
+            c1.metric("Best episode", f"{max(rw_b):.0f}/200")
+            c2.metric("Late mean (last 40)", f"{np.mean(rw_b[-40:]):.1f}")
+            c3.metric("Variance reduction", f"{np.var(rw_nb[-40:])/max(np.var(rw_b[-40:]),1):.1f}×")
+            c4.metric("Baseline benefit", f"+{np.mean(rw_b[-40:])-np.mean(rw_nb[-40:]):.1f} reward")
+
+        st.markdown(_example_box("CartPole — What the Update Actually Does",
+            """In CartPole, state = [position, velocity, angle, angular_velocity]. The policy network
+            outputs [p_left, p_right]. Say the agent is in state s = [0.1, 0.2, 0.05, -0.1] and
+            takes action 'right' (index 1). The episode gets total return G = 150.<br><br>
+            The REINFORCE update: θ ← θ + α · 150 · ∇log π(right|s)<br><br>
+            ∇log π(right|s) = [0 - p_left, 1 - p_right] = [-0.4, 0.6] for the output layer.
+            This gradient pushes the network to increase p_right and decrease p_left in state s.
+            The magnitude 150 means this push is proportional to how good the episode was.
+            Next episode, if the same action gets return G = 30, the push is 5× smaller —
+            this is exactly the variance problem: the update size depends on unrelated future randomness."""),
+            unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 2 — ACTOR-CRITIC
+    # ══════════════════════════════════════════════════════════════════
     with tab_ac_t:
-        st.subheader("🎭 Vanilla Actor-Critic — Online 1-Step TD")
+        st.subheader("🎭 Vanilla Actor-Critic — Online TD-Based Policy Gradient")
+
+        st.markdown(_card("#0288d1","🎭","What problem Actor-Critic solves (and what REINFORCE left broken)",
+            """REINFORCE has two serious problems that Actor-Critic fixes simultaneously:
+            (1) High variance — total return G_t fluctuates wildly because it includes all
+            future randomness. Even identical (state, action) pairs get wildly different
+            gradient magnitudes.
+            (2) Efficiency — REINFORCE must complete an entire episode before updating.
+            For games that last 10,000 steps, you get only 1 gradient update per 10,000 steps.
+            Actor-Critic introduces a second neural network — the Critic V(s) — that learns
+            to estimate the expected return from each state. The Critic provides a per-step
+            advantage estimate δ_t = r_t + γV(s') - V(s) (TD error) that replaces the
+            noisy Monte Carlo return G_t. This has two effects: (1) Variance is dramatically
+            reduced because we only look one step ahead before bootstrapping, instead of summing
+            all future random rewards; (2) The agent can update after every single step —
+            no need to wait for the episode to end. Actor-Critic is the ancestor of every
+            modern deep RL algorithm: DQN, A3C, PPO, SAC all use the actor-critic architecture.
+            The tradeoff: by bootstrapping from V(s'), we introduce some bias (V is imperfect),
+            but this is a worthy trade for the massive variance reduction and online updating."""),
+            unsafe_allow_html=True)
+
+        st.subheader("1. The Two Networks — Architecture and Purpose")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Actor** — policy network updated by TD error:")
-            st.latex(r"\theta \leftarrow \theta + \alpha_\pi\,\delta_t\,\nabla_\theta\log\pi_\theta(a_t|s_t)")
+            st.markdown("""
+            <div style="background:#0288d133;border:2px solid #0288d1;border-radius:10px;
+                        padding:1.1rem 1.3rem">
+            <b style="color:#42a5f5;font-size:1.05rem">🎭 Actor π_θ(a|s)</b><br>
+            <span style="color:#b0b0cc;font-size:.9rem;line-height:1.7">
+            Input: state s<br>
+            Output: action probabilities (discrete) or mean/std (continuous)<br>
+            Role: Decides what action to take<br>
+            Update: Gradient ascent, weighted by advantage δ<br>
+            Learns: Which actions are good in which states
+            </span></div>""", unsafe_allow_html=True)
+            st.latex(r"\theta \leftarrow \theta + \alpha_\pi\cdot\delta_t\cdot\nabla_\theta\log\pi_\theta(a_t|s_t)")
         with col2:
-            st.markdown("**Critic** — value network updated by TD(0):")
-            st.latex(r"\omega \leftarrow \omega - \alpha_V\,\delta_t\,\nabla_\omega V_\omega(s_t)")
-        st.markdown("**TD error (1-step advantage):**")
-        st.latex(r"\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)")
+            st.markdown("""
+            <div style="background:#0288d133;border:2px solid #0288d1;border-radius:10px;
+                        padding:1.1rem 1.3rem">
+            <b style="color:#42a5f5;font-size:1.05rem">🧮 Critic V_ω(s)</b><br>
+            <span style="color:#b0b0cc;font-size:.9rem;line-height:1.7">
+            Input: state s<br>
+            Output: scalar — expected total return from s<br>
+            Role: Evaluates how good the current state is<br>
+            Update: Gradient descent on TD error squared<br>
+            Learns: The value function V*(s)
+            </span></div>""", unsafe_allow_html=True)
+            st.latex(r"\omega \leftarrow \omega - \alpha_V\cdot\delta_t\cdot\nabla_\omega V_\omega(s_t)")
+
+        st.subheader("2. The TD Error as Advantage Estimate — Derivation")
         st.markdown(r"""
-        **Symbol decoder:**
-        - $\delta_t > 0$: outcome better than expected → increase probability of $a_t$
-        - $\delta_t < 0$: outcome worse than expected → decrease probability of $a_t$
-        - $r_t + \gamma V(s_{t+1})$ — TD target: 1 real reward + bootstrapped future
-        - $V(s_t)$ — critic's baseline: how good was $s_t$ expected to be?
+        The true advantage function measures how much better action $a$ is than the average:
         """)
-        st.code(r"""
-Initialise Actor π_θ, Critic V_ω
-For each episode:
-    s ← env.reset()
-    While not done:
-        a ~ π_θ(·|s)                              # Actor chooses action
-        s', r, done ← env.step(a)
-        δ = r + γ·V_ω(s')·(1-done) - V_ω(s)      # TD error = advantage
-        ω ← ω - α_V · δ · ∇V_ω(s)               # Critic: minimise δ²
-        θ ← θ + α_π · δ · ∇log π_θ(a|s)          # Actor: gradient ascent
-        s ← s'
-""", language="text")
+        st.latex(r"A^\pi(s_t,a_t) = Q^\pi(s_t,a_t) - V^\pi(s_t)")
+        st.markdown(r"""
+        We don't know $Q^\pi$ directly, but we know the Bellman equation:
+        $Q^\pi(s_t,a_t) = r_t + \gamma V^\pi(s_{t+1})$ (by definition — take action $a_t$,
+        get reward $r_t$, then follow $\pi$ from $s_{t+1}$).
 
+        Substituting:
+        """)
+        st.latex(r"A^\pi(s_t,a_t) = Q^\pi(s_t,a_t) - V^\pi(s_t) = r_t + \gamma V^\pi(s_{t+1}) - V^\pi(s_t) = \delta_t")
+        st.markdown(r"""
+        The TD error $\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$ is exactly the 1-step advantage!
+        **In plain English:**
+        - $V(s_t)$ = "I expected to get this much total reward from state $s_t$"
+        - $r_t + \gamma V(s_{t+1})$ = "I actually got $r_t$ now, plus the expected future"
+        - $\delta_t > 0$: the outcome was **better than expected** → reinforce action $a_t$
+        - $\delta_t < 0$: the outcome was **worse than expected** → suppress action $a_t$
+        - $\delta_t = 0$: exactly as expected → no update needed
+
+        This is remarkably similar to the dopamine prediction error signal in neuroscience —
+        dopamine neurons fire more when reward is better than expected, less when it is worse.
+        """)
+        st.markdown(_insight("""
+        <b>Why TD reduces variance dramatically:</b> REINFORCE uses G_t = Σ_{t'=t}^T γ^{t'-t} r_{t'} —
+        the sum of ALL future rewards, each random. If T=200 steps, G_t sums 200 random variables.
+        Actor-Critic uses δ_t = r_t + γV(s_{t+1}) — only ONE real reward plus a deterministic
+        (low-variance) prediction V(s_{t+1}). The variance reduction is enormous in practice:
+        typically 10–100× fewer gradient steps needed to converge.
+        """), unsafe_allow_html=True)
+
+        st.subheader("3. The Bias-Variance Tradeoff — Why Nothing Is Free")
+        st.markdown(r"""
+        Bootstrapping from $V(s_{t+1})$ introduces **bias** — the critic's estimate is imperfect.
+        In early training, $V_\omega(s)$ is a random initialisation and is very wrong.
+        The advantage estimate $\delta_t$ is therefore wrong too, giving the actor bad feedback.
+        Over time, as $V_\omega$ improves, the bias decreases. The bias-variance tradeoff:
+        """)
+        st.latex(r"\underbrace{G_t}_{\text{MC: zero bias, high variance}} \longleftrightarrow \underbrace{r_t + \gamma V(s_{t+1})}_{\text{1-step TD: some bias, low variance}} \longleftrightarrow \underbrace{V(s_t)}_{\text{full bootstrap: max bias, zero variance}}")
+        st.markdown(r"""
+        The n-step return $R_t^{(n)} = r_t + \gamma r_{t+1} + \cdots + \gamma^{n-1}r_{t+n-1} + \gamma^n V(s_{t+n})$
+        interpolates between these extremes. $n=1$: Actor-Critic (low variance, some bias).
+        $n=\infty$: REINFORCE (zero bias, high variance). GAE (used in PPO) takes a weighted average of ALL n.
+        """)
+
+        # Training comparison
+        st.subheader("🎛️ Interactive: REINFORCE vs Actor-Critic — See the Difference")
         c1,c2,c3 = st.columns(3)
-        n_ep_ac = c1.slider("Episodes", 50, 300, 200, 25, key="ac_ep2")
-        lr_pi_ac = c1.select_slider("Actor lr", [1e-4,5e-4,1e-3,5e-3], 5e-3, key="ac_lp2")
-        lr_v_ac = c2.select_slider("Critic lr", [1e-3,5e-3,1e-2,2e-2], 1e-2, key="ac_lv2")
-        sd_ac = c3.number_input("Seed", 0, 999, 42, key="ac_sd2")
+        n_ep_ac = c1.slider("Episodes", 50, 300, 200, 25, key="ac2_ep")
+        lr_pi   = c1.select_slider("Actor lr α_π", [1e-4,5e-4,1e-3,5e-3], 5e-3, key="ac2_lp")
+        lr_v    = c2.select_slider("Critic lr α_V", [1e-3,5e-3,1e-2,2e-2], 1e-2, key="ac2_lv")
+        sd_ac   = c3.number_input("Seed", 0, 999, 42, key="ac2_sd")
 
-        if st.button("▶️ REINFORCE vs AC", type="primary", key="btn_ac2"):
-            with st.spinner("Training…"):
-                rw_rf2, _ = train_reinforce(n_ep_ac, 1e-2, 0.99, True, int(sd_ac))
-                rw_ac2, td_ac2 = train_ac(n_ep_ac, lr_pi_ac, lr_v_ac, 0.99, int(sd_ac))
-            st.session_state["ac_res2"] = (rw_rf2, rw_ac2, td_ac2)
+        if st.button("▶️ Compare REINFORCE vs Actor-Critic", type="primary", key="btn_ac2"):
+            with st.spinner("Training both…"):
+                rw_rf, _ = train_reinforce(n_ep_ac, 1e-2, 0.99, True, int(sd_ac))
+                rw_ac, td = train_ac(n_ep_ac, lr_pi, lr_v, 0.99, int(sd_ac))
+            st.session_state["ac2_res"] = (rw_rf, rw_ac, td)
 
-        if "ac_res2" in st.session_state:
-            rw_rf2, rw_ac2, td_ac2 = st.session_state["ac_res2"]
-            fig_ac2, axes_ac2 = _fig(1, 2, 13, 4.5)
-            for rw, nm, col in [(rw_rf2, "REINFORCE+baseline", ALG_COL["REINFORCE"]),
-                                  (rw_ac2, "Actor-Critic (1-step)", ALG_COL["AC"])]:
-                sm = smooth(rw, 12)
-                axes_ac2[0].plot(rw, color=col, alpha=0.12, lw=0.5)
-                axes_ac2[0].plot(range(len(sm)), sm, color=col, lw=2.5, label=nm)
-            axes_ac2[0].axhline(195, color="white", ls="--", lw=1, alpha=0.5)
-            axes_ac2[0].set_xlabel("Episode", color="white"); axes_ac2[0].set_ylabel("Reward", color="white")
-            axes_ac2[0].set_title("REINFORCE vs Actor-Critic", color="white", fontweight="bold")
-            axes_ac2[0].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_ac2[0].grid(alpha=0.12)
-            sm_td = smooth(td_ac2, 50)
-            axes_ac2[1].plot(range(len(sm_td)), sm_td, color=ALG_COL["AC"], lw=2)
-            axes_ac2[1].axhline(0, color="white", ls="--", lw=0.8, alpha=0.4)
-            axes_ac2[1].set_xlabel("Step", color="white"); axes_ac2[1].set_ylabel("TD error δ", color="white")
-            axes_ac2[1].set_title("TD Error δ Over Training", color="white", fontweight="bold")
-            axes_ac2[1].grid(alpha=0.12)
-            plt.tight_layout(); st.pyplot(fig_ac2); plt.close()
+        if "ac2_res" in st.session_state:
+            rw_rf, rw_ac, td = st.session_state["ac2_res"]
+            fig, axes = _fig(1, 3, 17, 4.5)
+            for rw, nm, col in [(rw_rf,"REINFORCE+baseline",ALG["REINFORCE"]),
+                                  (rw_ac,"Actor-Critic",ALG["AC"])]:
+                sm = smooth(rw, 15)
+                axes[0].plot(rw, color=col, alpha=0.12, lw=0.5)
+                axes[0].plot(range(len(sm)), sm, color=col, lw=2.5, label=f"{nm} (mean={np.mean(rw[-30:]):.1f})")
+            axes[0].axhline(195, color="white", ls="--", lw=1, alpha=0.5)
+            axes[0].set_title("Learning Curves", color="white", fontweight="bold")
+            axes[0].set_xlabel("Episode", color="white"); axes[0].set_ylabel("Reward", color="white")
+            axes[0].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes[0].grid(alpha=0.12)
+            sm_td = smooth(td, 80)
+            axes[1].plot(range(len(sm_td)), sm_td, color=ALG["AC"], lw=2)
+            axes[1].axhline(0, color="white", ls="--", lw=0.8, alpha=0.4)
+            axes[1].set_title("TD Error δ (Critic Learning Signal)", color="white", fontweight="bold")
+            axes[1].set_xlabel("Step", color="white"); axes[1].set_ylabel("δ = r + γV(s') − V(s)", color="white")
+            axes[1].grid(alpha=0.12)
+            var_rf = [np.var(rw_rf[max(0,i-30):i+1]) for i in range(len(rw_rf))]
+            var_ac = [np.var(rw_ac[max(0,i-30):i+1]) for i in range(len(rw_ac))]
+            axes[2].plot(smooth(var_rf,15), color=ALG["REINFORCE"], lw=2, label="REINFORCE variance")
+            axes[2].plot(smooth(var_ac,15), color=ALG["AC"], lw=2.5, label="Actor-Critic variance")
+            axes[2].set_title("Variance Comparison (AC wins)", color="white", fontweight="bold")
+            axes[2].set_xlabel("Episode", color="white"); axes[2].set_ylabel("Return variance", color="white")
+            axes[2].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes[2].grid(alpha=0.12)
+            plt.tight_layout(); st.pyplot(fig); plt.close()
 
-    # ── A2C & A3C ─────────────────────────────────────────────────────────
+        st.markdown(_example_box("How δ Guides Learning — A Concrete Walkthrough",
+            """Consider CartPole. Critic predicts V(upright_state) = 120 (expects 120 more reward).<br><br>
+            <b>Case 1 — Better than expected:</b><br>
+            Agent keeps pole up for 1 step: r=1, V(next_upright) = 122<br>
+            δ = 1 + 0.99×122 − 120 = 1 + 120.78 − 120 = <b>+1.78</b><br>
+            Actor update: increase prob of taken action by +1.78 × gradient<br>
+            Critic update: V(upright) ← V(upright) − α×(−1.78) → V increases to ~121.8<br><br>
+            <b>Case 2 — Worse than expected:</b><br>
+            Pole falls: r=0, V(fallen) = 0<br>
+            δ = 0 + 0.99×0 − 120 = <b>−120</b><br>
+            Actor update: strongly decrease prob of action that led to fall<br>
+            Critic update: V(upright) ← V(upright) − α×(120) → V decreases to ~108<br><br>
+            The critic corrects itself AND guides the actor every single step."""),
+            unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 3 — A2C & A3C
+    # ══════════════════════════════════════════════════════════════════
     with tab_a2c:
         st.subheader("🤝 A2C & A3C — Advantage Actor-Critic (Mnih et al. 2016)")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**n-step return (A2C core):**")
-            st.latex(r"R_t^{(n)} = \sum_{k=0}^{n-1}\gamma^k r_{t+k} + \gamma^n V(s_{t+n})")
-            st.latex(r"\hat A_t = R_t^{(n)} - V(s_t)")
-            st.markdown(r"""
-            - $n=1$: vanilla AC (high bias, low variance)
-            - $n=5$: A2C default (balanced)
-            - $n=\infty$: REINFORCE (zero bias, very high variance)
-            """)
-        with col2:
-            st.markdown("**A2C full joint objective:**")
-            st.latex(r"\mathcal{L} = \underbrace{-\log\pi(a|s)\hat A}_{\text{policy loss}} + c_1\underbrace{(V-R)^2}_{\text{value loss}} - c_2\underbrace{H(\pi)}_{\text{entropy}}")
-            st.markdown(r"""
-            - $H(\pi) = -\sum_a\pi\log\pi$ — entropy bonus prevents premature convergence
-            - $c_1 \approx 0.5$, $c_2 \approx 0.01$
-            """)
+        st.markdown(_card("#00897b","🤝","What problem A2C solves over vanilla Actor-Critic",
+            """Vanilla Actor-Critic with 1-step TD has high bias in early training (V is wrong)
+            and the actor receives correlated gradient updates (consecutive states are similar —
+            seeing state s followed by s' gives almost no new information about the reward landscape).
+            A2C (Advantage Actor-Critic) fixes both problems simultaneously:
+            (1) Collects n steps of experience before updating — n-step returns have less bias than
+            1-step TD while having less variance than full Monte Carlo.
+            (2) The n-step batch naturally decorrelates updates since it covers a wider trajectory.
+            (3) Adds an entropy bonus H(π) to the policy loss that explicitly prevents the policy
+            from collapsing to a single deterministic action prematurely.
+            (4) Normalises advantages across the batch so the actor gradient scale is stable.
+            A2C also introduced the synchronous parallel workers pattern: multiple environments
+            run simultaneously, collecting diverse experience in lockstep, then a single gradient
+            update uses all of their data. This is more stable than the original A3C's asynchronous
+            updates because all workers always use the same model version — no staleness.
+            A2C demonstrated that with 16 parallel workers, learning speed improved ~16× with
+            the same amount of data, making it the first practical scalable deep RL algorithm."""),
+            unsafe_allow_html=True)
 
+        st.subheader("1. n-step Returns — Deriving the Bias-Variance Tradeoff")
+        st.markdown(r"""
+        **Definition:** The n-step return from time $t$ is the sum of $n$ actual rewards
+        plus a bootstrap estimate at step $t+n$:
+        """)
+        st.latex(r"R_t^{(n)} = \underbrace{r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \cdots + \gamma^{n-1}r_{t+n-1}}_{n\text{ real rewards}} + \underbrace{\gamma^n V_\omega(s_{t+n})}_{\text{bootstrap here}}")
+        st.markdown(r"""
+        **n-step advantage:**
+        """)
+        st.latex(r"\hat A_t^{(n)} = R_t^{(n)} - V_\omega(s_t)")
+        st.markdown(r"""
+        **Why does increasing $n$ reduce bias?**
+        The bias comes from using $V_\omega(s_{t+n})$ — an imperfect estimate of the true
+        $V^*(s_{t+n})$. The effect of this bias is discounted by $\gamma^n$. As $n$ increases,
+        $\gamma^n \to 0$, so the bias contribution shrinks:
+        """)
+        st.latex(r"\text{Bias}(\hat A_t^{(n)}) = \gamma^n\bigl(V_\omega(s_{t+n}) - V^*(s_{t+n})\bigr)")
+        st.markdown(r"""
+        **Why does increasing $n$ increase variance?**
+        Each additional real reward $r_{t+k}$ adds one more random variable to the sum.
+        By the variance addition rule (for independent terms):
+        """)
+        st.latex(r"\text{Var}(R_t^{(n)}) \approx \sum_{k=0}^{n-1}\gamma^{2k}\text{Var}(r_{t+k}) + \gamma^{2n}\text{Var}(V_\omega(s_{t+n}))")
+        st.markdown(r"This grows with $n$, but is bounded by the geometric series. In practice, $n=5$ works well.")
+
+        # Bias-variance chart
+        n_vals = np.arange(1, 31)
+        gamma_v = 0.99; err_V = 5.0; r_var = 2.0
+        bias = [gamma_v**n * err_V for n in n_vals]
+        variance = [sum(gamma_v**(2*k)*r_var for k in range(n)) + gamma_v**(2*n)*0.5 for n in n_vals]
+        total_err = [b+v for b,v in zip(bias, variance)]
+        fig_bv, ax_bv = _fig(1, 1, 12, 4)
+        ax_bv.plot(n_vals, bias, color="#ef5350", lw=2.5, label="Bias (γⁿ × V error) — decreases with n")
+        ax_bv.plot(n_vals, variance, color="#42a5f5", lw=2.5, label="Variance — increases with n")
+        ax_bv.plot(n_vals, total_err, color="#ffa726", lw=2.5, ls="--", label="Total error (bias + variance)")
+        ax_bv.axvline(5, color="#4caf50", ls="--", lw=1.5, alpha=0.7, label="A2C default n=5")
+        ax_bv.fill_between(n_vals, 0, bias, alpha=0.1, color="#ef5350")
+        ax_bv.fill_between(n_vals, 0, variance, alpha=0.1, color="#42a5f5")
+        ax_bv.set_xlabel("n (number of steps before bootstrap)", color="white")
+        ax_bv.set_ylabel("Error magnitude", color="white")
+        ax_bv.set_title("n-step Return: Bias decreases, Variance increases — A2C balances at n=5",
+                         color="white", fontweight="bold")
+        ax_bv.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_bv.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_bv); plt.close()
+
+        st.subheader("2. The Entropy Bonus — Preventing Premature Policy Collapse")
+        st.markdown(r"""
+        Without entropy regularisation, the policy often collapses to a deterministic distribution
+        early in training: one action gets probability ~1, all others ~0. This is catastrophic
+        if the high-probability action is suboptimal — the agent cannot explore.
+
+        **Shannon entropy of the policy:**
+        """)
+        st.latex(r"H(\pi(\cdot|s)) = -\sum_a \pi(a|s)\log\pi(a|s)")
+        st.markdown(r"""
+        - $H = \log|A|$ (maximum): uniform distribution — maximum exploration
+        - $H = 0$ (minimum): deterministic policy — zero exploration
+
+        **Proof that entropy bonus prevents collapse:**
+        The entropy term adds $c_2 H(\pi)$ to the objective. Taking the gradient with respect
+        to the logits $z_a$ (where $\pi(a|s) = \text{softmax}(z_a)$):
+        """)
+        st.latex(r"\frac{\partial H}{\partial z_a} = -\pi(a|s)(1 + \log\pi(a|s)) - \sum_{a'}\pi(a'|s)(-\pi(a|s))(1+\log\pi(a'|s))")
+        st.markdown(r"""
+        Simplified: $\partial H / \partial z_a = -\pi(a|s)[\log\pi(a|s) - H(\pi)]$.
+        When $\pi(a|s)$ is very large (collapsed): the gradient pushes $z_a$ down,
+        counteracting the collapse. The entropy gradient acts as a restoring force.
+
+        **A2C full joint loss (3 terms):**
+        """)
+        st.latex(r"\mathcal{L}(\theta,\omega) = \underbrace{-\frac{1}{T}\sum_t\log\pi_\theta(a_t|s_t)\hat A_t^{(n)}}_{\text{policy loss (actor)}} + \underbrace{c_1\frac{1}{T}\sum_t\bigl(V_\omega(s_t)-R_t^{(n)}\bigr)^2}_{\text{value loss (critic)}} - \underbrace{c_2\frac{1}{T}\sum_t H(\pi_\theta(\cdot|s_t))}_{\text{entropy bonus}}")
+        st.markdown(r"""
+        **Symbol decoder:**
+        - Policy loss: negative because we maximise $J$ (gradient ascent), but implement with a minimiser
+        - Value loss: MSE between critic's prediction $V_\omega(s_t)$ and n-step return target
+        - Entropy bonus: subtracted (negative sign) because we maximise it — higher entropy = better
+        - $c_1 \approx 0.5$: value loss coefficient — critic learns at half rate to prevent actor domination
+        - $c_2 \approx 0.01$: entropy coefficient — small but critical for exploration maintenance
+        """)
+
+        # Entropy demo
+        st.markdown("**Entropy vs policy distribution:**")
+        p_val = st.slider("Probability of action 0 (out of 2 actions)", 0.01, 0.99, 0.5, 0.01, key="a2c_ent_demo")
+        p_arr = np.array([p_val, 1-p_val])
+        H_val = -sum(p*np.log(p) for p in p_arr)
+        H_max = np.log(2)
+        fig_ent, axes_ent = _fig(1, 2, 12, 3.5)
+        axes_ent[0].bar(["Action 0", "Action 1"], p_arr, color=[ALG["A2C"],"#546e7a"])
+        axes_ent[0].set_title(f"Policy Distribution (p0={p_val:.2f})", color="white", fontweight="bold")
+        axes_ent[0].set_ylabel("Probability", color="white"); axes_ent[0].grid(alpha=0.1, axis="y")
+        p_range = np.linspace(0.01, 0.99, 200)
+        H_curve = -p_range*np.log(p_range) - (1-p_range)*np.log(1-p_range)
+        axes_ent[1].plot(p_range, H_curve, color=ALG["A2C"], lw=2.5)
+        axes_ent[1].axvline(p_val, color="#ef5350", ls="--", lw=2, label=f"Current: H={H_val:.3f} nats")
+        axes_ent[1].axhline(H_max, color="#4caf50", ls=":", lw=1.5, alpha=0.7, label=f"Max entropy: {H_max:.3f}")
+        axes_ent[1].set_xlabel("P(action=0)", color="white"); axes_ent[1].set_ylabel("Entropy H(π)", color="white")
+        axes_ent[1].set_title(f"Entropy: {H_val:.3f} nats ({100*H_val/H_max:.0f}% of max)",
+                               color="white", fontweight="bold")
+        axes_ent[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_ent[1].grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_ent); plt.close()
+        st.markdown(f"At p={p_val:.2f}: entropy = {H_val:.3f} nats. Maximum possible = {H_max:.3f} nats (uniform distribution).")
+
+        # Training
         c1,c2 = st.columns(2)
-        n_ep_a2c = c1.slider("Episodes", 50, 300, 200, 25, key="a2c_ep2")
-        n_steps_a = c1.slider("n-steps", 2, 20, 5, 1, key="a2c_ns2")
-        sd_a2c = c2.number_input("Seed", 0, 999, 42, key="a2c_sd2")
-        if st.button("▶️ REINFORCE vs AC vs A2C", type="primary", key="btn_a2c2"):
-            with st.spinner("Training…"):
-                rw_rf3, _ = train_reinforce(n_ep_a2c, 0.01, 0.99, True, int(sd_a2c))
-                rw_ac3, _ = train_ac(n_ep_a2c, 0.005, 0.01, 0.99, int(sd_a2c))
-                rw_a2c2 = train_a2c(n_ep_a2c, 0.003, 0.01, 0.99, n_steps_a, 0.01, int(sd_a2c))
-            st.session_state["a2c_res2"] = (rw_rf3, rw_ac3, rw_a2c2)
-        if "a2c_res2" in st.session_state:
-            rw_rf3, rw_ac3, rw_a2c2 = st.session_state["a2c_res2"]
-            fig_a2, ax_a2 = _fig(1, 1, 12, 4.5)
-            for rw, nm, col in [(rw_rf3, "REINFORCE+b", ALG_COL["REINFORCE"]),
-                                  (rw_ac3, "AC (1-step)", ALG_COL["AC"]),
-                                  (rw_a2c2, f"A2C (n={n_steps_a})", ALG_COL["A2C"])]:
-                sm = smooth(rw, 12)
+        n_ep_a2c = c1.slider("Episodes", 50, 300, 200, 25, key="a2c2_ep")
+        n_steps  = c1.slider("n-step rollout", 1, 20, 5, 1, key="a2c2_ns")
+        ent_c    = c2.slider("Entropy coeff c₂", 0.0, 0.1, 0.01, 0.005, key="a2c2_ent")
+        sd_a2c   = c2.number_input("Seed", 0, 999, 42, key="a2c2_sd")
+        if st.button("▶️ Compare REINFORCE, AC, A2C", type="primary", key="btn_a2c2"):
+            with st.spinner("Training all three…"):
+                rw_rf2,_ = train_reinforce(n_ep_a2c, 0.01, 0.99, True, int(sd_a2c))
+                rw_ac2,_ = train_ac(n_ep_a2c, 0.005, 0.01, 0.99, int(sd_a2c))
+                rw_a2c2  = train_a2c(n_ep_a2c, 0.003, 0.01, 0.99, n_steps, ent_c, int(sd_a2c))
+            st.session_state["a2c2_res"] = (rw_rf2, rw_ac2, rw_a2c2)
+        if "a2c2_res" in st.session_state:
+            rw_rf2, rw_ac2, rw_a2c2 = st.session_state["a2c2_res"]
+            fig_a2, ax_a2 = _fig(1, 1, 13, 4.5)
+            for rw, nm, col in [(rw_rf2,"REINFORCE+b",ALG["REINFORCE"]),
+                                  (rw_ac2,"AC (1-step)",ALG["AC"]),
+                                  (rw_a2c2,f"A2C (n={n_steps})",ALG["A2C"])]:
+                sm = smooth(rw, 15)
                 ax_a2.plot(rw, color=col, alpha=0.12, lw=0.5)
-                ax_a2.plot(range(len(sm)), sm, color=col, lw=2.5,
-                           label=f"{nm} (late={np.mean(rw[-30:]):.1f})")
+                ax_a2.plot(range(len(sm)), sm, color=col, lw=2.5, label=f"{nm} (late mean={np.mean(rw[-30:]):.1f})")
             ax_a2.axhline(195, color="white", ls="--", lw=1, alpha=0.5, label="Solved=195")
-            ax_a2.set_xlabel("Episode", color="white"); ax_a2.set_ylabel("Reward", color="white")
-            ax_a2.set_title("REINFORCE vs AC vs A2C", color="white", fontweight="bold")
+            ax_a2.set_xlabel("Episode",color="white"); ax_a2.set_ylabel("Reward",color="white")
+            ax_a2.set_title(f"REINFORCE vs AC vs A2C (n={n_steps}, entropy_c={ent_c:.3f})",
+                            color="white", fontweight="bold")
             ax_a2.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_a2.grid(alpha=0.12)
             plt.tight_layout(); st.pyplot(fig_a2); plt.close()
 
-    # ── PPO ──────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 4 — PPO
+    # ══════════════════════════════════════════════════════════════════
     with tab_ppo:
         st.subheader("🔐 PPO — Proximal Policy Optimization (Schulman et al. 2017)")
-        st.markdown(r"""PPO is the dominant modern policy gradient algorithm — used for ChatGPT RLHF,
-        robotics, and game-playing. Its key innovation: a **clipped surrogate** prevents catastrophic updates.""")
 
-        st.subheader("1. GAE — Generalised Advantage Estimation")
-        st.markdown("**1-step TD error:**")
-        st.latex(r"\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)")
-        st.markdown("**GAE = exponentially-weighted sum of TD errors:**")
-        st.latex(r"\hat A_t^{\text{GAE}(\lambda)} = \sum_{l=0}^{\infty}(\gamma\lambda)^l\,\delta_{t+l}")
+        st.markdown(_card("#e65100","🏆","What problem PPO solves and why it dominates modern RL",
+            """The fundamental problem with vanilla policy gradient methods (including A2C) is that
+            gradient steps can be catastrophically large. If a gradient step pushes the policy
+            parameters θ too far, the new policy π_new can be completely different from π_old —
+            and performance can collapse irreversibly. Unlike supervised learning where a bad
+            gradient step can be undone by re-evaluating on the same data, RL has a catch:
+            the policy determines which data you collect next. A bad policy → bad training data →
+            even worse policy. This is the training instability problem.
+            TRPO (2015) solved this theoretically using KL-constrained trust regions but required
+            expensive second-order optimisation (computing the Fisher information matrix).
+            PPO (2017) achieves the same practical stability with a brilliantly simple trick:
+            clip the probability ratio r_t(θ) = π_new/π_old to stay within [1-ε, 1+ε].
+            This prevents the policy from moving too far in a single update while remaining
+            first-order (just SGD). The result: state-of-the-art performance with a simple
+            implementation that runs on standard hardware. PPO now powers ChatGPT training (RLHF),
+            Claude alignment, OpenAI Five, robotics locomotion, and is the most-used RL algorithm
+            in production systems worldwide."""), unsafe_allow_html=True)
+
+        st.subheader("1. GAE — Generalised Advantage Estimation (Schulman et al. 2015)")
         st.markdown(r"""
-        - $\lambda=0$: reduces to 1-step TD error (high bias, low variance)
-        - $\lambda=1$: reduces to Monte Carlo advantage (zero bias, high variance)
-        - Typical: $\lambda=0.95$
-        """)
+        PPO uses GAE instead of simple n-step returns. GAE is a key innovation that provides
+        a single parameter λ to tune the entire bias-variance spectrum continuously.
 
-        lam_v = st.slider("λ (GAE decay)", 0.0, 1.0, 0.95, 0.05, key="ppo_lam2")
-        gamma_v = 0.99
-        weights = [( gamma_v*lam_v)**l for l in range(20)]
-        weights = [w/sum(weights) for w in weights]
-        fig_gae, ax_gae = _fig(1, 1, 10, 3.5)
-        ax_gae.bar(range(20), weights, color=ALG_COL["PPO"], alpha=0.85, edgecolor="white", lw=0.3)
-        ax_gae.set_xlabel("l (index of future TD error)", color="white")
-        ax_gae.set_ylabel(r"Weight $(\gamma\lambda)^l$", color="white")
-        ax_gae.set_title(f"GAE weights for λ={lam_v:.2f} (γ=0.99) — how much future δ contributes",
+        **Derivation of GAE:**
+        Start with the 1-step TD error: $\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$
+
+        The n-step return can be written as a sum of TD errors:
+        """)
+        st.latex(r"R_t^{(n)} - V(s_t) = \sum_{k=0}^{n-1}\gamma^k\delta_{t+k}")
+        st.markdown(_proof_box("n-step return = sum of TD errors",
+            """R_t^(n) - V(s_t)<br>
+            = r_t + γr_{t+1} + ... + γ^{n-1}r_{t+n-1} + γ^n V(s_{t+n}) - V(s_t)<br>
+            = [r_t + γV(s_{t+1}) - V(s_t)] + γ[r_{t+1} + γV(s_{t+2}) - V(s_{t+1})] + ... + γ^{n-1}[...]<br>
+            = δ_t + γδ_{t+1} + γ²δ_{t+2} + ... + γ^{n-1}δ_{t+n-1}<br>
+            = Σ_{k=0}^{n-1} γ^k δ_{t+k}  ✓"""), unsafe_allow_html=True)
+
+        st.markdown(r"""
+        **GAE takes a weighted average of ALL n-step advantages:**
+        """)
+        st.latex(r"\hat A_t^{\text{GAE}(\gamma,\lambda)} = (1-\lambda)\sum_{n=1}^\infty \lambda^{n-1}\hat A_t^{(n)}")
+        st.markdown(_proof_box("GAE simplifies to sum of decayed TD errors",
+            """Expand the weighted sum: (1-λ)Σ_{n=1}^∞ λ^{n-1} Σ_{k=0}^{n-1} γ^k δ_{t+k}<br>
+            Swap the order of summation (each δ_{t+k} appears in all n > k terms):<br>
+            = (1-λ) Σ_{k=0}^∞ δ_{t+k} γ^k Σ_{n=k+1}^∞ λ^{n-1}<br>
+            = (1-λ) Σ_{k=0}^∞ δ_{t+k} γ^k · λ^k/(1-λ)   (geometric series)<br>
+            = Σ_{k=0}^∞ (γλ)^k δ_{t+k}<br><br>
+            FINAL: Â_t^GAE(γ,λ) = Σ_{k=0}^∞ (γλ)^k δ_{t+k} = δ_t + γλδ_{t+1} + (γλ)²δ_{t+2} + ..."""),
+            unsafe_allow_html=True)
+
+        st.latex(r"\boxed{\hat A_t^{\text{GAE}(\gamma,\lambda)} = \sum_{k=0}^\infty(\gamma\lambda)^k\delta_{t+k}}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(r"""
+            **λ=0:** Only $\delta_t$ — pure 1-step TD advantage:
+            $\hat A_t = \delta_t = r_t + \gamma V(s') - V(s)$
+            High bias (V must be accurate), low variance.
+            """)
+        with col2:
+            st.markdown(r"""
+            **λ=1:** Full infinite sum = MC advantage:
+            $\hat A_t = G_t - V(s_t)$
+            Zero bias (no bootstrapping), high variance.
+            PPO default: **λ = 0.95** (effective ~20 step lookback)
+            """)
+
+        lam_demo = st.slider("λ (GAE decay) — drag to see how lookback changes", 0.0, 1.0, 0.95, 0.05, key="ppo2_lam")
+        gv = 0.99; n_show = 25
+        weights = [(gv*lam_demo)**k for k in range(n_show)]
+        w_norm = [w/sum(weights) for w in weights]
+        eff_n = 1/(1-gv*lam_demo) if lam_demo < 1 else float("inf")
+        fig_gae, ax_gae = _fig(1, 1, 12, 3.5)
+        bars = ax_gae.bar(range(n_show), w_norm, color=ALG["PPO"], alpha=0.85, edgecolor="white", lw=0.3)
+        ax_gae.set_xlabel("Future TD error index k (δ_{t+k})", color="white")
+        ax_gae.set_ylabel(r"Weight $(γλ)^k$ (normalised)", color="white")
+        ax_gae.set_title(f"GAE weights for λ={lam_demo:.2f} — effective lookback ≈ {min(eff_n,100):.0f} steps",
                          color="white", fontweight="bold")
         ax_gae.grid(alpha=0.12, axis="y"); plt.tight_layout(); st.pyplot(fig_gae); plt.close()
 
-        st.divider()
-        st.subheader("2. Clipped Surrogate Objective")
-        st.markdown("**Probability ratio:**")
-        st.latex(r"r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\text{ref}}(a_t|s_t)}")
-        st.markdown("**Clipped objective — pessimistic lower bound:**")
-        st.latex(r"L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\left(r_t(\theta)\hat A_t,\;\text{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\hat A_t\right)\right]")
+        st.subheader("2. The Clipped Surrogate Objective — Full Derivation")
         st.markdown(r"""
-        - If $\hat A_t > 0$: clip prevents $r_t$ going above $1+\varepsilon$ → no overconfident update
-        - If $\hat A_t < 0$: clip prevents $r_t$ going below $1-\varepsilon$ → no catastrophic avoidance
-        - $\varepsilon \approx 0.2$: policy can change at most 20% per update
+        **Setting up importance sampling:**
+        PPO collects data with policy $\pi_{\text{ref}}$ (the current policy), then runs $K$ gradient
+        update epochs on that data. After the first epoch, $\theta$ has changed — the data distribution
+        has shifted. Importance sampling corrects for this:
+        """)
+        st.latex(r"J(\theta) = \mathbb{E}_{(s,a)\sim\pi_{\text{ref}}}\!\left[\frac{\pi_\theta(a|s)}{\pi_{\text{ref}}(a|s)}\hat A\right] = \mathbb{E}\!\left[r_t(\theta)\hat A_t\right]")
+        st.latex(r"r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\text{ref}}(a_t|s_t)} \quad\text{(probability ratio — starts at 1, drifts as θ updates)}")
+        st.markdown(r"""
+        The unclipped surrogate $L^{\text{PG}} = \mathbb{E}[r_t(\theta)\hat A_t]$ can encourage
+        arbitrarily large $r_t$ when $\hat A_t > 0$, leading to destabilisingly large updates.
+        **PPO clips** the ratio to prevent this:
+        """)
+        st.latex(r"L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\left(r_t(\theta)\hat A_t,\;\underbrace{\text{clip}(r_t(\theta),\,1-\varepsilon,\,1+\varepsilon)}_{\text{restricted to }[1-\varepsilon,1+\varepsilon]}\cdot\hat A_t\right)\right]")
+        st.markdown(_proof_box("Why min() gives a pessimistic lower bound",
+            """Case 1 — Positive advantage (A > 0): action is good, want to increase probability.<br>
+            If r_t > 1+ε: unclipped = r_t·A > (1+ε)·A, clipped = (1+ε)·A<br>
+            min() selects the CLIPPED (smaller) value — prevents over-reinforcing<br>
+            If r_t < 1+ε: unclipped = clipped → min selects either → no clipping<br><br>
+            Case 2 — Negative advantage (A < 0): action is bad, want to decrease probability.<br>
+            If r_t < 1-ε: unclipped = r_t·A < (1-ε)·A (less negative), clipped = (1-ε)·A<br>
+            min() selects the CLIPPED (smaller/more negative) value — prevents over-penalising<br><br>
+            Result: the gradient can never benefit from moving r_t outside [1-ε, 1+ε].
+            The policy is implicitly constrained to a trust region around π_ref."""), unsafe_allow_html=True)
+
+        # Interactive clip visualisation
+        eps_v = st.slider("ε (clip range)", 0.05, 0.5, 0.2, 0.05, key="ppo2_eps")
+        ratios = np.linspace(0.3, 2.0, 300)
+        fig_clip, axes_clip = _fig(1, 2, 14, 4.5)
+        for ax, adv, title, color in [
+            (axes_clip[0], 0.8, "A > 0: Good action — clip prevents over-reinforcing", "#4caf50"),
+            (axes_clip[1], -0.8, "A < 0: Bad action — clip prevents over-penalising", "#ef5350")
+        ]:
+            L_raw  = ratios * adv
+            L_clip = np.minimum(ratios*adv, np.clip(ratios, 1-eps_v, 1+eps_v)*adv)
+            # Gradient of clipped objective
+            grad_clip = np.where((ratios > 1-eps_v) & (ratios < 1+eps_v), adv, 0)
+            ax.plot(ratios, L_raw,  color="#42a5f5", lw=2, ls="--", alpha=0.8, label="Unclipped L^PG (dangerous)")
+            ax.plot(ratios, L_clip, color=color, lw=2.5, label=f"Clipped L^CLIP (ε={eps_v})")
+            ax.axvline(1, color="white", lw=0.8, ls=":", alpha=0.5, label="r_t=1 (no drift)")
+            ax.axvline(1+eps_v, color="#ffa726", lw=1.5, ls="--", alpha=0.8, label=f"Clip boundary ±{eps_v}")
+            ax.axvline(1-eps_v, color="#ffa726", lw=1.5, ls="--", alpha=0.8)
+            ax.fill_between(ratios[(ratios>1-eps_v)&(ratios<1+eps_v)],
+                            L_clip[(ratios>1-eps_v)&(ratios<1+eps_v)],
+                            alpha=0.15, color=color, label="Region of active gradient")
+            ax.set_xlabel(r"$r_t(\theta) = \pi_\theta / \pi_\mathrm{ref}$", color="white")
+            ax.set_ylabel("Objective value", color="white")
+            ax.set_title(title, color="white", fontweight="bold")
+            ax.legend(facecolor=CARD, labelcolor="white", fontsize=7.5); ax.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_clip); plt.close()
+        st.caption(f"ε={eps_v}: Policy can move at most {eps_v*100:.0f}% away from reference before gradient is zeroed. The clipped objective is always the PESSIMISTIC (minimum) bound.")
+
+        st.subheader("3. Complete PPO Loss — All Three Terms")
+        st.latex(r"\mathcal{L}^\text{PPO}(\theta) = \mathbb{E}_t\!\left[L_t^\text{CLIP}(\theta) - c_1\underbrace{(V_\theta(s_t)-R_t)^2}_\text{value loss} + c_2\underbrace{H(\pi_\theta(\cdot|s_t))}_\text{entropy}\right]")
+        st.markdown(r"""
+        Where $R_t = \hat A_t^\text{GAE} + V_\text{ref}(s_t)$ is the return target.
+        $c_1 \approx 0.5$, $c_2 \approx 0.01$.
+
+        **PPO training loop:**
+        1. Collect rollout of $T$ steps with $\pi_\theta$ (the reference policy)
+        2. Compute GAE advantages $\hat A_t$ backward from $t=T$ to $t=0$
+        3. For $K$ epochs: shuffle rollout into mini-batches, compute $L^\text{PPO}$, update $\theta$
+        4. The updated $\theta$ becomes the new reference policy for the next rollout
         """)
 
-        eps_v = st.slider("ε (clip range)", 0.05, 0.5, 0.2, 0.05, key="ppo_eps2")
-        ratios = np.linspace(0.4, 1.8, 300)
-        fig_clip, axes_clip = _fig(1, 2, 13, 4)
-        for ax, adv, title in [(axes_clip[0], 0.8, "A > 0 (good action)"),
-                                (axes_clip[1], -0.8, "A < 0 (bad action)")]:
-            L_unc  = ratios*adv
-            L_clip = np.minimum(ratios*adv, np.clip(ratios, 1-eps_v, 1+eps_v)*adv)
-            ax.plot(ratios, L_unc,  color="#42a5f5", lw=2, ls="--", label="Unclipped")
-            ax.plot(ratios, L_clip, color=ALG_COL["PPO"], lw=2.5, label="Clipped")
-            ax.axvline(1, color="white", lw=0.8, alpha=0.5, ls=":")
-            ax.axvline(1+eps_v, color="#ffa726", lw=1.2, ls="--", alpha=0.8)
-            ax.axvline(1-eps_v, color="#ffa726", lw=1.2, ls="--", alpha=0.8, label=f"±{eps_v}")
-            ax.set_xlabel(r"$r_t(\theta) = \pi_\theta/\pi_{ref}$", color="white")
-            ax.set_ylabel("Objective", color="white")
-            ax.set_title(title, color="white", fontweight="bold")
-            ax.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax.grid(alpha=0.12)
-        plt.tight_layout(); st.pyplot(fig_clip); plt.close()
-
-        st.divider()
-        st.subheader("3. Full PPO Loss")
-        st.latex(r"\mathcal{L}(\theta) = \mathbb{E}_t\!\left[L^{\text{CLIP}}_t - c_1(V_\theta(s_t)-R_t)^2 + c_2 H(\pi_\theta(s_t))\right]")
-        st.markdown(r"Where $R_t = \hat A_t + V_{\text{ref}}(s_t)$ (return target), $c_1\approx0.5$, $c_2\approx0.01$.")
-
+        # PPO training
         c1,c2,c3 = st.columns(3)
-        n_it = c1.slider("PPO iterations", 20, 100, 50, 10, key="ppo_it2")
-        clip_e = c2.slider("ε (clip)", 0.05, 0.4, 0.2, 0.05, key="ppo_cli2")
-        gae_l = c3.slider("λ (GAE)", 0.5, 1.0, 0.95, 0.05, key="ppo_gl2")
-        sd_ppo = c3.number_input("Seed", 0, 999, 42, key="ppo_sd2")
-
-        if st.button("▶️ Train PPO", type="primary", key="btn_ppo2"):
+        n_it   = c1.slider("Iterations", 20, 100, 50, 10, key="ppo2_it")
+        clip_e = c2.slider("ε clip", 0.05, 0.4, 0.2, 0.05, key="ppo2_cli")
+        gae_l  = c3.slider("λ GAE", 0.5, 1.0, 0.95, 0.05, key="ppo2_gl")
+        sd_ppo = c3.number_input("Seed", 0, 999, 42, key="ppo2_sd")
+        if st.button("▶️ Train PPO vs Actor-Critic", type="primary", key="btn_ppo2"):
             with st.spinner("Training PPO…"):
                 rw_ppo2 = train_ppo(n_it, 512, 4, 3e-3, 5e-3, 0.99, gae_l, clip_e, 0.01, int(sd_ppo))
             with st.spinner("AC for comparison…"):
-                rw_ac_c2, _ = train_ac(min(300, len(rw_ppo2)+50), 0.005, 0.01, 0.99, int(sd_ppo))
-            st.session_state["ppo_res2"] = (rw_ppo2, rw_ac_c2)
-
-        if "ppo_res2" in st.session_state:
-            rw_ppo2, rw_ac_c2 = st.session_state["ppo_res2"]
-            fig_ppo2, ax_ppo2 = _fig(1, 1, 12, 4.5)
-            for rw, nm, col in [(rw_ac_c2, "Actor-Critic", ALG_COL["AC"]),
-                                  (rw_ppo2, "PPO", ALG_COL["PPO"])]:
+                rw_ac_c, _ = train_ac(min(300, len(rw_ppo2)+50), 0.005, 0.01, 0.99, int(sd_ppo))
+            st.session_state["ppo2_res"] = (rw_ppo2, rw_ac_c)
+        if "ppo2_res" in st.session_state:
+            rw_ppo2, rw_ac_c = st.session_state["ppo2_res"]
+            fig_ppo2, ax_ppo2 = _fig(1, 1, 13, 4.5)
+            for rw, nm, col in [(rw_ac_c,"Actor-Critic (1-step)",ALG["AC"]),
+                                  (rw_ppo2,"PPO (clipped + GAE)",ALG["PPO"])]:
                 sm = smooth(rw, 12)
                 ax_ppo2.plot(rw, color=col, alpha=0.12, lw=0.5)
-                ax_ppo2.plot(range(len(sm)), sm, color=col, lw=2.5,
-                             label=f"{nm} (late={np.mean(rw[-30:]):.1f})")
-            ax_ppo2.axhline(195, color="white", ls="--", lw=1, alpha=0.5)
-            ax_ppo2.set_xlabel("Episode", color="white"); ax_ppo2.set_ylabel("Reward", color="white")
-            ax_ppo2.set_title("Actor-Critic vs PPO", color="white", fontweight="bold")
+                ax_ppo2.plot(range(len(sm)), sm, color=col, lw=2.5, label=f"{nm} (late={np.mean(rw[-30:]):.1f})")
+            ax_ppo2.axhline(195, color="white", ls="--", lw=1, alpha=0.5, label="Solved=195")
+            ax_ppo2.set_xlabel("Episode",color="white"); ax_ppo2.set_ylabel("Reward",color="white")
+            ax_ppo2.set_title(f"Actor-Critic vs PPO (ε={clip_e}, λ={gae_l})", color="white", fontweight="bold")
             ax_ppo2.legend(facecolor=CARD, labelcolor="white", fontsize=9); ax_ppo2.grid(alpha=0.12)
             plt.tight_layout(); st.pyplot(fig_ppo2); plt.close()
 
-    # ── TRPO & SAC ────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 5 — TRPO & SAC
+    # ══════════════════════════════════════════════════════════════════
     with tab_trpo:
-        st.subheader("🏛️ TRPO — Trust Region Policy Optimization (Schulman 2015)")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**TRPO Objective (constrained optimisation):**")
-            st.latex(r"\max_\theta\; L^{\text{PG}}(\theta) \quad \text{s.t.} \quad D_{\text{KL}}(\pi_\theta\|\pi_{\text{old}}) \leq \delta")
-            st.markdown(r"Solved via conjugate gradient + line search. Stronger theory than PPO but $10\times$ harder to implement.")
-        with col2:
-            st.markdown("**Monotonic improvement guarantee:**")
-            st.latex(r"J(\pi_{\text{new}}) \geq J(\pi_{\text{old}}) - \frac{4\gamma\max|A|}{(1-\gamma)^2}D_{\text{KL}}^{\max}(\pi_{\text{new}}\|\pi_{\text{old}})")
-            st.markdown("PPO approximates this guarantee via clipping — same benefit, far simpler.")
+        st.subheader("🏛️ TRPO & SAC — Advanced Policy Methods")
+        col_t, col_s = st.columns(2)
+        with col_t:
+            st.markdown("#### 🏛️ TRPO (Schulman et al. 2015)")
+            st.markdown(_card("#ad1457","🏛️","What TRPO is and why it matters",
+                """TRPO (Trust Region Policy Optimization) is the theoretical predecessor to PPO.
+                It proved that constraining the KL divergence between old and new policies
+                guarantees monotonic improvement — the new policy is provably never worse.
+                TRPO solves a constrained optimisation at each step using conjugate gradient
+                descent and backtracking line search to find the largest safe step within the
+                trust region. While PPO has replaced TRPO in practice, understanding TRPO's
+                monotonic improvement theorem explains WHY PPO's clipping works and provides
+                the theoretical foundation for all trust-region methods."""), unsafe_allow_html=True)
+
+            st.markdown("**TRPO constrained optimisation:**")
+            st.latex(r"\max_\theta\;L^{\text{PG}}(\theta) \quad\text{s.t.}\quad \overline{D}_\text{KL}(\pi_\theta\|\pi_\text{old})\leq\delta")
+            st.markdown(_proof_box("Monotonic Improvement Theorem",
+                """Define surrogate L^π(π') = J(π) + E_{s∼d^π}[E_{a∼π'}[A^π(s,a)]]<br>
+                Then: J(π') ≥ L^π(π') - C·max_s D_KL(π'||π)<br>
+                where C = 4γε/(1-γ)², ε = max|A^π(s,a)|<br><br>
+                If D_KL is bounded by δ, then J(π') is bounded below by L^π(π') - C·δ.<br>
+                Maximising L^π(π') while keeping D_KL ≤ δ guarantees improvement in J(π').<br>
+                This is the theoretical justification for trust regions — and for PPO's clip."""),
+                unsafe_allow_html=True)
+
+            st.latex(r"J(\pi_\text{new}) \geq J(\pi_\text{old}) - \frac{4\gamma\varepsilon}{(1-\gamma)^2}\overline{D}_\text{KL}(\pi_\text{new}\|\pi_\text{old})")
+
+        with col_s:
+            st.markdown("#### 🌡️ SAC (Haarnoja et al. 2018)")
+            st.markdown(_card("#558b2f","🌡️","What SAC is and when to use it over PPO",
+                """Soft Actor-Critic introduces the maximum entropy RL framework: simultaneously
+                maximise cumulative reward AND policy entropy. This encourages exploration throughout
+                training, prevents premature convergence, and produces robust policies. SAC is
+                off-policy (replay buffer) and designed for continuous action spaces.
+                It achieves 5–10× better sample efficiency than PPO on MuJoCo benchmarks.
+                Choose SAC for continuous actions with expensive data collection (real robots).
+                Choose PPO for discrete actions, fast simulation, or LLM alignment."""), unsafe_allow_html=True)
+
+            st.markdown("**SAC maximum entropy objective:**")
+            st.latex(r"J(\pi) = \mathbb{E}_\tau\!\left[\sum_t\gamma^t\bigl(r_t + \alpha H(\pi(\cdot|s_t))\bigr)\right]")
+            st.markdown(r"""
+            $H(\pi) = -\mathbb{E}_{a\sim\pi}[\log\pi(a|s)]$ — entropy of the policy.
+            $\alpha$ — temperature (balance reward vs entropy; can be learned automatically).
+            """)
+            st.markdown("**SAC twin-Q Bellman target:**")
+            st.latex(r"y = r + \gamma\bigl(\min_{j=1,2}Q_{\bar\theta_j}(s',a') - \alpha\log\pi(a'|s')\bigr)")
+            st.markdown(r"""
+            The entropy term $-\alpha\log\pi(a'|s')$ is built into the Bellman backup itself —
+            the soft value function naturally encourages diverse action selection at every state.
+            """)
 
         st.divider()
-        st.subheader("🌡️ SAC — Soft Actor-Critic (Haarnoja 2018)")
-        st.markdown("**Maximum entropy RL objective:**")
-        st.latex(r"J(\pi) = \mathbb{E}_{\tau\sim\pi}\!\left[\sum_t\gamma^t\bigl(r(s_t,a_t)+\alpha\, H(\pi(\cdot|s_t))\bigr)\right]")
-        st.markdown(r"""
-        - $H(\pi) = -\mathbb{E}_{a\sim\pi}[\log\pi(a|s)]$ — entropy bonus: explore more
-        - $\alpha$ — temperature: balances reward vs entropy; can be learned automatically
-        - **Double Q-networks** reduce overestimation:
-        """)
-        st.latex(r"y = r + \gamma\bigl(\min_{j}Q_{\bar\theta_j}(s',a') - \alpha\log\pi(a'|s')\bigr)")
+        st.subheader("📊 Method Summary — When to Use Which")
         st.dataframe(pd.DataFrame({
-            "": ["Policy type","Action space","Data source","Key innovation","Sample efficiency"],
-            "PPO": ["Stochastic","Discrete+Continuous","On-policy rollout","Clipped surrogate + GAE","Medium"],
-            "TRPO": ["Stochastic","Discrete+Continuous","On-policy rollout","KL trust region","Medium"],
-            "SAC": ["Stochastic","Continuous only","Replay buffer","Max entropy + 2 critics","Very high"],
+            "Criterion":["Action space","Data source","Sample efficiency","Stability","Key strength","Avoid when"],
+            "PPO":["Discrete+Continuous","On-policy rollout","Medium","Very high",
+                   "Simplicity, RLHF, fast sim","Real robots with expensive data"],
+            "TRPO":["Discrete+Continuous","On-policy rollout","Medium","Guaranteed monotonic",
+                    "Hard safety guarantees","Anywhere PPO is simpler"],
+            "SAC":["Continuous ONLY","Off-policy replay","Very high","Very high",
+                   "Real robots, best sample eff","Discrete actions, RLHF"],
         }), use_container_width=True, hide_index=True)
 
-    # ── DASHBOARD ─────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 6 — DASHBOARD
+    # ══════════════════════════════════════════════════════════════════
     with tab_dash:
-        st.subheader("📈 Run All Policy Gradient Methods on CartPole")
-        c1, c2 = st.columns(2)
-        n_ep_d = c1.slider("Episodes (MC methods)", 50, 250, 150, 25, key="acd_ep")
-        sd_d = c2.number_input("Seed", 0, 999, 42, key="acd_sd")
-        if st.button("🚀 Run All", type="primary", key="btn_acd"):
+        st.subheader("📈 Full Policy Gradient Family Benchmark — CartPole")
+        st.markdown("Run all methods simultaneously and compare learning curves, convergence speed, and stability.")
+        c1,c2 = st.columns(2)
+        n_ep_d = c1.slider("Episodes (MC methods)", 50, 300, 150, 25, key="acd2_ep")
+        sd_d   = c2.number_input("Seed", 0, 999, 42, key="acd2_sd")
+        if st.button("🚀 Run All Policy Gradient Methods", type="primary", key="btn_acd2"):
             results = {}
             for nm, fn, args in [
-                ("REINFORCE", train_reinforce, (n_ep_d, 0.01, 0.99, False, int(sd_d))),
-                ("REINFORCE+Baseline", train_reinforce, (n_ep_d, 0.01, 0.99, True, int(sd_d))),
-                ("Actor-Critic", train_ac, (n_ep_d, 0.005, 0.01, 0.99, int(sd_d))),
-                ("A2C (n=5)", train_a2c, (n_ep_d, 0.003, 0.01, 0.99, 5, 0.01, int(sd_d))),
+                ("REINFORCE (no baseline)", train_reinforce, (n_ep_d,0.01,0.99,False,int(sd_d))),
+                ("REINFORCE + baseline",   train_reinforce, (n_ep_d,0.01,0.99,True, int(sd_d))),
+                ("Actor-Critic (1-step)",  train_ac,        (n_ep_d,0.005,0.01,0.99,int(sd_d))),
+                ("A2C (n=5)",              train_a2c,       (n_ep_d,0.003,0.01,0.99,5,0.01,int(sd_d))),
             ]:
-                with st.spinner(f"{nm}…"):
-                    r = fn(*args)
-                    results[nm] = r[0] if isinstance(r, tuple) else r
+                with st.spinner(f"Training {nm}…"):
+                    r = fn(*args); results[nm] = r[0] if isinstance(r,tuple) else r
             with st.spinner("PPO…"):
-                results["PPO"] = train_ppo(30, 512, 4, 3e-3, 5e-3, 0.99, 0.95, 0.2, 0.01, int(sd_d))
-            st.session_state["acd_res"] = results
+                results["PPO (clipped+GAE)"] = train_ppo(30,512,4,3e-3,5e-3,0.99,0.95,0.2,0.01,int(sd_d))
+            st.session_state["acd2_res"] = results
 
-        if "acd_res" in st.session_state:
-            res = st.session_state["acd_res"]
-            fig_d, ax_d = _fig(1, 1, 13, 5)
-            pal = [ALG_COL["REINFORCE"],"#b39ddb",ALG_COL["AC"],ALG_COL["A2C"],ALG_COL["PPO"]]
+        if "acd2_res" in st.session_state:
+            res = st.session_state["acd2_res"]
+            pal = [ALG["REINFORCE"],"#b39ddb",ALG["AC"],ALG["A2C"],ALG["PPO"]]
+            fig_d, axes_d = _fig(1, 2, 16, 5)
             for (nm, rw), col in zip(res.items(), pal):
                 sm = smooth(rw, 12)
-                ax_d.plot(rw, color=col, alpha=0.1, lw=0.4)
-                ax_d.plot(range(len(sm)), sm, color=col, lw=2.5,
-                          label=f"{nm} (late={np.mean(rw[-30:]):.1f})")
-            ax_d.axhline(195, color="white", ls="--", lw=1, alpha=0.5, label="Solved=195")
-            ax_d.set_xlabel("Episode", color="white"); ax_d.set_ylabel("Reward", color="white")
-            ax_d.set_title("Policy Gradient Family on CartPole", color="white", fontweight="bold")
-            ax_d.legend(facecolor=CARD, labelcolor="white", fontsize=8,
-                        bbox_to_anchor=(1.01,1), loc="upper left")
-            ax_d.grid(alpha=0.12); plt.tight_layout(); st.pyplot(fig_d); plt.close()
+                axes_d[0].plot(rw, color=col, alpha=0.1, lw=0.4)
+                axes_d[0].plot(range(len(sm)), sm, color=col, lw=2.5, label=f"{nm}")
+            axes_d[0].axhline(195, color="white", ls="--", lw=1, alpha=0.5, label="Solved=195")
+            axes_d[0].set_xlabel("Episode",color="white"); axes_d[0].set_ylabel("Reward",color="white")
+            axes_d[0].set_title("Learning Curves — Each Method's Progression",color="white",fontweight="bold")
+            axes_d[0].legend(facecolor=CARD, labelcolor="white", fontsize=7.5, bbox_to_anchor=(1.01,1))
+            axes_d[0].grid(alpha=0.12)
+            # Bar chart summary
+            names  = list(res.keys())
+            late   = [np.mean(rw[-30:]) for rw in res.values()]
+            colors = pal[:len(names)]
+            axes_d[1].barh(names, late, color=colors, alpha=0.85)
+            axes_d[1].axvline(195, color="#4caf50", ls="--", lw=1.5, label="Solved=195")
+            for i, v in enumerate(late):
+                axes_d[1].text(v+1, i, f"{v:.1f}", va="center", color="white", fontsize=8)
+            axes_d[1].set_xlabel("Mean reward (last 30 episodes)",color="white")
+            axes_d[1].set_title("Final Performance Comparison",color="white",fontweight="bold")
+            axes_d[1].legend(facecolor=CARD, labelcolor="white", fontsize=8)
+            axes_d[1].grid(alpha=0.12, axis="x")
+            plt.tight_layout(); st.pyplot(fig_d); plt.close()
 
-    # ── STUDY PLAN ────────────────────────────────────────────────────────
+            rows = []
+            for (nm, rw), col in zip(res.items(), pal):
+                solved = next((i for i,r in enumerate(smooth(rw,5)) if r>=150), None)
+                rows.append({"Method":nm, "Late mean":f"{np.mean(rw[-30:]):.1f}",
+                             "Best episode":f"{max(rw):.0f}",
+                             "Variance":f"{np.var(rw[-30:]):.1f}",
+                             "Steps to 150":f"{solved}" if solved else "never"})
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    # TAB 7 — STUDY PLAN
+    # ══════════════════════════════════════════════════════════════════
     with tab_plan:
-        st.subheader("📚 4-Week Policy Gradient Study Plan")
-        for wt, ws, col, tasks in [
-            ("Week 1","Foundations","#7c4dff",[
-                ("📄","Sutton & Barto Ch.13","Derive the policy gradient theorem from scratch."),
-                ("💻","Implement REINFORCE","CartPole. Compute G_t backward. Add baseline."),
-                ("🧮","Prove baseline does not bias gradient","Show E[∇log π · b(s)] = 0."),
+        st.subheader("📚 4-Week Policy Gradient Mastery Plan")
+
+        weeks = [
+            ("Week 1","Foundations — From Zero to REINFORCE","#7c4dff",[
+                ("📄","Sutton & Barto Ch.13","Read Sections 13.1–13.3. Derive the policy gradient theorem yourself on paper without looking at the book. This is the single most important exercise."),
+                ("🧮","Prove the log-derivative trick","Show ∇f = f·∇log f. Then apply it to show ∇E[r(τ)] = E[∇log p_θ(τ)·r(τ)]."),
+                ("🧮","Prove the baseline doesn't bias gradient","Show E[∇log π(a|s)·b(s)] = 0 using the identity ∇Σ_a π(a|s) = 0."),
+                ("💻","Implement REINFORCE in NumPy","No PyTorch. Compute G_t backward. Apply the update. Run on CartPole. Reproduce the high-variance learning curve."),
+                ("📊","Plot variance as a function of N","For N=10,50,100,500 episodes: plot std(gradient_estimate). Verify it scales as 1/√N."),
             ]),
-            ("Week 2","Actor-Critic","#0288d1",[
-                ("📄","Sutton et al. 1999 — Policy Gradient Theorem","Proof and connection to value functions."),
-                ("💻","Implement 1-step Actor-Critic","Separate π and V networks. Track TD errors."),
-                ("📊","Compare 1-step vs n-step","Plot: variance decreases as n increases from 1 to ∞."),
+            ("Week 2","Actor-Critic — Understanding TD","#0288d1",[
+                ("📄","Sutton & Barto Ch.9 + Ch.13","Read 9.1–9.3 (function approximation) and 13.5 (actor-critic). Understand how TD(0) trains V(s)."),
+                ("🧮","Derive δ_t as a 1-step advantage estimate","Show A(s,a) = Q(s,a) - V(s) = r + γV(s') - V(s) = δ_t using the Bellman equation."),
+                ("💻","Implement 1-step Actor-Critic","Two separate networks. Track TD error over training. Verify δ → 0 as critic improves."),
+                ("💻","Implement A2C with n-step returns","Try n=1,3,5,10,20. For each: run CartPole for 200 episodes, record late-mean reward. Plot vs n."),
+                ("📊","Entropy collapse experiment","Train A2C with c₂=0 and c₂=0.01. Record the policy entropy over training. See why entropy=0 is catastrophic."),
             ]),
-            ("Week 3","PPO Deep Dive","#e65100",[
-                ("📄","Schulman 2015 — GAE","Derive GAE from n-step returns. Verify λ=0 → 1-step TD."),
-                ("📄","Schulman 2017 — PPO","Read Section 3 (clip) and Section 5 (implementation details)."),
-                ("💻","Implement PPO from scratch","K epochs, mini-batches, clip, GAE, entropy bonus."),
+            ("Week 3","PPO — The Industry Standard","#e65100",[
+                ("📄","Schulman et al. (2015) — GAE paper","Sections 1–4. Derive GAE = Σ(γλ)^k δ_{t+k} from the weighted n-step average. Verify λ=0 gives 1-step TD, λ=1 gives MC."),
+                ("📄","Schulman et al. (2017) — PPO paper","Read all of it, especially Appendix A (implementation checklist with 9 items). Every item matters."),
+                ("💻","Implement PPO from scratch","GAE backward pass, clipped objective, K=4 epochs, mini-batch SGD, value loss, entropy bonus, gradient clipping. All 9 checklist items."),
+                ("📊","PPO ablation study","Remove each component one at a time. Measure the damage. Which component matters most? (Usually: clipping > GAE > entropy)"),
+                ("💻","PPO on continuous control","LunarLanderContinuous-v2. Gaussian policy head. Clip actions to bounds."),
             ]),
-            ("Week 4","Advanced","#558b2f",[
-                ("📄","Haarnoja 2018 — SAC","Soft Bellman equations and temperature auto-tuning."),
-                ("💻","PPO on MuJoCo","Continuous action Gaussian policy. Use stable-baselines3 as reference."),
-                ("📄","RLHF with PPO — InstructGPT","Ziegler et al. 2019. Apply policy gradient to language models."),
+            ("Week 4","Advanced & Real Applications","#558b2f",[
+                ("📄","Schulman et al. (2015) — TRPO","Sections 3–5: the trust region bound, conjugate gradient, backtracking line search. You won't implement it but you need the theory."),
+                ("📄","Haarnoja et al. (2018) — SAC","Sections 4–5: soft Bellman equations, automatic temperature tuning. Focus on how entropy enters the backup."),
+                ("💻","SAC on MuJoCo HalfCheetah-v4","Implement with PyTorch. Compare sample efficiency vs PPO on the same task."),
+                ("🎯","RLHF mini-project","Use TRL library. Load GPT-2. Train a reward model on sentiment. Apply PPO. Watch the model generate positive text."),
+                ("📊","Full benchmark","Compare REINFORCE, AC, A2C, PPO on CartPole and LunarLander. Report mean±std over 5 seeds. This is a publishable ablation."),
             ]),
-        ]:
+        ]
+
+        for wt, ws, col, tasks in weeks:
             st.markdown(f'<div style="background:{col}18;border-left:4px solid {col};'
-                        f'border-radius:0 10px 10px 0;padding:.6rem 1rem;margin:.7rem 0 .3rem">'
-                        f'<b style="color:{col}">{wt}: {ws}</b></div>', unsafe_allow_html=True)
+                        f'border-radius:0 10px 10px 0;padding:.7rem 1.2rem;margin:.8rem 0 .4rem">'
+                        f'<b style="color:{col};font-size:1.05rem">{wt}: {ws}</b></div>',
+                        unsafe_allow_html=True)
             for icon, title, desc in tasks:
                 st.markdown(f'<div style="background:#12121f;border:1px solid #2a2a3e;'
-                            f'border-radius:8px;padding:.5rem .9rem;margin:.25rem 0;'
-                            f'display:flex;gap:.7rem"><span>{icon}</span>'
+                            f'border-radius:8px;padding:.6rem 1rem;margin:.3rem 0;'
+                            f'display:flex;gap:.8rem"><span style="font-size:1.2rem">{icon}</span>'
                             f'<div><b style="color:white">{title}</b>'
-                            f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span>'
+                            f'<br><span style="color:#9e9ebb;font-size:.86rem;line-height:1.6">{desc}</span>'
                             f'</div></div>', unsafe_allow_html=True)
 
         st.divider()
-        st.subheader("📖 Primary Resources")
+        st.subheader("📖 Primary References")
         for icon, title, desc, url in [
-            ("📗","Sutton & Barto Ch.13 — Policy Gradient Methods","Canonical theoretical treatment. Free online.","http://incompleteideas.net/book/the-book.html"),
-            ("📄","Schulman et al. (2015) — GAE","Essential for PPO. Derives GAE and bias-variance trade-off.","https://arxiv.org/abs/1506.02438"),
-            ("📄","Schulman et al. (2017) — PPO","The PPO paper. Short, readable, full of implementation tips.","https://arxiv.org/abs/1707.06347"),
-            ("📄","Mnih et al. (2016) — A3C","Asynchronous workers. Shows parallel exploration helps.","https://arxiv.org/abs/1602.01783"),
-            ("📄","Haarnoja et al. (2018) — SAC","Max entropy RL. State-of-the-art continuous control.","https://arxiv.org/abs/1801.01290"),
-            ("💻","CleanRL — PPO Implementation","150-line single-file reference implementation.","https://github.com/vwxyzjn/cleanrl"),
+            ("📗","Sutton & Barto Ch.13","Policy gradient theorem, REINFORCE, actor-critic. The mathematical foundation.","http://incompleteideas.net/book/the-book.html"),
+            ("📄","Schulman 2015 — GAE","Derives GAE from weighted n-step returns. The maths behind PPO's advantage estimation.","https://arxiv.org/abs/1506.02438"),
+            ("📄","Schulman 2017 — PPO","Short, readable, includes 9-item implementation checklist. Read Sections 3 and 5.","https://arxiv.org/abs/1707.06347"),
+            ("📄","Mnih 2016 — A3C","Asynchronous advantage actor-critic. The original parallel RL paper.","https://arxiv.org/abs/1602.01783"),
+            ("📄","Haarnoja 2018 — SAC","Maximum entropy RL. Soft Bellman equations and automatic temperature.","https://arxiv.org/abs/1801.01290"),
+            ("🎥","CS285 Lectures 5–7","Sergey Levine's Berkeley Deep RL course. Best video explanation of policy gradients.","https://rail.eecs.berkeley.edu/deeprlcourse/"),
+            ("💻","CleanRL PPO","150-line single-file PPO implementation with all 9 Schulman checklist items.","https://github.com/vwxyzjn/cleanrl"),
+            ("💻","TRL — RLHF with PPO","Hugging Face library for RLHF. PPO on language models in ~20 lines.","https://github.com/huggingface/trl"),
         ]:
             st.markdown(f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
                         f'padding:.6rem 1rem;margin:.3rem 0">'
