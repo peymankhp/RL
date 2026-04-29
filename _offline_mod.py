@@ -1,7 +1,5 @@
-"""
-_offline_mod.py — Offline / Batch Reinforcement Learning
-Covers: Why Offline RL, CQL, IQL, Decision Transformer, TD3+BC
-"""
+"""_offline_mod.py — Offline / Batch Reinforcement Learning (Tier 1)
+BC · CQL · IQL · Decision Transformer · TD3+BC"""
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,8 +9,8 @@ warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
 
-def _fig(nrows=1, ncols=1, w=12, h=5):
-    fig, axes = plt.subplots(nrows, ncols, figsize=(w, h))
+def _fig(nr=1, nc=1, w=13, h=5):
+    fig, axes = plt.subplots(nr, nc, figsize=(w, h))
     fig.patch.set_facecolor(DARK)
     for ax in np.array(axes).flatten():
         ax.set_facecolor(DARK); ax.tick_params(colors="#9e9ebb", labelsize=8)
@@ -22,246 +20,349 @@ def _fig(nrows=1, ncols=1, w=12, h=5):
 def _card(color, icon, title, body):
     return (f'<div style="background:{color}18;border-left:4px solid {color};'
             f'padding:1rem 1.2rem;border-radius:0 10px 10px 0;margin-bottom:.9rem">'
-            f'<b>{icon} {title}</b><br>{body}</div>')
+            f'<b>{icon} {title}</b><br>'
+            f'<span style="color:#b0b0cc;font-size:.92rem;line-height:1.7">{body}</span></div>')
 
-def _insight(text):
+def _insight(t):
     return (f'<div style="background:#0a1a2a;border-left:3px solid #0288d1;'
-            f'padding:.7rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;font-size:.93rem">'
-            f'💡 {text}</div>')
+            f'padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;'
+            f'font-size:.92rem;color:#b0b0cc;line-height:1.7">💡 {t}</div>')
+
+def _book(title, authors, why, url):
+    return (f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
+            f'padding:.7rem 1.1rem;margin:.3rem 0">'
+            f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">📚 {title}</a>'
+            f'<br><span style="color:#7a9ebb;font-size:.82rem">{authors}</span>'
+            f'<br><span style="color:#9e9ebb;font-size:.84rem">{why}</span></div>')
+
+def _sec(emoji, title, sub, color="#00897b"):
+    st.markdown(
+        f'<div style="background:linear-gradient(90deg,{color}22,transparent);'
+        f'border-left:4px solid {color};border-radius:0 10px 10px 0;'
+        f'padding:.9rem 1.4rem;margin-bottom:1rem">'
+        f'<h3 style="color:white;margin:0;font-size:1.25rem">{emoji} {title}</h3>'
+        f'<p style="color:#9e9ebb;margin:.3rem 0 0;font-size:.9rem">{sub}</p></div>',
+        unsafe_allow_html=True)
+
+def smooth(a, w=8):
+    return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
+
 
 def main_offline():
     st.markdown(
-        '<div style="background:linear-gradient(135deg,#0a2a1a,#1a0a2e);'
+        '<div style="background:linear-gradient(135deg,#0a2a1a,#0a0a2a);'
         'border:1px solid #2a2a4a;border-radius:16px;padding:2rem 2.5rem;margin-bottom:1.5rem">'
         '<h2 style="color:white;margin:0;font-size:2rem">📦 Offline / Batch Reinforcement Learning</h2>'
-        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem">'
-        'Learn optimal policies from fixed datasets — no environment interaction during training. '
-        'Essential for healthcare, robotics, and any domain where live exploration is expensive or dangerous.'
+        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem;line-height:1.6">'
+        'Learn optimal policies from historical data — no environment interaction during training. '
+        'BC, CQL, IQL, Decision Transformer, TD3+BC — with the extrapolation error problem explained '
+        'from first principles, worked examples, charts, and deep-dive resources.'
         '</p></div>', unsafe_allow_html=True)
 
     tabs = st.tabs([
         "❓ Why Offline RL?",
-        "🚫 CQL",
-        "🎯 IQL",
+        "📋 Behaviour Cloning",
+        "🔒 CQL",
+        "📐 IQL",
         "🤖 Decision Transformer",
-        "🔁 TD3+BC",
-        "📊 Comparison",
+        "🎯 TD3+BC",
+        "📊 Benchmark",
+        "📚 Books & Resources",
     ])
-    (tab_why, tab_cql, tab_iql, tab_dt, tab_td3bc, tab_cmp) = tabs
+    tab_why, tab_bc, tab_cql, tab_iql, tab_dt, tab_td3bc, tab_cmp, tab_res = tabs
 
     with tab_why:
-        st.subheader("❓ Why Offline RL? The Fundamental Motivation")
-        st.markdown(_card("#00897b","🏥","The healthcare motivation — why online RL is often impossible",
-            """In online RL, the agent explores the environment by trying actions and observing results.
-            This works well for video games where the worst outcome is losing points. But consider
-            deploying an RL agent to optimise sepsis treatment in an ICU: every suboptimal action
-            could harm or kill a patient. You cannot let an agent explore freely in a hospital.
-            However, hospitals have massive historical datasets: millions of patient trajectories
-            showing what doctors did, what the outcomes were, and which treatments worked.
-            Offline RL (also called batch RL) learns from exactly this kind of fixed historical
-            dataset — without ever interacting with the real environment during training.
-            The same principle applies to autonomous driving (crash data is expensive), industrial
-            control (factory shutdowns are costly), and robotics (hardware wear and safety constraints).
-            Offline RL is the bridge between the vast amounts of historical data organisations collect
-            and actually deployable AI policies. The fundamental challenge is distributional shift:
-            the learned policy may want to take actions that were never taken by the data-collection
-            policy, making Q-value estimates unreliable in those unexplored regions."""), unsafe_allow_html=True)
+        _sec("❓","Why Offline RL?","Learn from historical data without environment interaction","#00897b")
+        st.markdown(_card("#00897b","💊","When offline RL is the only option",
+            """Online RL requires interacting with the environment during training. This is fine for
+            games and fast simulators. It is impossible for many real-world applications:
+            Healthcare: you cannot test experimental treatment policies on patients while training.
+            Autonomous driving: you cannot cause 10,000 accidents while learning to drive safely.
+            Industrial control: you cannot damage a chemical plant while exploring suboptimal actions.
+            Finance: you cannot lose millions of dollars during policy training.
+            In all these domains, we have large datasets of historical interactions (EHR records,
+            dashcam footage, sensor logs, trading histories) but cannot generate new data cheaply.
+            Offline RL asks: can we learn a policy that is BETTER than the historical behaviour
+            using only this fixed dataset? The challenge: distributional shift. The learned policy
+            may take actions far outside the training distribution — the Q-function extrapolates
+            wildly, leading to catastrophically overconfident and wrong estimates."""), unsafe_allow_html=True)
 
-        st.markdown(r"""
-        **The Offline RL problem statement:**
-        Given a fixed dataset $\mathcal{D} = \{(s_i, a_i, r_i, s'_i)\}$ collected by some
-        unknown behaviour policy $\beta(a|s)$, learn the best possible policy $\pi_\theta$
-        without any further environment interaction.
-        """)
-        st.latex(r"\mathcal{D} = \{(s_i,a_i,r_i,s'_i)\}_{i=1}^N \quad \text{collected by } \beta(a|s)")
-        st.markdown(r"""
-        **The core challenge — distributional shift and extrapolation error:**
-        Standard Q-learning tries to maximise $Q(s,a)$ over all possible actions.
-        But the dataset only covers states and actions that $\beta$ visited.
-        Actions NOT in the dataset have no reliable Q-value estimates — the network
-        will confidently extrapolate incorrect (often overestimated) Q-values, causing
-        the policy to catastrophically select unseen, possibly dangerous actions.
-        """)
-        st.latex(r"\hat Q(s,a) \gg Q^*(s,a) \quad \text{for } (s,a) \notin \text{support}(\mathcal{D})")
-        st.markdown(_insight("""
-        The key insight of all offline RL algorithms: constrain the learned policy to stay close to
-        the behaviour policy that generated the dataset. Approaches: (1) penalise Q-values for
-        out-of-distribution actions (CQL); (2) learn a conservative value function (IQL);
-        (3) directly constrain the policy to dataset actions (TD3+BC, BC);
-        (4) reframe as sequence modelling (Decision Transformer).
-        """), unsafe_allow_html=True)
-
-        # Visualise extrapolation error
+        # Visualise the extrapolation error problem
         np.random.seed(42)
-        x_data = np.sort(np.random.uniform(-1, 1, 20))
-        y_data = np.sin(x_data) + np.random.randn(20)*0.1
-        x_full = np.linspace(-3, 3, 200)
-        # Overfit polynomial
-        coeffs = np.polyfit(x_data, y_data, 8)
-        y_fit = np.polyval(coeffs, x_full)
-        fig_ext, ax_ext = _fig(1, 1, 10, 4)
-        ax_ext.scatter(x_data, y_data, color="#ffa726", s=60, zorder=5, label="Dataset (behaviour policy)")
-        ax_ext.plot(x_full, np.sin(x_full), color="#4caf50", lw=2, ls="--", label="True Q* (unknown)")
-        ax_ext.plot(x_full, np.clip(y_fit, -5, 5), color="#ef5350", lw=2, label="Learned Q (extrapolates badly)")
-        ax_ext.axvspan(-3, -1, alpha=0.08, color="#ef5350", label="Out-of-distribution (unseen actions)")
-        ax_ext.axvspan(1, 3, alpha=0.08, color="#ef5350")
-        ax_ext.set_xlabel("Action a", color="white"); ax_ext.set_ylabel("Q(s, a)", color="white")
-        ax_ext.set_title("Extrapolation Error: Q-function overestimates in unseen action regions",
-                         color="white", fontweight="bold")
-        ax_ext.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_ext.grid(alpha=0.12)
-        ax_ext.set_xlim(-3, 3); ax_ext.set_ylim(-3, 3)
+        actions = np.linspace(-3, 3, 200)
+        # Dataset actions concentrate around -1 to 1
+        dataset_mask = (actions > -1.2) & (actions < 1.2)
+        Q_true = -(actions**2) + 2  # true Q: parabola, max at 0
+        # Q estimate: correct in-distribution, wild extrapolation out-of-distribution
+        Q_est_ood = Q_true.copy()
+        Q_est_ood[~dataset_mask] = Q_true[~dataset_mask] + np.abs(actions[~dataset_mask])**2 * 1.5
+        Q_est_cql = np.where(dataset_mask, Q_true, Q_true * 0.6)  # conservative: underestimates OOD
+
+        fig_ext, ax_ext = _fig(1, 1, 11, 4.5)
+        ax_ext.plot(actions, Q_true, color="#4caf50", lw=2.5, ls="--", label="True Q*(s,a)")
+        ax_ext.plot(actions, Q_est_ood, color="#ef5350", lw=2.5, label="Standard Q-learning (wild OOD extrapolation)")
+        ax_ext.plot(actions, Q_est_cql, color="#0288d1", lw=2.5, label="CQL (conservative: stays below true Q)")
+        ax_ext.fill_between(actions, -4, 4, where=~dataset_mask, alpha=0.1, color="#ffa726", label="Out-of-distribution (OOD) region")
+        ax_ext.fill_between(actions, -4, 4, where=dataset_mask, alpha=0.07, color="#4caf50", label="Dataset coverage")
+        ax_ext.axhline(0, color="#2a2a3e", lw=0.8); ax_ext.set_ylim(-4, 6)
+        ax_ext.set_xlabel("Action value", color="white"); ax_ext.set_ylabel("Q-value estimate", color="white")
+        ax_ext.set_title("The Extrapolation Error Problem: Standard Q-learning overestimates OOD actions\nCQL stays conservative — safe to optimise against", color="white", fontweight="bold")
+        ax_ext.legend(facecolor=CARD, labelcolor="white", fontsize=8)
+        ax_ext.grid(alpha=0.12)
         plt.tight_layout(); st.pyplot(fig_ext); plt.close()
 
+        st.markdown(_insight("Why extrapolation is catastrophic: if Q(s, a_ood) is overestimated, the policy will choose a_ood as its best action. But a_ood was never in the dataset — the Q estimate is wrong. The policy tries an action the model has no data for, gets terrible reward, and the offline training loop cannot correct this because there's no new environment interaction."), unsafe_allow_html=True)
+
+    with tab_bc:
+        _sec("📋","Behaviour Cloning","The simplest offline approach: clone the expert","#546e7a")
+        st.markdown(_card("#546e7a","📋","Behaviour Cloning: supervised learning on demonstrations",
+            """Behaviour Cloning (BC) is the simplest offline RL approach: treat it as supervised learning.
+            Given dataset D = {(s_i, a_i)}, train a policy π_θ to minimise prediction error on expert actions.
+            For discrete actions: cross-entropy loss. For continuous: mean squared error.
+            This completely avoids the extrapolation problem — we never need Q-values.
+            The limitation: distributional shift at test time. The BC policy makes small errors,
+            visits states slightly off the training distribution, makes larger errors there,
+            and errors compound quadratically with episode length T: cost ~ T².
+            BC works well when: (1) the task is short-horizon (T < 50 steps), (2) the expert
+            demonstrations are dense and high quality, (3) combined with DAgger for interactive
+            correction. BC is the mandatory baseline — if your algorithm cannot beat BC, reconsider."""), unsafe_allow_html=True)
+
+        st.markdown("**BC training objective:**")
+        st.latex(r"\min_\theta \mathcal{L}_\text{BC}(\theta) = -\mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[\log\pi_\theta(a|s)\right] \quad\text{(cross-entropy for discrete)}")
+        st.latex(r"\mathcal{L}_\text{BC}(\theta) = \mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[\|\mu_\theta(s)-a\|^2\right] \quad\text{(MSE for continuous)}")
+        st.markdown("**Error bound (Ross & Bagnell 2010) — why BC fails on long horizons:**")
+        st.latex(r"J(\pi_\text{BC}) \leq J(\pi^*) - T^2\varepsilon_\text{BC} \quad\text{(quadratic in episode length T!)}")
+
+        # Compounding error visualisation
+        T = np.arange(1, 101)
+        eps_bc = 0.01  # per-step error
+        fig_bc, axes_bc = _fig(1, 2, 13, 4)
+        for eps, col, lbl in [(0.005,"#4caf50","ε=0.5%"),(0.01,"#ffa726","ε=1%"),(0.02,"#ef5350","ε=2%")]:
+            axes_bc[0].plot(T, T**2 * eps, color=col, lw=2.5, label=f"BC error T²·{lbl}")
+        axes_bc[0].set_xlabel("Episode length T", color="white"); axes_bc[0].set_ylabel("Cumulative error", color="white")
+        axes_bc[0].set_title("BC Compounding Error: T² growth\n(bad for long-horizon tasks)", color="white", fontweight="bold")
+        axes_bc[0].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_bc[0].grid(alpha=0.12)
+
+        # BC vs BC+IQL
+        np.random.seed(42); episodes = np.arange(200)
+        bc_perf = np.concatenate([np.minimum(0.6, 0.004*episodes[:100]) + np.random.randn(100)*0.02,
+                                   np.ones(100)*0.58 + np.random.randn(100)*0.02])
+        iql_perf = np.minimum(0.92, 0.007*episodes + np.random.randn(200)*0.025)
+        axes_bc[1].plot(smooth(bc_perf,15), color="#546e7a", lw=2.5, label="BC (plateaus at 60%)")
+        axes_bc[1].plot(smooth(iql_perf,15), color="#00897b", lw=2.5, label="IQL (reaches 90%+)")
+        axes_bc[1].set_xlabel("Training iterations", color="white"); axes_bc[1].set_ylabel("Normalised score", color="white")
+        axes_bc[1].set_title("BC vs Offline RL (IQL)\nD4RL HalfCheetah-medium", color="white", fontweight="bold")
+        axes_bc[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_bc[1].grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_bc); plt.close()
+
     with tab_cql:
-        st.subheader("🚫 CQL — Conservative Q-Learning (Kumar et al. 2020)")
-        st.markdown(_card("#1565c0","🚫","What CQL does and why conservative Q-values solve distributional shift",
-            """Conservative Q-Learning adds a penalty term to the standard Q-learning objective that
-            explicitly pushes down Q-values for out-of-distribution (OOD) actions and pushes up
-            Q-values for actions that appear in the dataset. This produces a Q-function that is
-            conservative (a lower bound) for actions the agent has not tried, making it safe for
-            the policy to greedily maximise — because even if OOD actions have high true Q-values,
-            CQL's conservative estimate will be lower, so the policy prefers in-distribution actions.
-            The penalty works without explicitly identifying which actions are OOD: it penalises actions
-            sampled from the current policy (which will include OOD actions when Q is overoptimistic),
-            and rewards actions from the dataset. This self-correcting mechanism stabilises training.
-            CQL achieves state-of-the-art results on the D4RL offline benchmark suite and has been
-            used in real robotic manipulation tasks. The regularisation strength alpha controls the
-            conservatism: higher alpha means more conservative Q-values, reducing OOD risks at the
-            cost of potentially underperforming on in-distribution data."""), unsafe_allow_html=True)
+        _sec("🔒","CQL — Conservative Q-Learning","Kumar et al. 2020 — the most widely used offline RL algorithm","#0288d1")
+        st.markdown(_card("#0288d1","🔒","CQL: solve extrapolation by penalising OOD Q-values",
+            """CQL (Kumar et al. 2020) fixes the extrapolation problem directly: add a regularisation term
+            to the Q-learning objective that penalises high Q-values for out-of-distribution actions
+            and rewards high Q-values for in-distribution actions (from the dataset).
+            The result: the learned Q-function is a lower bound on the true Q-value — conservative.
+            When the policy maximises this conservative Q, it won't be fooled by inflated OOD estimates.
+            CQL is the most widely used offline RL algorithm: used in robotics (D4RL benchmark),
+            healthcare policy learning, and as the offline pre-training stage before online fine-tuning
+            (Cal-QL). On the D4RL benchmark, CQL consistently outperforms BC by 15–40% across tasks."""), unsafe_allow_html=True)
 
-        st.markdown("**CQL modified Q-learning objective:**")
-        st.latex(r"\min_Q\;\underbrace{\alpha\Bigl(\mathbb{E}_{s,a\sim\pi}[Q(s,a)] - \mathbb{E}_{(s,a)\sim\mathcal{D}}[Q(s,a)]\Bigr)}_{\text{CQL penalty}} + \underbrace{\frac{1}{2}\mathbb{E}_{(s,a,s')\sim\mathcal{D}}\!\left[(Q(s,a)-y)^2\right]}_{\text{standard Bellman error}}")
+        st.markdown("**CQL objective — standard Q-learning + conservative regularisation:**")
+        st.latex(r"\min_\phi \underbrace{\mathbb{E}_{(s,a,r,s')\sim\mathcal{D}}\!\left[(Q_\phi(s,a) - y)^2\right]}_\text{Bellman error} + \underbrace{\alpha\!\left[\mathbb{E}_{s\sim\mathcal{D},a\sim\hat\mu}\![Q_\phi(s,a)] - \mathbb{E}_{(s,a)\sim\mathcal{D}}\![Q_\phi(s,a)]\right]}_\text{CQL penalty}")
         st.markdown(r"""
-        **Symbol decoder:**
-        - $\mathbb{E}_{a\sim\pi}[Q(s,a)]$: soft-max over Q under current policy — includes OOD actions → pushed **DOWN**
-        - $\mathbb{E}_{(s,a)\sim\mathcal{D}}[Q(s,a)]$: Q-values for actual dataset actions → pushed **UP**
-        - $\alpha$ — CQL regularisation strength; typical range: 0.1 to 5.0
-        - $y = r + \gamma\max_{a'}Q(s',a')$ — standard Bellman target
-        - Net effect: Q is underestimated for OOD actions, approximately correct for dataset actions
+        **Reading the CQL penalty:**
+        - First term $\mathbb{E}_{a\sim\hat\mu}[Q]$: expected Q over a broad distribution $\hat\mu$ covering OOD actions — this is **pushed DOWN**
+        - Second term $\mathbb{E}_\mathcal{D}[Q]$: expected Q on dataset actions — this is **pushed UP**
+        - α controls the conservatism strength (typically 1–10)
+
+        **Theorem (Kumar et al.):** CQL Q-function is a lower bound on the true Q^π:
         """)
+        st.latex(r"\mathbb{E}_\mathcal{D}[Q^\text{CQL}(s,a)] \leq \mathbb{E}_\mathcal{D}[Q^\pi(s,a)] \quad\text{(for the dataset policy π_β)}")
+        st.markdown("Maximising a lower bound prevents the policy from exploiting wrong estimates.")
 
-        # CQL demo: conservative vs aggressive Q
-        np.random.seed(1)
-        data_actions = np.sort(np.random.uniform(-0.5, 0.5, 30))
-        true_q = np.exp(-data_actions**2) * 2
-        x_all = np.linspace(-2.5, 2.5, 300)
-        naive_q = np.exp(-x_all**2)*2 + np.random.randn(300)*0.05  # accurate in data, bad outside
-        naive_q = np.where(np.abs(x_all) > 0.7,
-                           naive_q + 2.5*np.abs(x_all)*np.random.randn(300)*0.3, naive_q)
-        cql_q = np.where(np.abs(x_all) > 0.7, 0.5, np.exp(-x_all**2)*2)
-
-        fig_cql, ax_cql = _fig(1, 1, 11, 4)
-        ax_cql.scatter(data_actions, true_q, color="#ffa726", s=50, zorder=5, label="Dataset actions")
-        ax_cql.plot(x_all, np.exp(-x_all**2)*2, color="#4caf50", lw=2, ls="--", label="True Q*")
-        ax_cql.plot(x_all, np.clip(naive_q, -1, 5), color="#ef5350", lw=2, label="Naive Q-learning (overestimates OOD)")
-        ax_cql.plot(x_all, cql_q, color="#0288d1", lw=2.5, label="CQL (conservative on OOD)")
-        ax_cql.axvspan(-2.5, -0.5, alpha=0.07, color="#ef5350"); ax_cql.axvspan(0.5, 2.5, alpha=0.07, color="#ef5350")
-        ax_cql.axvspan(-0.5, 0.5, alpha=0.07, color="#4caf50")
-        ax_cql.set_xlabel("Action a", color="white"); ax_cql.set_ylabel("Q(s, a)", color="white")
-        ax_cql.set_title("CQL: Conservative Q-values prevent OOD action selection",
-                         color="white", fontweight="bold")
-        ax_cql.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_cql.grid(alpha=0.12)
+        # CQL vs standard Q-learning on D4RL
+        tasks = ["HC-medium","HC-med-rep","Walker-med","Ant-med","Hopper-med"]
+        bc_scores = [42, 36, 75, 35, 52]
+        cql_scores = [74, 45, 83, 48, 86]
+        iql_scores = [71, 47, 87, 48, 91]
+        x = np.arange(len(tasks))
+        fig_cql, ax_cql = _fig(1, 1, 11, 4.5)
+        w = 0.26
+        ax_cql.bar(x-w, bc_scores, w, color="#546e7a", alpha=0.85, label="BC")
+        ax_cql.bar(x, cql_scores, w, color="#0288d1", alpha=0.85, label="CQL")
+        ax_cql.bar(x+w, iql_scores, w, color="#00897b", alpha=0.85, label="IQL")
+        ax_cql.set_xticks(x); ax_cql.set_xticklabels(tasks, rotation=15, color="white", fontsize=8)
+        ax_cql.set_ylabel("D4RL Normalised Score (100=expert)", color="white")
+        ax_cql.set_title("BC vs CQL vs IQL on D4RL locomotion benchmark", color="white", fontweight="bold")
+        ax_cql.legend(facecolor=CARD, labelcolor="white"); ax_cql.grid(alpha=0.12, axis="y")
+        ax_cql.axhline(100, color="#ffa726", ls="--", lw=1, alpha=0.5, label="Expert level")
         plt.tight_layout(); st.pyplot(fig_cql); plt.close()
 
     with tab_iql:
-        st.subheader("🎯 IQL — Implicit Q-Learning (Kostrikov et al. 2021)")
-        st.markdown(_card("#7c4dff","🎯","IQL: never query Q for out-of-distribution actions",
-            """Implicit Q-Learning takes a fundamentally different approach to the distributional
-            shift problem: instead of penalising OOD Q-values, it avoids evaluating Q for OOD
-            actions entirely. The standard Bellman backup requires computing max_{a'} Q(s', a')
-            which involves querying Q for potentially unseen actions. IQL replaces this with
-            the value function V(s') which only depends on the state, not the action, and is learned
-            using only dataset transitions. V(s) is estimated via expectile regression — a
-            generalisation of quantile regression that approximates the maximum of Q without
-            explicit maximisation. A high expectile (tau=0.9) makes V approximate max Q.
-            The policy is then extracted via advantage-weighted regression: the policy increases
-            log-probability of dataset actions proportionally to their advantage exp(beta*A(s,a)).
-            Only dataset actions ever appear in the policy loss — the policy is in-distribution
-            by construction. IQL is simpler to tune than CQL, achieves comparable D4RL scores,
-            and is the algorithm of choice when you want reliable offline RL without complex tuning."""), unsafe_allow_html=True)
+        _sec("📐","IQL — Implicit Q-Learning","Kostrikov et al. 2021 — no OOD action evaluation, expectile regression","#7c4dff")
+        st.markdown(_card("#7c4dff","📐","IQL: avoid OOD actions entirely via expectile regression",
+            """IQL (Kostrikov et al. 2021) takes a completely different approach to the extrapolation
+            problem: never evaluate the Q-function on OOD actions at all. Instead, use expectile
+            regression to implicitly fit Q*(s,a) = max_a Q(s,a) without ever taking the argmax.
+            The key idea: replace the standard Bellman target y = r + γ max_a Q(s',a) with
+            an expectile regression that fits the upper quantile of Q(s', a') over dataset actions.
+            The policy is then extracted via advantage-weighted regression: weight each action
+            by exp(β·A(s,a)) — high advantage → higher weight.
+            No OOD action is ever evaluated during training. The extrapolation problem doesn't arise.
+            IQL achieves state-of-the-art on D4RL and transfers naturally to online fine-tuning."""), unsafe_allow_html=True)
 
-        st.markdown("**IQL's three separate training steps:**")
-        st.markdown("**Step 1 — Value function via expectile regression:**")
-        st.latex(r"\mathcal{L}_V(\psi) = \mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[L_2^\tau\bigl(Q_{\bar\theta}(s,a)-V_\psi(s)\bigr)\right]")
-        st.latex(r"L_2^\tau(u) = \bigl|\tau - \mathbf{1}[u<0]\bigr|\cdot u^2 \quad \tau\in(0,1)")
-        st.markdown(r"""
-        When $\tau=0.9$: the loss function weights positive residuals (Q > V) by 0.9 and negative
-        by 0.1 — forcing V to approximate the 90th percentile of Q, approximating max Q.
-        """)
-        st.markdown("**Step 2 — Q-function via Bellman backup (using V, not max Q):**")
-        st.latex(r"\mathcal{L}_Q(\theta) = \mathbb{E}_{(s,a,r,s')\sim\mathcal{D}}\!\left[\bigl(r+\gamma V_\psi(s')-Q_\theta(s,a)\bigr)^2\right]")
-        st.markdown("**Step 3 — Policy extraction via advantage-weighted regression:**")
-        st.latex(r"\mathcal{L}_\pi(\phi) = \mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[\exp\bigl(\beta(Q_{\bar\theta}(s,a)-V_\psi(s))\bigr)\cdot(-\log\pi_\phi(a|s))\right]")
+        st.markdown("**Expectile regression** (replaces max operator):")
+        st.latex(r"\mathcal{L}_V(V_\psi) = \mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[\mathcal{L}_2^\tau(Q_{\hat\phi}(s,a)-V_\psi(s))\right]")
+        st.latex(r"\mathcal{L}_2^\tau(u) = |\tau - \mathbf{1}[u<0]|\cdot u^2 \quad\text{(\tau=0.9 fits 90th percentile)}")
+        st.markdown("High τ (e.g. 0.9) → V(s) estimates the maximum Q-value over dataset actions — approximating the true value function without any OOD queries.")
+        st.markdown("**Advantage-weighted policy extraction:**")
+        st.latex(r"\mathcal{L}_\pi(\pi_\theta) = \mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[\exp\bigl(\beta(Q_{\hat\phi}(s,a)-V_\psi(s))\bigr)\cdot(-\log\pi_\theta(a|s))\right]")
+        st.markdown("Actions with positive advantage (Q > V) get high weight → policy imitates high-value actions more strongly. β controls how aggressively we exploit high-advantage actions (typically 3–10).")
+
+        # Expectile regression illustration
+        np.random.seed(42)
+        a_vals = np.linspace(-2, 2, 200)
+        Q_samples = -(a_vals**2) + np.random.randn(200)*0.5 + 1
+        fig_iq, axes_iq = _fig(1, 2, 13, 4)
+        axes_iq[0].scatter(a_vals, Q_samples, color="#546e7a", s=8, alpha=0.5, label="Q(s,a) samples")
+        for tau, col, lbl in [(0.5,"#0288d1","τ=0.5 (median)"),(0.7,"#ffa726","τ=0.7"),(0.9,"#7c4dff","τ=0.9 (IQL default)")]:
+            v = np.percentile(Q_samples, tau*100)
+            axes_iq[0].axhline(v, color=col, lw=2, label=f"V(s) estimate {lbl}")
+        axes_iq[0].set_xlabel("Action a", color="white"); axes_iq[0].set_ylabel("Q(s,a)", color="white")
+        axes_iq[0].set_title("IQL Expectile Regression:\nτ=0.9 estimates max Q without OOD queries", color="white", fontweight="bold")
+        axes_iq[0].legend(facecolor=CARD, labelcolor="white", fontsize=7); axes_iq[0].grid(alpha=0.12)
+        # Advantage weighting
+        A_vals = np.linspace(-3, 3, 200); beta = 5
+        weights = np.exp(np.clip(beta*A_vals, -5, 5))
+        axes_iq[1].plot(A_vals, weights, color="#7c4dff", lw=2.5)
+        axes_iq[1].axvline(0, color="white", ls="--", lw=1, alpha=0.5, label="A=0: average action")
+        axes_iq[1].set_xlabel("Advantage A(s,a) = Q(s,a) - V(s)", color="white")
+        axes_iq[1].set_ylabel(f"Weight exp(β·A), β={beta}", color="white")
+        axes_iq[1].set_title("IQL Policy Extraction: advantage-weighted\n(high advantage = high imitation weight)", color="white", fontweight="bold")
+        axes_iq[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_iq[1].grid(alpha=0.12)
+        axes_iq[1].set_ylim(0, 20)
+        plt.tight_layout(); st.pyplot(fig_iq); plt.close()
 
     with tab_dt:
-        st.subheader("🤖 Decision Transformer (Chen et al. 2021)")
-        st.markdown(_card("#00897b","🤖","Offline RL as language modelling — no Bellman equations needed",
-            """Decision Transformer sidesteps all Q-learning problems by reframing offline RL as
-            conditional sequence modelling — exactly like GPT predicting the next token.
-            The input to the transformer is a sequence of (return-to-go, state, action) triples from
-            the offline dataset, and the model is trained to predict the action given this context.
-            Return-to-go (RTG) R_hat_t = sum_{t'>=t} r_{t'} is the total future reward from timestep t
-            onward. At test time, you set R_hat_1 to a desired high return and the model generates
-            actions that achieve it — conditioning on 'I want 90 total reward from now' makes the model
-            produce the actions that lead to that outcome. After each real step, R_hat decreases by the
-            received reward. Decision Transformer achieves performance competitive with CQL and IQL
-            while requiring no Bellman updates, no distributional shift handling, and no reward shaping.
-            It naturally extends to multi-task settings (different tasks = different goal returns),
-            can leverage pretrained language model weights, and handles very long-horizon tasks where
-            Bellman backup errors compound badly. The main limitation: it needs a dataset where
-            trajectories have informative reward structure, and it cannot improve beyond the best
-            behaviour in the dataset without fine-tuning."""), unsafe_allow_html=True)
+        _sec("🤖","Decision Transformer","Chen et al. 2021 — offline RL as sequence modelling with GPT","#ffa726")
+        st.markdown(_card("#ffa726","🤖","Decision Transformer: reframe RL as language modelling",
+            """Decision Transformer (DT, Chen et al. 2021) reframes offline RL completely:
+            instead of learning Q-functions, treat the trajectory as a sequence and use a
+            GPT-style transformer to predict actions. The input sequence conditions on
+            return-to-go (how much reward remains), observation, and action triples.
+            At test time, you specify the desired return-to-go — the model generates actions
+            that achieve that return. This completely avoids the extrapolation problem:
+            there are no Q-values and no Bellman backups.
+            DT is particularly powerful for: (1) datasets with diverse quality levels —
+            DT can be conditioned on different target returns to get different policies;
+            (2) multi-task datasets — one DT model can handle many tasks with task tokens;
+            (3) very long sequences where temporal credit assignment is hard."""), unsafe_allow_html=True)
 
-        st.markdown("**Decision Transformer input format:**")
-        st.latex(r"\tau = \bigl(\hat R_1,s_1,a_1,\;\hat R_2,s_2,a_2,\;\ldots,\;\hat R_T,s_T,a_T\bigr)")
-        st.markdown(r"Return-to-go: $\hat R_t = \sum_{t'=t}^T r_{t'}$ (actual future reward from $t$ in dataset)")
-        st.markdown("**Supervised training objective (cross-entropy on actions):**")
-        st.latex(r"\mathcal{L}_\text{DT} = \mathbb{E}_{(s_t,a_t,\hat R_t)\sim\mathcal{D}}\!\left[-\log\pi_\theta(a_t\mid\hat R_1,s_1,a_1,\ldots,\hat R_t,s_t)\right]")
-        st.markdown(r"""
-        **At deployment:** $\hat R_1 = $ target return. $\hat R_{t+1} = \hat R_t - r_t$.
-        The model generates action $a_t = \pi_\theta(\cdot|\hat R_t, s_t, \text{context})$.
-        """)
-        st.markdown(_insight("""
-        Decision Transformer inherits all advantages of Transformer architectures:
-        attention over long contexts (handle long-horizon tasks), pretrained initialisation (faster
-        learning), easy scaling (bigger model = better performance). The approach has been extended
-        to Online Decision Transformer (fine-tune with online data), Multi-Game Decision Transformer
-        (one model for 41 Atari games), and Gato (one model for 600+ tasks).
-        """), unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Input sequence for DT:**")
+            st.latex(r"\tau = (\hat R_1,s_1,a_1,\;\hat R_2,s_2,a_2,\;\ldots,\;\hat R_T,s_T,a_T)")
+            st.markdown("Where:")
+            st.latex(r"\hat R_t = \sum_{t'=t}^T r_{t'} \quad\text{(return-to-go from step t)}")
+            st.markdown("**Cross-entropy/MSE training loss:**")
+            st.latex(r"\mathcal{L}_\text{DT} = -\sum_t\log\pi_\theta(a_t|\hat R_t,s_t,\hat R_{t-1},\ldots)")
+            st.markdown("**Inference:** set R̂_1 = desired return (e.g. R̂_1 = 90 for high performance), predict a_1, take a_1, compute r_1, update R̂_2 = R̂_1 − r_1, predict a_2, etc.")
+        with col2:
+            # Decision Transformer return conditioning
+            np.random.seed(42); T_seq = 30
+            rtg_high = np.maximum(0, 90 - 3*np.arange(T_seq) + np.random.randn(T_seq)*2)
+            rtg_low  = np.maximum(0, 40 - 1.5*np.arange(T_seq) + np.random.randn(T_seq)*2)
+            fig_dt, ax_dt = _fig(1,1,5.5,4)
+            ax_dt.plot(rtg_high, color="#4caf50", lw=2.5, label="Target return=90 (expert)")
+            ax_dt.plot(rtg_low,  color="#ef5350", lw=2.5, label="Target return=40 (medium)")
+            ax_dt.set_xlabel("Timestep t", color="white"); ax_dt.set_ylabel("Return-to-go R̂_t", color="white")
+            ax_dt.set_title("DT: Return-to-go conditioning\ndecreases as rewards are collected", color="white", fontweight="bold")
+            ax_dt.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_dt.grid(alpha=0.12)
+            plt.tight_layout(); st.pyplot(fig_dt); plt.close()
+
+        st.dataframe(pd.DataFrame({
+            "Dataset quality": ["Expert only","Medium","Medium-replay","Random+expert mix"],
+            "BC score": [107,42,36,88],
+            "CQL score": [107,74,45,97],
+            "DT score": [107,67,41,95],
+            "IQL score": [107,71,47,99],
+        }), use_container_width=True, hide_index=True)
+        st.markdown(_insight("DT is competitive with CQL/IQL on expert and high-quality data, but underperforms on 'medium' and 'medium-replay' datasets where the sequence structure is less clear. DT's strength is long-horizon tasks and multi-task settings."), unsafe_allow_html=True)
 
     with tab_td3bc:
-        st.subheader("🔁 TD3+BC — Offline TD3 with Behaviour Cloning (Fujimoto & Gu 2021)")
-        st.markdown(_card("#e65100","🔁","TD3+BC: the simplest offline RL algorithm that actually works well",
-            """TD3+BC is the most minimal offline RL algorithm: take the standard TD3 continuous
-            control algorithm and add a single behaviour cloning term to the policy update. That
-            is the entire algorithm change — one additional loss term. The BC term penalises the
-            policy for actions that deviate from those in the dataset, preventing it from selecting
-            OOD actions. The Q-learning part pulls the policy toward high-value actions; the BC term
-            keeps it close to the data distribution. A normalisation factor lambda = alpha / mean|Q|
-            makes the balance between these two objectives independent of the reward scale of the
-            environment — the same alpha works across environments with very different reward magnitudes.
-            TD3+BC achieves competitive D4RL scores despite its simplicity and is the recommended
-            starting point for practitioners new to offline RL. Its 50-line implementation is far
-            easier to debug than CQL or IQL. The main limitation: behaviour cloning is only as good
-            as the dataset — if the dataset contains many suboptimal trajectories, the BC term will
-            pull the policy toward suboptimal behaviour. CQL and IQL handle this better by identifying
-            which dataset actions are actually good."""), unsafe_allow_html=True)
+        _sec("🎯","TD3+BC — The Simplest Competitive Baseline","Fujimoto & Gu 2021 — add one BC term to TD3, beat complex methods","#e65100")
+        st.markdown(_card("#e65100","🎯","TD3+BC: one line of code beats complicated algorithms",
+            """TD3+BC (Fujimoto & Gu 2021) makes a stunning point: add a single BC regularisation
+            term to TD3 and you get a competitive offline RL algorithm that beats CQL on many tasks.
+            The actor loss becomes: minimise λ·(-Q(s,a)) + (a - a_data)² — standard TD3 actor loss
+            plus an MSE term that keeps the policy close to the dataset actions.
+            The λ term normalises the Q-value scale. That's it. 5 lines of change from standard TD3.
+            TD3+BC highlights that simple baselines should always be tried before complex methods.
+            It's competitive because the BC term acts as an implicit constraint on OOD actions:
+            if the policy deviates far from dataset actions, the MSE penalty increases.
+            The Q-function still extrapolates, but the policy is prevented from exploiting it."""), unsafe_allow_html=True)
 
-        st.markdown("**TD3+BC policy update (one term added to standard TD3):**")
-        st.latex(r"\pi = \arg\max_\pi\;\mathbb{E}_{(s,a)\sim\mathcal{D}}\!\left[\underbrace{\lambda Q(s,\pi(s))}_{\text{standard RL}} - \underbrace{(\pi(s)-a)^2}_{\text{behaviour cloning}}\right]")
-        st.markdown(r"where $\lambda = \alpha\,/\,\frac{1}{N}\sum_{(s,a)\in\mathcal{D}}|Q(s,a)|$ normalises Q to unit scale.")
-        st.markdown("**Q-update is unchanged TD3 (twin delayed Q-networks):**")
-        st.latex(r"y = r + \gamma\min_{j=1,2}Q_{\bar\theta_j}(s',\bar a'), \quad \bar a' = \pi_{\bar\phi}(s') + \text{clip}(\mathcal{N}(0,\sigma),-c,c)")
+        st.markdown("**TD3+BC actor loss:**")
+        st.latex(r"\mathcal{L}_\pi(\theta) = -\underbrace{\lambda Q_\phi(s,\pi_\theta(s))}_\text{TD3 Q-maximisation} + \underbrace{\|\pi_\theta(s) - a\|^2}_\text{BC regularisation}")
+        st.latex(r"\lambda = \frac{\alpha}{\frac{1}{N}\sum_{(s_i,a_i)\sim\mathcal{D}}|Q_\phi(s_i,a_i)|} \quad\text{(normalise Q scale)}")
+        st.markdown("α controls the BC strength (typically 2.5). λ adapts as Q-values change during training.")
+
+        st.code("""
+# TD3+BC: add just 3 lines to standard TD3 actor update
+def actor_update(batch, Q_network, actor_network, alpha=2.5):
+    s, a_dataset, _, _, _ = batch
+    a_policy = actor_network(s)
+
+    # Standard TD3: maximise Q
+    Q_values = Q_network(s, a_policy)
+
+    # Normalise Q scale (prevents BC term being overwhelmed)
+    lam = alpha / Q_values.abs().mean().detach()
+
+    # TD3+BC loss = -Q + BC penalty
+    actor_loss = -lam * Q_values.mean() + F.mse_loss(a_policy, a_dataset)
+    return actor_loss
+""", language="python")
 
     with tab_cmp:
-        st.subheader("📊 Offline RL Algorithm Comparison")
+        _sec("📊","Offline RL Benchmark — D4RL Results","Normalised scores across all major algorithms and datasets","#00897b")
         st.dataframe(pd.DataFrame({
-            "Algorithm": ["Behaviour Cloning","CQL","IQL","Decision Transformer","TD3+BC"],
-            "Approach": ["Supervised imitation","Conservative Q-values","Expectile V + AWR","Sequence modelling","TD3 + BC penalty"],
-            "Handles suboptimal data": ["❌","✅","✅","Partial","Partial"],
-            "Requires Bellman backup": ["❌","✅","✅","❌","✅"],
-            "OOD action protection": ["Implicit","Explicit (penalty)","Implicit (avoids OOD)","None (dataset only)","Explicit (BC term)"],
-            "Hyperparameter sensitivity": ["Low","Medium","Low","Low","Low"],
-            "Implementation difficulty": ["Trivial","Moderate","Moderate","High","Simple"],
-            "Best for": ["Expert-only data","Mixed data, continuous","Mixed data, discrete+cont","Large datasets, multi-task","Continuous, simplicity"],
+            "Algorithm": ["BC","BCQ","CQL","TD3+BC","IQL","Decision Transformer","Cal-QL (offline→online)"],
+            "HC medium": [42,61,74,59,71,67,75],
+            "HC med-rep": [36,53,45,58,47,41,69],
+            "Walker medium": [75,84,83,88,87,74,91],
+            "Ant medium": [35,55,48,90,48,63,89],
+            "Hopper medium": [52,59,86,91,91,67,97],
+            "Requires env?": ["No","No","No","No","No","No","Yes (fine-tune)"],
         }), use_container_width=True, hide_index=True)
+        st.caption("Scores are D4RL normalised: 0=random, 100=expert-level. HC=HalfCheetah.")
+
+    with tab_res:
+        _sec("📚","Books & Deep-Dive Resources","The best offline RL papers, books, and courses","#546e7a")
+        for title, authors, why, url in [
+            ("Offline Reinforcement Learning: Tutorial, Review, and Perspectives",
+             "Levine, Kumar, Tucker, Fu (2020) — NeurIPS tutorial",
+             "THE comprehensive offline RL survey. Covers all approaches, theory, and benchmarks in 100+ pages.",
+             "https://arxiv.org/abs/2005.01643"),
+            ("Conservative Q-Learning for Offline RL (CQL)",
+             "Kumar et al. (2020) — NeurIPS — The most widely used offline RL algorithm",
+             "Full derivation of the conservative lower bound. Appendix has convergence proof.",
+             "https://arxiv.org/abs/2006.04779"),
+            ("Offline RL with Implicit Q-Learning (IQL)",
+             "Kostrikov, Nair, Levine (2021) — ICLR 2022",
+             "Expectile regression derivation. Clean code available. Transfers to online RL well.",
+             "https://arxiv.org/abs/2110.06169"),
+            ("Decision Transformer: RL via Sequence Modelling",
+             "Chen et al. (2021) — NeurIPS",
+             "Reframes offline RL as GPT-style language modelling. Code on GitHub.",
+             "https://arxiv.org/abs/2106.01345"),
+            ("D4RL: Datasets for Deep Data-Driven RL",
+             "Fu et al. (2020) — The standard offline RL benchmark",
+             "Defines the benchmark datasets (HalfCheetah-medium, Walker-expert, etc.) used in all papers.",
+             "https://arxiv.org/abs/2004.07219"),
+            ("A Minimalist Approach to Offline RL (TD3+BC)",
+             "Fujimoto & Gu (2021) — NeurIPS",
+             "Shows that simple BC regularisation on TD3 beats complex methods. Highly readable.",
+             "https://arxiv.org/abs/2106.06860"),
+        ]:
+            st.markdown(_book(title, authors, why, url), unsafe_allow_html=True)

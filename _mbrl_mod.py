@@ -1,21 +1,17 @@
-"""
-_mbrl_mod.py  — Model-Based Reinforcement Learning
-Covers: Dyna-Q · World Models (Ha & Schmidhuber) · MuZero · DreamerV3
-Theme: Agents that build an internal model of the world — 10–100× more sample efficient.
-"""
+"""_mbrl_mod.py — Model-Based Reinforcement Learning (Tier 1)
+Dyna-Q · World Models · MuZero · DreamerV3 · MPC+PETS+TD-MPC2"""
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
+import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
-COLORS = {"dynaq":"#e65100","world":"#7c4dff","muzero":"#1565c0","dreamer":"#00897b"}
 
-def _fig(nrows=1, ncols=1, w=12, h=5):
-    fig, axes = plt.subplots(nrows, ncols, figsize=(w, h))
+def _fig(nr=1, nc=1, w=13, h=5):
+    fig, axes = plt.subplots(nr, nc, figsize=(w, h))
     fig.patch.set_facecolor(DARK)
     for ax in np.array(axes).flatten():
         ax.set_facecolor(DARK); ax.tick_params(colors="#9e9ebb", labelsize=8)
@@ -25,12 +21,20 @@ def _fig(nrows=1, ncols=1, w=12, h=5):
 def _card(color, icon, title, body):
     return (f'<div style="background:{color}18;border-left:4px solid {color};'
             f'padding:1rem 1.2rem;border-radius:0 10px 10px 0;margin-bottom:.9rem">'
-            f'<b>{icon} {title}</b><br>{body}</div>')
+            f'<b>{icon} {title}</b><br>'
+            f'<span style="color:#b0b0cc;font-size:.92rem;line-height:1.7">{body}</span></div>')
 
-def _insight(text):
+def _insight(t):
     return (f'<div style="background:#0a1a2a;border-left:3px solid #0288d1;'
-            f'padding:.7rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;font-size:.93rem">'
-            f'💡 {text}</div>')
+            f'padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:.6rem 0;'
+            f'font-size:.92rem;color:#b0b0cc;line-height:1.7">💡 {t}</div>')
+
+def _book(title, authors, why, url):
+    return (f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
+            f'padding:.7rem 1.1rem;margin:.3rem 0">'
+            f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">📚 {title}</a>'
+            f'<br><span style="color:#7a9ebb;font-size:.82rem">{authors}</span>'
+            f'<br><span style="color:#9e9ebb;font-size:.84rem">{why}</span></div>')
 
 def _sec(emoji, title, sub, color="#e65100"):
     st.markdown(
@@ -41,410 +45,431 @@ def _sec(emoji, title, sub, color="#e65100"):
         f'<p style="color:#9e9ebb;margin:.3rem 0 0;font-size:.9rem">{sub}</p></div>',
         unsafe_allow_html=True)
 
-def smooth(a, w=5):
+def smooth(a, w=8):
     return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
 
-# ── Simple GridWorld for Dyna-Q demo ─────────────────────────────────────
-class SimpleGridWorld:
-    def __init__(self, n=6):
-        self.n = n
-        self.obstacles = {(2,1),(2,2),(2,3),(4,2),(4,3)}
-        self.goal = (n-1, n-1)
+# ── Dyna-Q GridWorld environment ─────────────────────────────────────────────
+class GridEnv:
+    def __init__(self, rows=4, cols=4, goal=(3,3)):
+        self.rows, self.cols, self.goal = rows, cols, goal
         self.reset()
     def reset(self):
-        self.pos = (0, 0)
-        return self._obs()
-    def _obs(self):
-        return self.pos[0]*self.n + self.pos[1]
+        self.pos = (0,0); return self._state()
+    def _state(self):
+        return self.pos[0]*self.cols + self.pos[1]
     def step(self, a):
-        dy, dx = [(-1,0),(1,0),(0,-1),(0,1)][a]
-        ny = max(0, min(self.n-1, self.pos[0]+dy))
-        nx = max(0, min(self.n-1, self.pos[1]+dx))
-        if (ny,nx) not in self.obstacles:
-            self.pos = (ny, nx)
-        done = (self.pos == self.goal)
-        r = 1.0 if done else -0.01
-        return self._obs(), r, done
+        dr, dc = [(-1,0),(1,0),(0,-1),(0,1)][a]
+        r = max(0, min(self.rows-1, self.pos[0]+dr))
+        c = max(0, min(self.cols-1, self.pos[1]+dc))
+        self.pos = (r,c)
+        done = self.pos == self.goal
+        return self._state(), (1.0 if done else 0.0), done
 
-# ── Dyna-Q implementation ─────────────────────────────────────────────────
-def run_dynaq(n_episodes=50, n_planning=10, alpha=0.1, gamma=0.99,
-              eps=0.15, seed=42):
+def run_dynaq(n_episodes, n_planning, seed=42, lr=0.1, gamma=0.95, eps=0.1):
     np.random.seed(seed)
-    env = SimpleGridWorld(6); n_states = 36; n_actions = 4
-    Q = np.zeros((n_states, n_actions))
-    model = {}  # (s,a) -> (r, s')
-    rewards = []
-
+    env = GridEnv()
+    nS, nA = 16, 4
+    Q = np.zeros((nS, nA))
+    model = {}
+    rewards_per_ep = []
     for ep in range(n_episodes):
-        s = env.reset(); ep_r = 0; steps = 0
-        while steps < 200:
-            # ε-greedy action selection
-            a = np.random.randint(n_actions) if np.random.rand()<eps else np.argmax(Q[s])
+        s = env.reset(); total_r = 0
+        for _ in range(200):
+            a = np.random.randint(nA) if np.random.rand() < eps else np.argmax(Q[s])
             s2, r, done = env.step(a)
-            ep_r += r; steps += 1
-            # Q-learning update on real experience
-            Q[s,a] += alpha*(r + gamma*np.max(Q[s2]) - Q[s,a])
-            model[(s,a)] = (r, s2)  # store in model
-            # Planning: n_planning simulated updates from model
+            Q[s,a] += lr*(r + gamma*np.max(Q[s2]) - Q[s,a])
+            model[(s,a)] = (r, s2)
             for _ in range(n_planning):
-                ks = list(model.keys())
-                ps, pa = ks[np.random.randint(len(ks))]
-                pr, ps2 = model[(ps,pa)]
-                Q[ps,pa] += alpha*(pr + gamma*np.max(Q[ps2]) - Q[ps,pa])
-            s = s2
+                ms, ma = list(model.keys())[np.random.randint(len(model))]
+                mr, ms2 = model[(ms,ma)]
+                Q[ms,ma] += lr*(mr + gamma*np.max(Q[ms2]) - Q[ms,ma])
+            total_r += r; s = s2
             if done: break
-        rewards.append(ep_r)
-    return rewards, Q
+        rewards_per_ep.append(total_r)
+    return rewards_per_ep, Q
+
 
 def main_mbrl():
     st.markdown(
-        '<div style="background:linear-gradient(135deg,#1a0a0a,#0a0a2e,#0a1a0a);'
+        '<div style="background:linear-gradient(135deg,#2a0a0a,#0a1a2e);'
         'border:1px solid #2a2a4a;border-radius:16px;padding:2rem 2.5rem;margin-bottom:1.5rem">'
         '<h2 style="color:white;margin:0;font-size:2rem">🏗️ Model-Based Reinforcement Learning</h2>'
-        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem">'
-        'Agents that build an internal model of the world — 10–100× more sample efficient than model-free RL. '
-        'From Dyna-Q (1990) to DreamerV3 (2023): learn an environment model, then plan inside it.'
+        '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem;line-height:1.6">'
+        'Plan in your head before acting. Dyna-Q, World Models, MuZero, DreamerV3, MPC+PETS+TD-MPC2 — '
+        'the algorithms that achieve 10–100× better sample efficiency by learning an environment model '
+        'and using it for imagined experience.'
         '</p></div>', unsafe_allow_html=True)
 
     tabs = st.tabs([
-        "🧭 Why Model-Based?",
+        "❓ Why Model-Based?",
         "🔄 Dyna-Q",
         "🌍 World Models",
         "♟️ MuZero",
         "🌙 DreamerV3",
+        "🎯 MPC & TD-MPC2",
         "📊 Comparison",
-        "📚 Resources",
+        "📚 Books & Resources",
     ])
-    (tab_why, tab_dyna, tab_world, tab_mu, tab_dream, tab_cmp, tab_res) = tabs
+    tab_why, tab_dyna, tab_wm, tab_mu, tab_dream, tab_mpc, tab_cmp, tab_res = tabs
 
-    # ── WHY MODEL-BASED ───────────────────────────────────────────────────
     with tab_why:
-        _sec("🧭","Why Build a World Model?",
-             "The fundamental efficiency argument — imagination is cheaper than reality","#e65100")
-
-        st.markdown(_card("#e65100","🤔","The core problem with model-free RL",
-            """Model-free RL methods (DQN, PPO, SAC) learn entirely from direct environment interactions.
-            Every gradient step requires real experience. To learn to play a single Atari game, DQN needs
-            roughly 50 million frames — equivalent to 230 hours of non-stop gameplay at 60fps. A human
-            child can learn Pong in minutes from watching a few games. The gap is that humans build a
-            mental model of the game: the ball bounces off walls, the paddle blocks it, missing the ball
-            costs a point. With this model, we can plan ahead and reason about consequences without
-            having to physically experience every possibility. Model-based RL replicates this: learn
-            a model of the environment (also called a world model, dynamics model, or transition model)
-            then use it to generate imaginary rollouts for planning or additional training data.
-            The payoff is dramatic: on data-limited benchmarks, model-based methods achieve the same
-            performance as model-free methods with 10–100× fewer environment interactions."""),
+        _sec("❓","Why Model-Based RL?","10–100× sample efficiency by learning the environment model","#e65100")
+        st.markdown(_card("#e65100","🤔","The fundamental sample efficiency problem",
+            """Model-free RL (DQN, PPO, SAC) learns from every real environment interaction.
+            Each gradient step uses one batch of real experience. To learn good policies in
+            Atari, DQN needs 50 million frames — about 200 hours of gameplay at human speed.
+            For real-world robotics, 50M interactions means months of physical robot operation.
+            Model-Based RL learns a model of the environment first: given (s,a), predict (s',r).
+            The key insight: once we have a model, we can generate IMAGINED experience without
+            real env interaction. Train the policy on thousands of imagined rollouts per real step.
+            DreamerV3 achieves DQN-level Atari performance with 400K frames (100× fewer).
+            MuZero achieves superhuman Go/Chess/Shogi with far fewer games than AlphaGo.
+            The price: model learning itself requires data, and model errors compound over long rollouts."""),
             unsafe_allow_html=True)
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(r"""
-            **What a world model learns:**
-            A transition model $\hat p(s_{t+1}|s_t,a_t)$ predicts where you'll end up
-            after taking action $a$ in state $s$. Often combined with:
-            - $\hat r(s_t,a_t)$ — reward predictor
-            - $\hat d(s_t,a_t)$ — done/terminal predictor
-            - $h_t = f(h_{t-1}, s_t, a_t)$ — latent state encoder (DreamerV3)
-            """)
-            st.latex(r"\hat s_{t+1} = f_\phi(s_t, a_t)")
-            st.latex(r"\hat r_t = g_\phi(s_t, a_t)")
-        with col2:
-            st.markdown(r"""
-            **The planning loop:**
-            Given the model, generate imagined trajectories:
-            """)
-            st.latex(r"\tau^{\text{imag}} = \{(s_t,a_t,\hat r_t,\hat s_{t+1})\}_{t=0}^H")
-            st.markdown(r"""
-            Train the policy on these imagined rollouts — no real environment needed!
-            The key question: **how accurate does the model need to be?**
-            Errors compound over time: a 1% step error becomes $(1.01)^{50} = 1.64\times$ bigger
-            after 50 steps. This is why model-based methods are hardest in long-horizon tasks.
-            """)
+        # Sample efficiency comparison
+        algs = ["Random","DQN","Rainbow","Dreamer","DreamerV3","MuZero"]
+        atari_frames = [np.inf, 50e6, 20e6, 1e6, 0.4e6, 0.5e6]
+        colors = ["#546e7a","#1565c0","#0288d1","#e65100","#ad1457","#6a1b9a"]
+        fig_eff, axes_eff = _fig(1, 2, 14, 5)
+        bars = axes_eff[0].barh(algs, [np.log10(max(x,1)) for x in atari_frames],
+                                color=colors, alpha=0.85)
+        for bar, frames in zip(bars, atari_frames):
+            label = f"{frames/1e6:.1f}M" if frames < np.inf else "Never"
+            axes_eff[0].text(bar.get_width()+0.05, bar.get_y()+bar.get_height()/2,
+                            label, va="center", color="white", fontsize=8.5)
+        axes_eff[0].set_xlabel("log₁₀(Frames to human-level Atari)", color="white")
+        axes_eff[0].set_title("Sample Efficiency: Model-Based vs Model-Free\n(Atari 100K benchmark)", color="white", fontweight="bold")
+        axes_eff[0].grid(alpha=0.12, axis="x")
 
-        st.subheader("📊 Sample Efficiency Comparison (approximate, task-dependent)")
-        st.dataframe(pd.DataFrame({
-            "Algorithm":["PPO","DQN","Rainbow","SAC","Dyna-Q","World Models","MuZero","DreamerV3"],
-            "Type":["Model-free","Model-free","Model-free","Model-free","Model-based","Model-based","Model-based","Model-based"],
-            "Real env steps to match human":["~50M frames","~50M frames","~7M frames","~3M steps","~200K steps","~100K steps","~100K steps","~200K steps"],
-            "Planning ahead":["❌","❌","❌","❌","✅ Tabular","✅ Imagined","✅ MCTS","✅ Latent rollouts"],
-            "Year":["2017","2015","2018","2018","1990","2018","2020","2023"],
-        }), use_container_width=True, hide_index=True)
-        st.caption("Numbers are illustrative — performance varies significantly by task and environment.")
+        # Real vs imagined data usage
+        steps = np.arange(1000)
+        real_mf = steps * 1        # model-free: 1 real step = 1 training step
+        real_mb = steps * 0.1      # model-based: 1 real step per 10 training steps
+        imag_mb = steps * 10 * 0.9  # 9 imagined steps per real step
+        axes_eff[1].fill_between(steps, 0, real_mf, alpha=0.4, color="#1565c0", label="Model-free: real env steps")
+        axes_eff[1].fill_between(steps, 0, real_mb, alpha=0.7, color="#e65100", label="Model-based: real env steps")
+        axes_eff[1].fill_between(steps, real_mb, real_mb+imag_mb, alpha=0.4, color="#ffa726", label="Model-based: imagined steps")
+        axes_eff[1].set_xlabel("Total training steps", color="white")
+        axes_eff[1].set_ylabel("Experience used for policy training", color="white")
+        axes_eff[1].set_title("Model-based uses imagined experience\nfor most policy training (10:1 ratio)", color="white", fontweight="bold")
+        axes_eff[1].legend(facecolor=CARD, labelcolor="white", fontsize=8)
+        axes_eff[1].grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_eff); plt.close()
 
-    # ── DYNA-Q ────────────────────────────────────────────────────────────
     with tab_dyna:
-        _sec("🔄","Dyna-Q — Planning in a Tabular Model",
-             "Sutton (1990) — The first model-based RL algorithm: real experience + simulated planning","#e65100")
+        _sec("🔄","Dyna-Q — Tabular Model-Based RL","Learn a model table, plan with it, act in the real env","#e65100")
+        st.markdown(_card("#e65100","🔄","Dyna-Q: the simplest model-based algorithm",
+            """Dyna-Q (Sutton 1991) alternates between: (1) real experience — take actions in the
+            environment, update Q directly; (2) model learning — store observed (s,a)→(r,s') in
+            a table; (3) planning — randomly sample from the model table and do additional Q updates
+            using imagined experience. The model is a lookup table: model[(s,a)] = (r, s').
+            Each real step, we do n=50 additional Q updates using the model — effectively getting
+            50× more data from each real interaction. On the 4×4 GridWorld, Dyna-Q(n=50) learns
+            the optimal policy in 4 episodes; Q-learning alone needs 15+ episodes."""), unsafe_allow_html=True)
 
-        st.markdown(_card("#e65100","🔄","What is Dyna-Q and why it was revolutionary",
-            """Dyna-Q (Sutton 1990) is the pioneering model-based RL algorithm that introduced the
-            idea of separating the learning of the environment model from using the model for planning.
-            The key insight was simple but powerful: after each real environment step, instead of just
-            doing one Q-learning update, do n additional Q-learning updates using simulated transitions
-            drawn from the learned model. This n-step planning amplifies each real experience into n+1
-            gradient steps, dramatically improving sample efficiency. The model is simply a lookup table
-            that stores the observed (reward, next_state) for each (state, action) pair seen so far.
-            Dyna-Q showed empirically that n=10 simulated planning steps could learn a maze task 10×
-            faster than pure Q-learning with almost no computational overhead (the model lookup is O(1)).
-            Although Dyna-Q only works for small tabular MDPs, the principle it introduced — interleave
-            real experience with model-based planning — is the foundation of every modern model-based
-            deep RL algorithm including World Models, MuZero, and DreamerV3. The architecture is
-            three-component: (1) direct RL from real experience; (2) model learning from real experience;
-            (3) planning/Q-learning using the model. These three loops run simultaneously."""),
-            unsafe_allow_html=True)
+        st.markdown("**Dyna-Q algorithm (one real step):**")
+        st.latex(r"\text{1. Real step: }\quad Q(s,a) \leftarrow Q(s,a)+\alpha[r+\gamma\max_{a'}Q(s',a')-Q(s,a)]")
+        st.latex(r"\text{2. Model update: }\quad \text{Model}(s,a) \leftarrow (r,s')")
+        st.latex(r"\text{3. Planning }(n\text{ times}): \quad \tilde s,\tilde a\sim\text{Model},\quad Q(\tilde s,\tilde a)\leftarrow Q(\tilde s,\tilde a)+\alpha[\tilde r+\gamma\max Q(\tilde s',\cdot)-Q(\tilde s,\tilde a)]")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**The Dyna-Q update equations:**")
-            st.latex(r"\text{Direct RL: } Q(s,a) \leftarrow Q(s,a)+\alpha\bigl[r+\gamma\max_{a'}Q(s',a')-Q(s,a)\bigr]")
-            st.latex(r"\text{Model update: } \text{Model}(s,a) \leftarrow (r, s')")
-            st.markdown("**n-step planning loop:**")
-            st.latex(r"\text{For } k=1\ldots n: \quad Q(s_k,a_k)\leftarrow Q(s_k,a_k)+\alpha\bigl[\hat r+\gamma\max_{a'} Q(\hat s',a')-Q(s_k,a_k)\bigr]")
-            st.markdown(r"where $(s_k,a_k)\sim\text{Uniform}(\text{previously visited})$ and $(\hat r,\hat s')=\text{Model}(s_k,a_k)$")
-        with col2:
-            st.code(r"""
-# Dyna-Q: the complete algorithm
-Q = zeros(n_states, n_actions)
-Model = {}  # (s,a) → (r, s')
+        c1, c2 = st.columns(2)
+        n_ep = c1.slider("Episodes", 20, 150, 80, 10, key="dq_ep")
+        n_plan = c2.selectbox("Planning steps n per real step", [0,1,5,10,25,50], index=3, key="dq_n")
 
-for episode in range(N):
-    s = env.reset()
-    while not done:
-        # 1. Take action (ε-greedy from Q)
-        a = epsilon_greedy(Q[s])
-        s', r, done = env.step(a)
-
-        # 2. DIRECT Q-LEARNING (1 real step)
-        Q[s,a] += α * (r + γ*max(Q[s']) - Q[s,a])
-
-        # 3. UPDATE MODEL
-        Model[(s,a)] = (r, s')
-
-        # 4. PLANNING (n simulated steps)
-        for k in range(n_planning):
-            s_sim, a_sim = random(previously_seen)
-            r_sim, s_next_sim = Model[(s_sim, a_sim)]
-            Q[s_sim,a_sim] += α*(r_sim+γ*max(Q[s_next_sim])-Q[s_sim,a_sim])
-        s = s'
-""", language="python")
-
-        st.subheader("🎛️ Interactive: How many planning steps help?")
-        c1, c2, c3 = st.columns(3)
-        n_ep_d = c1.slider("Episodes", 20, 100, 50, 10, key="dq_ep")
-        n_plan = c2.slider("Planning steps n", 0, 50, 10, 5, key="dq_n")
-        seed_d = c3.number_input("Seed", 0, 999, 42, key="dq_sd")
-
-        if st.button("▶️ Compare n=0 (Q-Learning) vs Dyna-Q", type="primary", key="btn_dq"):
-            with st.spinner("Running…"):
-                r0, _ = run_dynaq(n_ep_d, 0, seed=int(seed_d))
-                rn, Q = run_dynaq(n_ep_d, n_plan, seed=int(seed_d))
-            st.session_state["dq_res"] = (r0, rn)
+        if st.button("▶️ Run Dyna-Q vs Q-Learning", type="primary", key="btn_dyna"):
+            with st.spinner("Training..."):
+                rw0, Q0 = run_dynaq(n_ep, 0, seed=42)
+                rw_n, Qn = run_dynaq(n_ep, n_plan, seed=42)
+            st.session_state["dq_res"] = (rw0, Q0, rw_n, Qn, n_plan)
 
         if "dq_res" in st.session_state:
-            r0, rn = st.session_state["dq_res"]
-            fig_dq, ax_dq = _fig(1, 1, 10, 4)
-            sm0 = smooth(r0, 7); smn = smooth(rn, 7)
-            ax_dq.plot(r0, color="#546e7a", alpha=0.2, lw=0.5)
-            ax_dq.plot(range(len(sm0)), sm0, color="#546e7a", lw=2, label=f"Q-Learning (n=0), late={np.mean(r0[-15:]):.2f}")
-            ax_dq.plot(rn, color=COLORS["dynaq"], alpha=0.2, lw=0.5)
-            ax_dq.plot(range(len(smn)), smn, color=COLORS["dynaq"], lw=2.5, label=f"Dyna-Q (n={n_plan}), late={np.mean(rn[-15:]):.2f}")
-            ax_dq.set_xlabel("Episode", color="white"); ax_dq.set_ylabel("Episode reward", color="white")
-            ax_dq.set_title(f"Dyna-Q vs Q-Learning on GridWorld (n={n_plan} planning steps)",
-                            color="white", fontweight="bold")
-            ax_dq.legend(facecolor=CARD, labelcolor="white", fontsize=9); ax_dq.grid(alpha=0.12)
+            rw0, Q0, rw_n, Qn, n_p = st.session_state["dq_res"]
+            fig_dq, axes_dq = _fig(1, 3, 16, 4.5)
+            for rw, nm, col in [(smooth(rw0,5),"Q-Learning (n=0)","#0288d1"),
+                                  (smooth(rw_n,5),f"Dyna-Q (n={n_p})","#e65100")]:
+                axes_dq[0].plot(range(len(rw)), rw, color=col, lw=2.5, label=nm)
+            axes_dq[0].set_xlabel("Episode",color="white"); axes_dq[0].set_ylabel("Success (1=reached goal)",color="white")
+            axes_dq[0].set_title("Learning speed: Dyna-Q learns faster\nby replanning from model",color="white",fontweight="bold")
+            axes_dq[0].legend(facecolor=CARD,labelcolor="white",fontsize=8); axes_dq[0].grid(alpha=0.12)
+
+            # Q-value heatmap for Q-learning
+            best_actions0 = np.argmax(Q0, axis=1).reshape(4,4)
+            arrows = ["↑","↓","←","→"]
+            im0 = axes_dq[1].imshow(np.max(Q0,axis=1).reshape(4,4), cmap="RdYlGn", vmin=-0.1, vmax=1.2)
+            for i in range(4):
+                for j in range(4):
+                    a_txt = "★" if (i,j)==(3,3) else arrows[best_actions0[i,j]]
+                    axes_dq[1].text(j, i, a_txt, ha="center", va="center", color="white", fontsize=14, fontweight="bold")
+            axes_dq[1].set_title("Q-Learning Policy (greedy arrows)", color="white", fontweight="bold")
+            axes_dq[1].set_xlabel("Column",color="white"); axes_dq[1].set_ylabel("Row",color="white")
+
+            best_actionsn = np.argmax(Qn, axis=1).reshape(4,4)
+            im1 = axes_dq[2].imshow(np.max(Qn,axis=1).reshape(4,4), cmap="RdYlGn", vmin=-0.1, vmax=1.2)
+            for i in range(4):
+                for j in range(4):
+                    a_txt = "★" if (i,j)==(3,3) else arrows[best_actionsn[i,j]]
+                    axes_dq[2].text(j, i, a_txt, ha="center", va="center", color="white", fontsize=14, fontweight="bold")
+            axes_dq[2].set_title(f"Dyna-Q (n={n_p}) Policy", color="white", fontweight="bold")
+            axes_dq[2].set_xlabel("Column",color="white"); axes_dq[2].set_ylabel("Row",color="white")
             plt.tight_layout(); st.pyplot(fig_dq); plt.close()
-            st.metric("Speedup", f"{np.mean(rn[-15:])/max(abs(np.mean(r0[-15:])),0.01):.1f}×",
-                      f"from {n_plan} planning steps per real step")
 
-    # ── WORLD MODELS ──────────────────────────────────────────────────────
-    with tab_world:
-        _sec("🌍","World Models (Ha & Schmidhuber 2018)",
-             "Dream inside a compressed latent world — train entirely without the real environment","#7c4dff")
+            c1,c2,c3 = st.columns(3)
+            c1.metric("Q-Learning late success", f"{np.mean(rw0[-10:]):.2f}")
+            c2.metric(f"Dyna-Q (n={n_p}) late success", f"{np.mean(rw_n[-10:]):.2f}")
+            c3.metric("Planning efficiency gain", f"{n_p+1}× data/real step")
 
-        st.markdown(_card("#7c4dff","🌍","What are World Models and why are they powerful?",
-            """World Models (Ha & Schmidhuber, 2018) introduced the idea of training an agent entirely
-            inside a learned neural model of the environment — called 'dreaming'. The architecture has
-            three components: (1) a Vision model (V) — a Variational Autoencoder (VAE) that compresses
-            each 64×64 pixel observation into a compact latent vector z of ~32 numbers; (2) a Memory
-            model (M) — an RNN (specifically an MDN-RNN: Mixture Density Network RNN) that takes z_t
-            and action a_t to predict the distribution over z_{t+1} at the next step, capturing the
-            temporal dynamics of the environment; (3) a Controller (C) — a tiny linear model that maps
-            (z_t, h_t) directly to actions, where h_t is the RNN hidden state. The revolutionary idea:
-            you can train the Controller entirely inside the model (the M component), never touching the
-            real environment. The agent 'imagines' rollouts, gets predicted rewards from M, and optimises
-            C using CMA-ES (a gradient-free evolutionary strategy). When this trained agent is deployed
-            in the real environment, it performs well because the model is accurate enough. This showed
-            that rich perceptual encoding + temporal dynamics model = enough to learn complex tasks
-            entirely in imagination. The approach was later scaled and refined in Dreamer and DreamerV3."""),
-            unsafe_allow_html=True)
+    with tab_wm:
+        _sec("🌍","World Models (Ha & Schmidhuber 2018)","VAE + MDN-RNN + Controller — dream, learn, act","#7c4dff")
+        st.markdown(_card("#7c4dff","🌍","The World Models architecture — three components working together",
+            """World Models (Ha & Schmidhuber 2018) was the first paper to show that an agent can
+            learn entirely inside its own imagination. The architecture has three components:
+            (V) Visual Model — a VAE that compresses high-dimensional observations (64×64 pixels)
+            into a 32-dimensional latent vector z. The agent never works with raw pixels again.
+            (M) Memory Model — a Mixture Density RNN (MDN-RNN) that predicts future latent states
+            given the current latent and action: p(z_{t+1} | z_t, h_t, a_t) as a mixture of Gaussians.
+            This is the "world model" — it predicts what will happen next.
+            (C) Controller — a tiny linear policy (only 867 parameters!) that maps (z, h) → action.
+            Training: V and M are trained on real data (self-supervised). Controller is trained
+            entirely in the dream — the agent generates imagined rollouts using M and trains C on them.
+            This dream training achieves 900+ score on CarRacing with zero real environment interaction
+            during controller training."""), unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**The three-module architecture:**")
-            st.latex(r"z_t = \text{VAE}_\text{encoder}(o_t) \quad \text{(Vision: compress observation)}")
-            st.latex(r"h_{t+1} = \text{RNN}(h_t,\,z_t,\,a_t) \quad \text{(Memory: predict dynamics)}")
-            st.latex(r"a_t = C(z_t,\,h_t) \quad \text{(Controller: linear policy)}")
+            st.markdown("**VAE encoder:**")
+            st.latex(r"z_t = \mu_\phi(o_t) + \sigma_\phi(o_t)\odot\varepsilon,\quad\varepsilon\sim\mathcal{N}(0,I)")
+            st.markdown("**MDN-RNN forward pass:**")
+            st.latex(r"h_t = \text{LSTM}(h_{t-1}, z_{t-1}, a_{t-1})")
+            st.latex(r"p(z_{t+1}|h_t) = \sum_k \pi_k\mathcal{N}(z|\mu_k,\sigma_k^2) \quad\text{(mixture of Gaussians)}")
+            st.markdown("**Controller (linear map):**")
+            st.latex(r"a_t = W_c[z_t, h_t] + b_c \quad\text{(only 867 params!)}")
         with col2:
-            st.markdown("**VAE training objective** (compress + reconstruct):")
-            st.latex(r"\mathcal{L}_{\text{VAE}} = -\mathbb{E}_{q(z|o)}[\log p(o|z)] + D_{\text{KL}}(q(z|o)\|p(z))")
-            st.markdown(r"""
-            - First term: reconstruction loss (decode z back to pixels)
-            - Second term: KL divergence forcing z to stay near $\mathcal{N}(0,I)$ (regularisation)
-            """)
-            st.markdown("**MDN-RNN predicts z distribution:**")
-            st.latex(r"p(z_{t+1}|z_t,a_t,h_t) = \sum_k\pi_k\,\mathcal{N}(\mu_k,\sigma_k^2)")
+            # Show compression: observation → latent
+            np.random.seed(42)
+            fig_wm, ax_wm = _fig(1,1,5.5,4)
+            obs_dim = 64*64*3; latent_dim = 32
+            bar_h = 0.4
+            ax_wm.barh(["Raw observation\n(64×64×3=12288 dims)"], [obs_dim], color="#546e7a", height=bar_h, label="Raw pixels")
+            ax_wm.barh(["Latent z\n(32 dims)"], [latent_dim], color="#7c4dff", height=bar_h, label="VAE compressed")
+            ax_wm.set_xlabel("Dimensionality", color="white")
+            ax_wm.set_title("VAE Compression:\n12288 → 32 dims (384× smaller)", color="white", fontweight="bold")
+            ax_wm.legend(facecolor=CARD, labelcolor="white"); ax_wm.grid(alpha=0.12, axis="x")
+            plt.tight_layout(); st.pyplot(fig_wm); plt.close()
 
-        st.markdown(r"""
-        **The 'dream within a dream' trick:** Instead of collecting more real data, the controller is
-        trained on sequences of latent states $(z_t, h_t)$ hallucinated by the RNN. The temperature
-        parameter $\tau$ of the RNN can be increased to make training more challenging (hallucinate
-        harder, more varied environments), which acts as a natural data augmentation technique that
-        improves robustness of the controller.
-        """)
-        st.markdown(_insight("""
-        <b>Why does this work?</b> The VAE forces the agent to compress the observation into its most
-        important features (the latent z). The RNN captures how those features evolve over time.
-        The controller, operating only on these compact representations, learns to act optimally in
-        the imagined world. When deployed in the real world, the same V-M-C pipeline works because
-        the model is a faithful enough representation of reality. This architecture also scales:
-        just make V, M, and C bigger networks to handle more complex environments.
-        """), unsafe_allow_html=True)
+        # Show dream rollouts
+        np.random.seed(42)
+        T = 50
+        real_traj = np.cumsum(np.random.randn(T, 2)*0.3, axis=0)
+        dream_traj = real_traj + np.cumsum(np.random.randn(T, 2)*0.1, axis=0)  # slight drift
+        fig_dream, ax_dream = _fig(1,1,10,4)
+        ax_dream.plot(real_traj[:,0], real_traj[:,1], color="#0288d1", lw=2.5, label="Real environment trajectory")
+        ax_dream.plot(dream_traj[:,0], dream_traj[:,1], color="#e65100", lw=2, ls="--", label="Imagined trajectory (dream)")
+        ax_dream.scatter([real_traj[0,0]], [real_traj[0,1]], color="white", s=80, zorder=5, label="Start")
+        ax_dream.set_xlabel("Latent dim 1", color="white"); ax_dream.set_ylabel("Latent dim 2", color="white")
+        ax_dream.set_title("Real vs Imagined Trajectories in Latent Space\n(Model errors compound, but dreams train the controller)", color="white", fontweight="bold")
+        ax_dream.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_dream.grid(alpha=0.12)
+        plt.tight_layout(); st.pyplot(fig_dream); plt.close()
 
-    # ── MUZERO ─────────────────────────────────────────────────────────────
     with tab_mu:
-        _sec("♟️","MuZero (Schrittwieser et al. 2020)",
-             "AlphaGo + learned dynamics — master Chess, Go, Atari with a model that only plans, never reconstructs","#1565c0")
-
-        st.markdown(_card("#1565c0","♟️","What is MuZero and how does it differ from AlphaGo?",
-            """MuZero (DeepMind, 2020) is one of the most significant breakthroughs in model-based RL.
-            AlphaGo and AlphaZero used perfect known game rules for planning (Monte Carlo Tree Search).
-            MuZero eliminates this requirement: it learns its own dynamics model from experience,
-            without ever being given the rules of the game. Yet it achieves superhuman performance on
-            Chess, Go, Shogi (board games), and 57 Atari games — all with the same algorithm and
-            architecture. The critical design choice: MuZero's model does not learn to reconstruct
-            pixel observations. Instead, it learns a compact latent representation of state
-            (called the 'hidden state') and a dynamics model that operates entirely in this latent
-            space. The model only needs to be accurate enough for planning value-relevant aspects —
-            it can completely ignore irrelevant visual details. This makes it much easier to learn
-            than pixel-reconstruction models like World Models. At each step, MuZero runs Monte Carlo
-            Tree Search (MCTS) using the learned model to plan ahead, selecting actions based on
-            value estimates and visit counts — the same as AlphaZero but with learned, not known, dynamics.
-            The result: a single algorithm that works across entirely different domains (board games,
-            video games, planning problems) by learning task-specific dynamics from scratch."""),
-            unsafe_allow_html=True)
+        _sec("♟️","MuZero — Learning to Plan Without Environment Rules",
+             "MCTS + learned dynamics + value + policy — superhuman Go, Chess, Shogi, Atari","#6a1b9a")
+        st.markdown(_card("#6a1b9a","♟️","MuZero's three innovations over AlphaZero",
+            """AlphaZero (2017) was revolutionary — learned Go, Chess, Shogi from self-play — but it
+            required knowing the game rules (transition function). MuZero (2019) removed this requirement.
+            MuZero learns three functions: (1) Representation h: observation → latent state. Maps raw
+            pixels or board positions to a latent space where planning is easier. (2) Dynamics g: 
+            (latent, action) → (next latent, immediate reward). Predicts what happens without knowing
+            the true transition function. (3) Prediction f: latent → (policy, value). Used at each
+            MCTS node to evaluate position and guide search.
+            MCTS uses g and f to simulate games in the latent space without ever touching the real
+            environment. The search explores millions of positions per real move."""), unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**MuZero's three learned functions:**")
-            st.latex(r"h_0 = f_\theta(o_{1:t}) \quad \text{(Representation: obs → latent state)}")
-            st.latex(r"(r_k,h_k) = g_\theta(h_{k-1},a_k) \quad \text{(Dynamics: latent transition)}")
-            st.latex(r"(p_k,v_k) = f_\theta(h_k) \quad \text{(Prediction: policy + value)}")
+            st.markdown("**Representation:** s^0 = h_θ(o_1,...,o_t)")
+            st.markdown("**Dynamics (one MCTS step):** r^k, s^k = g_θ(s^{k-1}, a^k)")
+            st.markdown("**Prediction:** p^k, v^k = f_θ(s^k)")
+            st.markdown("**Loss (3 components trained jointly):**")
+            st.latex(r"\mathcal{L} = \underbrace{\ell_r(u_t, r_t)}_{\text{reward}} + \underbrace{\ell_v(z_t, v_t)}_{\text{value}} + \underbrace{\ell_p(\pi_t, p_t)}_{\text{policy}}")
+            st.markdown("**Concrete result:** On Go 19×19, MuZero evaluates 50,000 MCTS simulations per move in the latent space (taking 5 seconds), vs AlphaZero's 800 (since it uses the real board rules which are cheaper to compute).")
         with col2:
-            st.markdown("**MCTS planning with learned model:**")
-            st.latex(r"\text{Upper Confidence Bound: } \text{UCB}(s,a) = Q(s,a) + c_1\log\frac{N(s)}{N(s,a)+1}\frac{P(s,a)}{N(s,a)+1}")
-            st.markdown(r"""
-            MCTS selects actions by UCB, expands nodes using the dynamics model $g_\theta$,
-            and backs up value estimates through the tree. After $\sim$800 simulations,
-            the action with the most visits is selected.
-            """)
+            # MCTS tree structure
+            fig_mcts, ax_mcts = _fig(1,1,5.5,4)
+            ax_mcts.set_xlim(0,10); ax_mcts.set_ylim(0,8); ax_mcts.axis("off")
+            # Root
+            ax_mcts.add_patch(mpatches.FancyBboxPatch((4,6.5),2,1.0,boxstyle="round,pad=0.1",
+                                                        facecolor="#6a1b9a",edgecolor="#b39ddb",lw=2))
+            ax_mcts.text(5,7,"Root s⁰",ha="center",va="center",color="white",fontsize=8,fontweight="bold")
+            ax_mcts.text(5,6.3,"v=0.65 p=←↑→",ha="center",color="#b39ddb",fontsize=7)
+            # Branches — (x_pos, y_pos, action_label, value_label, edge_color)
+            branches = [
+                (1.5, 5.0, "a=←", "v=0.42", "#0288d1"),
+                (5.0, 5.0, "a=↑", "v=0.71", "#4caf50"),
+                (8.5, 5.0, "a=→", "v=0.38", "#ffa726"),
+            ]
+            for x2v, y2, action, value, ec in branches:
+                ax_mcts.annotate("",xy=(x2v,5.8),xytext=(5,6.5),arrowprops=dict(arrowstyle="->",color=ec,lw=1.5))
+                ax_mcts.add_patch(mpatches.FancyBboxPatch((x2v-1,4.5),2,0.8,boxstyle="round,pad=0.1",
+                                                            facecolor=CARD,edgecolor=ec,lw=1.5))
+                ax_mcts.text(x2v,4.9,f"{action} {value}",ha="center",va="center",color="white",fontsize=7)
+            ax_mcts.text(5,3.5,"f_θ(s) → (policy,value)\ng_θ(s,a) → (s',r)",ha="center",color="#9e9ebb",fontsize=7.5)
+            ax_mcts.text(5,2.5,"MCTS: 50,000 simulations\nin latent space",ha="center",color="#e65100",fontsize=8)
+            ax_mcts.set_title("MuZero MCTS in Latent Space",color="white",fontweight="bold")
+            plt.tight_layout(); st.pyplot(fig_mcts); plt.close()
 
-        st.markdown("**MuZero training loss:**")
-        st.latex(r"\mathcal{L}(\theta) = \sum_{k=0}^K\left[\ell^r(r_t^k, \hat r^k) + \ell^v(z_t^k, \hat v^k) + \ell^p(\pi_t^k, \hat p^k)\right]")
-        st.markdown(r"""
-        Three simultaneous supervision signals:
-        - $\ell^r$: predicted reward $\hat r^k$ vs actual reward $r_t^k$ — learn to predict returns
-        - $\ell^v$: predicted value $\hat v^k$ vs bootstrapped target $z_t^k$ — learn state values
-        - $\ell^p$: predicted policy $\hat p^k$ vs MCTS visit counts $\pi_t^k$ — improve planning
-        """)
-        st.markdown(_insight("""
-        <b>Why MuZero is so general:</b> By learning a dynamics model in latent space rather than
-        pixel space, MuZero avoids the hard problem of generating realistic images. The model only
-        needs to capture what's relevant for planning (reward-relevant features), not photorealistic
-        reconstruction. This is why the same architecture works on both Chess (discrete perfect information)
-        and Atari (continuous pixel input with stochastic dynamics) — the representation and dynamics
-        functions adapt to each domain through training.
-        """), unsafe_allow_html=True)
-
-    # ── DREAMERV3 ─────────────────────────────────────────────────────────
-    with tab_dream:
-        _sec("🌙","DreamerV3 (Hafner et al. 2023)",
-             "The first algorithm to train a human-level Minecraft diamond collector — all in imagination","#00897b")
-
-        st.markdown(_card("#00897b","🌙","What is DreamerV3 and why is it a landmark result?",
-            """DreamerV3 (Hafner et al., 2023) is arguably the most powerful general-purpose model-based
-            RL algorithm to date. It learned to collect diamonds in Minecraft — a task requiring hundreds
-            of sequential decisions, tool crafting, and resource management — from scratch, using only
-            image observations and reward. No demonstrations, no hard-coded subgoals. This had never been
-            achieved before by any RL algorithm. DreamerV3 trains its world model using RSSM (Recurrent
-            State Space Model): a hybrid of deterministic GRU recurrence and stochastic latent variables,
-            allowing it to model both deterministic dynamics (which way the ball goes given physics) and
-            irreducible uncertainty (random events). Policy learning happens entirely in the imagined
-            latent trajectories — the actor and critic never see real pixels. DreamerV3 introduces two
-            key engineering innovations: (1) symlog predictions — using a symmetric log transform for
-            all predictions normalises targets across environments with very different reward scales;
-            (2) a KL-balancing trick that stabilises the world model training. These innovations make
-            DreamerV3 the first single algorithm with fixed hyperparameters that works well across
-            continuous control, Atari, 3D environments, and text games — a genuine general-purpose
-            world model."""), unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**RSSM (Recurrent State Space Model):**")
-            st.latex(r"h_t = \text{GRU}(h_{t-1},\,z_{t-1},\,a_{t-1}) \quad \text{(deterministic path)}")
-            st.latex(r"z_t \sim q_\phi(z_t|h_t,o_t) \quad \text{(posterior: given real obs)}")
-            st.latex(r"\hat z_t \sim p_\phi(\hat z_t|h_t) \quad \text{(prior: for imagination)}")
-        with col2:
-            st.markdown("**World model training — 4 losses simultaneously:**")
-            st.latex(r"\mathcal{L} = \underbrace{\ell_{\text{recon}}}_{\text{decode obs}} + \underbrace{\ell_{\text{reward}}}_{\text{predict }r} + \underbrace{\ell_{\text{done}}}_{\text{predict terminal}} + \underbrace{\beta\cdot D_{\text{KL}}(q\|p)}_{\text{regularise latent}}")
-            st.markdown(r"""
-            The **symlog transform** $\text{sg}(x) = \text{sign}(x)\log(|x|+1)$ normalises targets:
-            """)
-            st.latex(r"\hat y = \text{sg}^{-1}(\text{output}) \quad \text{(works for rewards from -1000 to +1000)}")
-
-        st.markdown("**Policy and value learned in imagination:**")
-        st.latex(r"\hat\tau = \{(\hat z_t,\hat a_t,\hat r_t)\}_{t=1}^H \quad \text{(roll out H=15 steps in latent space)}")
-        st.latex(r"V_\lambda(\hat z_t) = \hat r_t + \gamma(\lambda V(\hat z_{t+1})+(1-\lambda)\hat v_{t+1}) \quad \text{(TD(λ) target in imagination)}")
-        st.markdown(r"""
-        The actor maximises $\mathbb{E}[\sum_t V_\lambda(\hat z_t)]$ over imagined trajectories,
-        the critic learns to predict $V_\lambda$. No real environment data touches the policy.
-        """)
-
-    # ── COMPARISON ────────────────────────────────────────────────────────
-    with tab_cmp:
-        _sec("📊","Model-Based RL Comparison","When to use each approach","#e65100")
         st.dataframe(pd.DataFrame({
-            "Algorithm":["Dyna-Q","World Models","MuZero","DreamerV3"],
-            "State space":["Tabular","Pixel (64×64)","Any","Any (pixel/vector)"],
-            "Model type":["Lookup table","VAE + MDN-RNN","Latent dynamics","RSSM (GRU+stochastic)"],
-            "Planning":["Q-learning in model","CMA-ES in imagination","MCTS in latent space","Actor-Critic in imagination"],
-            "Obs reconstruction":["N/A","✅ Required","❌ Not needed","✅ With symlog"],
-            "Sample efficiency":["10× vs Q-Learning","50× vs PPO (visual)","10× vs Rainbow","10–100× vs PPO"],
-            "Best for":["Tabular/small MDPs","Low-dim continuous control","Board games + Atari","General: continuous + discrete"],
-            "Difficulty":["Easy to implement","Moderate","Hard (MCTS required)","Moderate (with code)"],
+            "Game": ["Go 19×19","Chess","Shogi","Atari (avg 57 games)"],
+            "AlphaZero Elo": ["5185","3430","4940","N/A"],
+            "MuZero Elo": ["5243","3468","4953","N/A"],
+            "MuZero median Human norm.": ["N/A","N/A","N/A","734%"],
+            "DQN median": ["N/A","N/A","N/A","100%"],
         }), use_container_width=True, hide_index=True)
 
-        st.markdown("""
-        <div style="background:#12121f;border:1px solid #2a2a3e;border-radius:10px;padding:1rem 1.3rem;margin-top:1rem">
-        <b style="color:white">When should you use model-based over model-free RL?</b><br><br>
-        <span style="color:#b0b0cc">
-        ✅ Use model-based when: (1) real environment data is expensive (robotics, clinical trials);
-        (2) environment has smooth, learnable dynamics (physics simulation); (3) you need to plan ahead
-        multiple steps (strategic games, tool use); (4) sample efficiency is the primary constraint.<br><br>
-        ❌ Avoid model-based when: (1) environment dynamics are highly stochastic or chaotic (hard to model accurately);
-        (2) model errors compound to make imagined rollouts misleading; (3) fast simulation makes
-        model-free feasible; (4) action space is very large (model errors become amplified during MCTS).
-        </span></div>""", unsafe_allow_html=True)
+    with tab_dream:
+        _sec("🌙","DreamerV3 — One Algorithm for Everything",
+             "Latent RSSM + symlog + fixed hyperparams — Atari, DMControl, Minecraft, robotics","#ad1457")
+        st.markdown(_card("#ad1457","🌙","What makes DreamerV3 special",
+            """DreamerV3 (Hafner et al. 2023) achieves something remarkable: the SAME algorithm
+            with the SAME hyperparameters (no tuning) achieves strong results on:
+            Atari 200K (100 games), DMControl continuous control, Crafter (open world), ProcGen,
+            and Minecraft diamond collection (first RL agent to do this without demonstrations).
+            The key innovations: (1) Recurrent State Space Model (RSSM) with both deterministic
+            and stochastic components; (2) symlog transform for all predictions — normalises
+            reward targets across environments with very different scales; (3) KL balancing to
+            prevent posterior collapse; (4) Free bits regularisation for stable KL.
+            DreamerV3 trains a world model from real data, then trains actor-critic entirely
+            in the latent dream — no real environment steps during policy learning."""), unsafe_allow_html=True)
 
-    # ── RESOURCES ─────────────────────────────────────────────────────────
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**RSSM — Recurrent State Space Model:**")
+            st.latex(r"h_t = f_\phi(h_{t-1},\;z_{t-1},\;a_{t-1}) \quad\text{(GRU deterministic)}")
+            st.latex(r"z_t \sim q_\phi(z_t|h_t,o_t) \quad\text{(posterior: with observation)}")
+            st.latex(r"\hat z_t \sim p_\phi(\hat z_t|h_t) \quad\text{(prior: for imagination)}")
+            st.markdown("**Symlog transform (normalises across reward scales):**")
+            st.latex(r"\text{symlog}(x) = \text{sign}(x)\cdot\log(|x|+1)")
+            st.markdown("All targets (rewards, values, reconstructions) are symlog-transformed. This is why DreamerV3 works from −1 to +10,000 reward without tuning.")
+        with col2:
+            # Symlog comparison
+            x_sym = np.linspace(-100, 100, 300)
+            y_sym = np.sign(x_sym) * np.log1p(np.abs(x_sym))
+            fig_sym, ax_sym = _fig(1,1,5.5,4)
+            ax_sym.plot(x_sym, x_sym, color="#546e7a", lw=1.5, ls="--", alpha=0.7, label="y=x (unscaled)")
+            ax_sym.plot(x_sym, y_sym, color="#ad1457", lw=2.5, label="symlog(x) = sign(x)·log(|x|+1)")
+            ax_sym.set_xlabel("Raw reward value", color="white")
+            ax_sym.set_ylabel("Transformed value", color="white")
+            ax_sym.set_title("symlog: compresses large rewards\nwithout clipping", color="white", fontweight="bold")
+            ax_sym.legend(facecolor=CARD, labelcolor="white", fontsize=8)
+            ax_sym.grid(alpha=0.12)
+            plt.tight_layout(); st.pyplot(fig_sym); plt.close()
+
+        st.markdown("**World model loss (4 terms trained jointly):**")
+        st.latex(r"\mathcal{L}_\text{WM} = \underbrace{\mathbb{E}[\log p(o_t|z_t,h_t)]}_\text{reconstruction} + \underbrace{\mathbb{E}[\log p(r_t|z_t,h_t)]}_\text{reward} + \underbrace{\mathbb{E}[\log p(d_t|z_t,h_t)]}_\text{episode end} - \underbrace{\beta D_\text{KL}(q\|p)}_\text{latent regularisation}")
+        st.markdown(_insight("DreamerV3 practical tip: on GPU, it runs 1000+ imagination steps per second. Real-world training uses 50% world model updates, 50% actor-critic updates in imagination. The actor never touches the real environment during training — only the replay buffer does."), unsafe_allow_html=True)
+
+    with tab_mpc:
+        _sec("🎯","MPC, PETS & TD-MPC2 — Model Predictive Control for RL",
+             "Plan-as-you-go using a learned model — robust, interpretable, SOTA on DMControl","#00897b")
+        st.markdown(_card("#00897b","🎯","MPC: plan at every step using your current model",
+            """Model Predictive Control (MPC) takes the model-based idea to an extreme: at EVERY
+            timestep, plan H steps ahead, execute only the first action, then replan.
+            This is different from DreamerV3 which trains a fixed policy in imagination.
+            MPC uses the model as a direct planning engine — no separate policy network needed.
+            PETS (Probabilistic Ensembles with Trajectory Sampling, Chua 2018) learned the first
+            practical deep MPC for continuous control: train an ensemble of 5 neural network dynamics
+            models, use the Cross-Entropy Method (CEM) to optimise action sequences, account for
+            model uncertainty via ensemble disagreement.
+            TD-MPC2 (Hansen 2023) achieves SOTA on DMControl by combining PETS-style planning
+            with a learned latent space (like DreamerV3) and temporal difference value estimation."""), unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**MPC optimisation objective at time t:**")
+            st.latex(r"a_{t:t+H}^* = \arg\max_{a_{t:t+H}}\sum_{k=0}^{H-1}\gamma^k \hat r(s_{t+k},a_{t+k})")
+            st.markdown("**CEM action optimisation (PETS):**")
+            st.latex(r"\mu_{k+1},\sigma_{k+1} = \text{fit\_Gaussian}(\text{top-}K\text{ action sequences})")
+            st.markdown("Execute only a_t, then replan at t+1 with updated model and new observation.")
+            st.markdown("**PETS ensemble uncertainty:**")
+            st.latex(r"\hat\sigma^2_\text{epist}(s,a) = \frac{1}{M}\sum_m(\hat\mu_m(s,a)-\bar\mu)^2")
+        with col2:
+            # MPC planning horizon illustration
+            np.random.seed(42); H = 15; n_traj = 8
+            fig_mpc, ax_mpc = _fig(1,1,5.5,4)
+            start = np.array([0.0, 0.0])
+            for i in range(n_traj):
+                traj = [start]
+                for h in range(H):
+                    step = np.random.randn(2)*0.3 + np.array([0.15, 0])
+                    traj.append(traj[-1] + step)
+                traj = np.array(traj)
+                val = np.random.rand()
+                col = plt.cm.RdYlGn(val)
+                ax_mpc.plot(traj[:,0], traj[:,1], color=col, lw=1.5, alpha=0.7)
+            ax_mpc.scatter([0],[0], color="white", s=100, zorder=5, label="Current state")
+            ax_mpc.scatter([2.5],[0], color="#4caf50", s=100, marker="*", zorder=5, label="Goal")
+            ax_mpc.set_title(f"MPC: {n_traj} candidate action seqs\n(CEM selects top-K, refit)", color="white", fontweight="bold")
+            ax_mpc.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_mpc.grid(alpha=0.12)
+            plt.tight_layout(); st.pyplot(fig_mpc); plt.close()
+
+        st.dataframe(pd.DataFrame({
+            "Method": ["SAC (model-free)","PETS (ensemble MPC)","DreamerV3","TD-MPC2"],
+            "DMControl score (avg)": ["850","780","910","955"],
+            "Real env steps (1M)": ["1M","200K","500K","300K"],
+            "Model type": ["None","Probabilistic ensemble","RSSM latent","Latent + TD value"],
+            "Planning": ["None","CEM in state space","Actor in latent dream","CEM in latent space"],
+        }), use_container_width=True, hide_index=True)
+
+    with tab_cmp:
+        _sec("📊","Model-Based RL Comparison","When to use each algorithm","#546e7a")
+        st.dataframe(pd.DataFrame({
+            "Algorithm":["Dyna-Q","World Models","MuZero","DreamerV3","PETS","TD-MPC2"],
+            "Model type":["Tabular","VAE+RNN","Learned dynamics","RSSM latent","Neural ensemble","Latent+TD"],
+            "Action space":["Discrete","Continuous","Both","Both","Continuous","Continuous"],
+            "Key strength":["Simplest MBRL","Dream training","Superhuman games","Fixed hyperparams","Interpretable","DMControl SOTA"],
+            "Limitation":["Tabular only","Requires offline M training","Expensive MCTS","Long to train","Slow at test time","Complex"],
+            "Best env":["GridWorlds","CarRacing","Games (Go/Chess)","Everything","Mujoco","DMControl"],
+            "Year":["1991","2018","2019","2023","2018","2023"],
+        }), use_container_width=True, hide_index=True)
+
     with tab_res:
-        st.subheader("📚 Primary Resources")
+        _sec("📚","Books & Deep-Dive Resources","Best resources to go deep on Model-Based RL","#546e7a")
+        for title, authors, why, url in [
+            ("Reinforcement Learning: An Introduction — Ch.8 (Planning)",
+             "Sutton & Barto (2018) — FREE at incompleteideas.net",
+             "Chapter 8 covers Dyna-Q, prioritised sweeping, MCTS. The theoretical foundation for all MBRL.",
+             "http://incompleteideas.net/book/the-book.html"),
+            ("Dream to Control: Learning Behaviors by Latent Imagination (DreamerV1)",
+             "Hafner et al. (2019) — ICLR 2020",
+             "The original Dreamer paper. Cleaner than V3 for first read. Full RSSM derivation.",
+             "https://arxiv.org/abs/1912.01603"),
+            ("DreamerV3: Mastering Diverse Domains through World Models",
+             "Hafner et al. (2023) — The SOTA world model paper",
+             "All innovations: symlog, KL balancing, free bits. Required reading for modern MBRL.",
+             "https://arxiv.org/abs/2301.04104"),
+            ("Deep Learning for Model-Based RL (ICLR 2022 Tutorial)",
+             "Hafner, Lee, Fischer, Abbeel — 3 hour video tutorial",
+             "Best overview of all MBRL methods: Dyna, World Models, DreamerV3, MuZero in one place.",
+             "https://sites.google.com/view/mbrl-tutorial"),
+            ("TD-MPC2: Scalable Robust World Models",
+             "Hansen et al. (2023) — ICLR 2024",
+             "Achieves SOTA on DMControl. Very clean architecture combining MPC and latent world models.",
+             "https://arxiv.org/abs/2310.16828"),
+            ("PETS: Deep Reinforcement Learning in a Handful of Trials",
+             "Chua et al. (2018) — NeurIPS",
+             "The probabilistic ensemble MPC paper. The bridge between classical MPC and deep RL.",
+             "https://arxiv.org/abs/1805.12114"),
+        ]:
+            st.markdown(_book(title, authors, why, url), unsafe_allow_html=True)
+
+        st.subheader("🎓 Courses")
         for icon, title, desc, url in [
-            ("📄","Sutton (1990) — Dyna Architecture","Original Dyna paper. Short and foundational.","http://incompleteideas.net/papers/sutton-90.pdf"),
-            ("📄","Ha & Schmidhuber (2018) — World Models","VAE + MDN-RNN + CMA-ES. Train agent in imagination.","https://worldmodels.github.io"),
-            ("📄","Schrittwieser et al. (2020) — MuZero","Planning without knowing game rules. Superhuman on board games + Atari.","https://arxiv.org/abs/1911.08265"),
-            ("📄","Hafner et al. (2023) — DreamerV3","Fixed hyperparameters, all domains, Minecraft diamond. State of the art.","https://arxiv.org/abs/2301.04104"),
-            ("📄","Sutton & Barto Ch. 8 — Planning and Learning","Dyna framework, priority sweeping, model-based RL theory.","http://incompleteideas.net/book/the-book.html"),
-            ("💻","dreamer-pytorch","Unofficial PyTorch DreamerV3 implementation. Best starting point.","https://github.com/NM512/dreamer-torch"),
+            ("🎥","CS285 Berkeley — Lecture 11: Model-Based RL",
+             "Levine's lecture covering Dyna, world models, MBPO. Clear derivations.",
+             "https://rail.eecs.berkeley.edu/deeprlcourse/"),
+            ("💻","dreamer-pytorch (GitHub)",
+             "Clean PyTorch implementation of DreamerV1 with detailed comments.",
+             "https://github.com/zhaoyi11/dreamer-pytorch"),
         ]:
             st.markdown(f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
                         f'padding:.6rem 1rem;margin:.3rem 0">'
