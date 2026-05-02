@@ -12,6 +12,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import pandas as pd
 from collections import defaultdict
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 
@@ -62,6 +63,10 @@ div[data-testid="metric-container"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+def render_mc_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Monte Carlo Methods - {tab_title}", tab_slug)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GRIDWORLD ENVIRONMENT
@@ -828,6 +833,7 @@ def main_mc():
         total_r  = sum(r for _, _, r in ep_sample)
         st.caption("📖 How to read this output — **Length**: how many steps before hitting a terminal state. **Return**: total reward collected (negative = mostly step-costs and possibly the trap; near +10 = reached the goal efficiently). **Path**: the exact sequence of (row, col) grid squares visited in order.")
         st.code(f"Length : {len(ep_sample)} steps\nReturn : {total_r:.2f}\nPath   : {path_str}", language="")
+        render_mc_notes("Environment", "monte_carlo_methods_environment")
 
     # ── Run all methods ───────────────────────────────────────────────────────
     if run_btn or "results" in st.session_state:
@@ -961,6 +967,7 @@ def main_mc():
             c1, c2 = st.columns(2)
             c1.info("**First-Visit MC** — Unbiased, independent samples. Statistically cleaner, converges more slowly on revisited states.")
             c2.info("**Every-Visit MC** — More samples per episode (correlated). Converges faster in practice but has slight bias from correlation.")
+            render_mc_notes("MC Prediction", "monte_carlo_methods_mc_prediction")
 
         # ── Tab 2: On-policy Control ──────────────────────────────────────────
         with tab_ctrl:
@@ -1105,6 +1112,7 @@ def main_mc():
             plt.tight_layout(); st.pyplot(fig3); plt.close()
 
             st.info("**Key insight**: The agent can only converge to the *best ε-soft* policy — not the true optimal π*. To learn the exact optimal policy, use off-policy methods.")
+            render_mc_notes("On-policy Control", "monte_carlo_methods_on_policy_control")
 
         # ── Tab 3: Off-policy IS ──────────────────────────────────────────────
         with tab_offpol:
@@ -1281,6 +1289,7 @@ def main_mc():
             c1.metric("Ordinary IS — MSE", f"{mse_ois:.4f}")
             c2.metric("Weighted IS — MSE",  f"{mse_wis:.4f}")
             c3.metric("WIS improvement", f"{max(0,(mse_ois-mse_wis)/max(mse_ois,1e-9)*100):.1f}%", delta="↓ lower is better")
+            render_mc_notes("Off-policy IS", "monte_carlo_methods_off_policy_is")
 
         # ── Tab 4: Incremental MC ─────────────────────────────────────────────
         with tab_incr:
@@ -1408,6 +1417,7 @@ def main_mc():
             c1, c2 = st.columns(2)
             c1.info("**Memory**: O(1) per state — no need to store every return.")
             c2.info("**Bridge to TD**: Replace 1/N with α and allow G to bootstrap → you get TD(0).")
+            render_mc_notes("Incremental MC", "monte_carlo_methods_incremental_mc")
 
         # ── Tab 5: Advanced IS ────────────────────────────────────────────────
         with tab_adv:
@@ -1561,6 +1571,7 @@ def main_mc():
             ax6.set_title("IS Variance Hierarchy (lower = better)", color="white", fontweight="bold")
             ax6.grid(alpha=0.15, axis="y")
             plt.tight_layout(); st.pyplot(fig6); plt.close()
+            render_mc_notes("Advanced IS", "monte_carlo_methods_advanced_is")
 
         # ── Tab 6: Dashboard ──────────────────────────────────────────────────
         with tab_dash:
@@ -1751,12 +1762,22 @@ def main_mc():
             ax9.set_xlim(0,10); ax9.set_ylim(0,10)
             ax9.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig9); plt.close()
+            render_mc_notes("Dashboard", "monte_carlo_methods_dashboard")
 
     else:
         # If no run yet, show placeholder on computation tabs
-        for tab in [tab_pred, tab_ctrl, tab_offpol, tab_incr, tab_adv, tab_dash]:
+        pending_tabs = [
+            (tab_pred, "MC Prediction", "monte_carlo_methods_mc_prediction"),
+            (tab_ctrl, "On-policy Control", "monte_carlo_methods_on_policy_control"),
+            (tab_offpol, "Off-policy IS", "monte_carlo_methods_off_policy_is"),
+            (tab_incr, "Incremental MC", "monte_carlo_methods_incremental_mc"),
+            (tab_adv, "Advanced IS", "monte_carlo_methods_advanced_is"),
+            (tab_dash, "Dashboard", "monte_carlo_methods_dashboard"),
+        ]
+        for tab, note_title, note_slug in pending_tabs:
             with tab:
                 st.info("👈 Press **Run All Methods** in the sidebar to start the experiment.")
+                render_mc_notes(note_title, note_slug)
 
     # ── Tab 7: Method Guide (always visible) ──────────────────────────────────
     with tab_guide:
@@ -1944,6 +1965,7 @@ def main_mc():
         simpler, more interpretable, exactly correct in the limit — but slow to converge and only applicable
         when episodes terminate. Deep RL trades some of that purity for scale and speed.
         """)
+        render_mc_notes("Method Guide", "monte_carlo_methods_method_guide")
 
 
 if __name__ == "__main__":

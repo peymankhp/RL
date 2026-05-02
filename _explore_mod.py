@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -428,3 +429,16 @@ def main_explore():
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    explore_notes = [
+        (tab_ee, "Exploration vs Exploitation", "exploration_methods"),
+        (tab_ucb, "UCB", "exploration_methods_ucb"),
+        (tab_ts, "Thompson Sampling", "exploration_methods_thompson_sampling"),
+        (tab_cb, "Count-Based Exploration", "exploration_methods_count_based_exploration"),
+        (tab_icm, "ICM", "exploration_methods_icm"),
+        (tab_rnd, "RND", "exploration_methods_rnd"),
+        (tab_res, "Resources", "exploration_methods_resources"),
+    ]
+    for tab, note_title, note_slug in explore_notes:
+        with tab:
+            render_notes(f"Exploration Methods - {note_title}", note_slug)

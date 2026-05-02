@@ -13,6 +13,7 @@ from matplotlib.gridspec import GridSpec
 import pandas as pd
 from collections import defaultdict
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 
@@ -37,6 +38,10 @@ div[data-testid="metric-container"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+def render_td_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Temporal-Difference Learning - {tab_title}", tab_slug)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COLOUR CONSTANTS
@@ -838,6 +843,7 @@ def main_td():
             SARSA never fully overcomes it because even after training, it evaluates the *ε-greedy* policy —
             which still has a small chance of random cliff-falls.
             """)
+        render_td_notes("Environment", "temporal_difference_learning")
 
     # ═══════════════════════════════════════════════════════════════════════
     # RUN BUTTON
@@ -992,6 +998,7 @@ def main_td():
                 ```
                 Uses estimated target — biased, but immediate.
                 """)
+            render_td_notes("TD(0) Prediction", "temporal_difference_learning_td0_prediction")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 2 — SARSA
@@ -1110,6 +1117,7 @@ def main_td():
             on-policy trade-off: you learn to be good at what you're actually doing (ε-greedy with
             random exploration accidents), not at the idealized greedy policy.
             """), unsafe_allow_html=True)
+            render_td_notes("SARSA", "temporal_difference_learning_sarsa")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 3 — Q-LEARNING
@@ -1232,6 +1240,7 @@ def main_td():
             c2.metric("Q-Learning — late mean reward", f"{float(np.mean(res['rew_ql'][-100:])):.1f}")
             c3.metric("SARSA — best episode", f"{float(max(res['rew_sarsa'])):.0f}")
             c4.metric("Q-Learning — best episode", f"{float(max(res['rew_ql'])):.0f}")
+            render_td_notes("Q-Learning", "temporal_difference_learning_q_learning")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 4 — EXPECTED SARSA
@@ -1334,6 +1343,7 @@ def main_td():
             (less sampling variance in the update) but similar in final performance.
             In CliffWalking, it often converges slightly faster than pure SARSA.
             """), unsafe_allow_html=True)
+            render_td_notes("Expected SARSA", "temporal_difference_learning_expected_sarsa")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 5 — DOUBLE Q-LEARNING
@@ -1433,6 +1443,7 @@ def main_td():
             If the curves look similar here, that's expected — try environments with high reward variance
             to see the full benefit.
             """), unsafe_allow_html=True)
+            render_td_notes("Double Q-Learning", "temporal_difference_learning_double_q_learning")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 6 — N-STEP TD
@@ -1532,6 +1543,7 @@ def main_td():
             The best n for CliffWalking is typically 3-5: enough real rewards to avoid bias,
             small enough to avoid high variance. Currently using n={n_step}.
             """), unsafe_allow_html=True)
+            render_td_notes("n-step TD", "temporal_difference_learning_n_step_td")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 7 — TD(λ) / SARSA(λ)
@@ -1646,6 +1658,7 @@ def main_td():
             Very high λ (>0.95) can be unstable because old state traces don't decay enough.
             Currently λ={lam:.2f} — the effective lookback window is ~{1/(1-lam*gamma):.0f} steps.
             """), unsafe_allow_html=True)
+            render_td_notes("TD(lambda) / SARSA(lambda)", "temporal_difference_learning_td_lambda_sarsa_lambda")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 8 — DASHBOARD
@@ -1779,11 +1792,23 @@ def main_td():
             ax3.set_title("TD Method Landscape: Bootstrapping Spectrum", color="white", fontweight="bold")
             ax3.grid(alpha=0.15)
             plt.tight_layout(); st.pyplot(fig3); plt.close()
+            render_td_notes("Dashboard", "temporal_difference_learning_dashboard")
 
     else:
-        for t in [tab_td0, tab_sarsa, tab_ql, tab_esarsa, tab_dql, tab_nstep, tab_lam, tab_dash]:
+        pending_tabs = [
+            (tab_td0, "TD(0) Prediction", "temporal_difference_learning_td0_prediction"),
+            (tab_sarsa, "SARSA", "temporal_difference_learning_sarsa"),
+            (tab_ql, "Q-Learning", "temporal_difference_learning_q_learning"),
+            (tab_esarsa, "Expected SARSA", "temporal_difference_learning_expected_sarsa"),
+            (tab_dql, "Double Q-Learning", "temporal_difference_learning_double_q_learning"),
+            (tab_nstep, "n-step TD", "temporal_difference_learning_n_step_td"),
+            (tab_lam, "TD(lambda) / SARSA(lambda)", "temporal_difference_learning_td_lambda_sarsa_lambda"),
+            (tab_dash, "Dashboard", "temporal_difference_learning_dashboard"),
+        ]
+        for t, note_title, note_slug in pending_tabs:
             with t:
                 st.info("👈 Click **Run All Methods** in the sidebar to generate all charts.")
+                render_td_notes(note_title, note_slug)
 
     # ═══════════════════════════════════════════════════════════════════════
     # TAB 9 — METHOD GUIDE (always visible)
@@ -1966,6 +1991,7 @@ def main_td():
         The λ parameter serves the same role in all: tuning the bias-variance trade-off by
         controlling how far back credit is assigned.
         """)
+        render_td_notes("Method Guide", "temporal_difference_learning_method_guide")
 
 
 if __name__ == "__main__":

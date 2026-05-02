@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -811,3 +812,19 @@ class TwoLayerPolicy:
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    foundation_notes = [
+        (tab_why, "Why & What", "foundations"),
+        (tab_la, "Linear Algebra", "foundations_linear_algebra"),
+        (tab_calc, "Calculus", "foundations_calculus"),
+        (tab_opt, "Optimisation", "foundations_optimisation"),
+        (tab_prob, "Probability", "foundations_probability"),
+        (tab_stat, "Statistics", "foundations_statistics"),
+        (tab_info, "Information Theory", "foundations_information_theory"),
+        (tab_py, "Python & NumPy", "foundations_python_numpy"),
+        (tab_nn, "Neural Network Math", "foundations_neural_network_math"),
+        (tab_test, "Self-Assessment", "foundations_self_assessment"),
+    ]
+    for tab, note_title, note_slug in foundation_notes:
+        with tab:
+            render_notes(f"Math & CS Foundations - {note_title}", note_slug)
