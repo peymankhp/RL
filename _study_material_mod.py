@@ -22,6 +22,7 @@ PRIMARY_BOOKS_DIR = BASE_DIR / "StudyMaterial" / "Books"
 LEGACY_BOOKS_DIR = BASE_DIR / "Study Material" / "Books"
 DATA_DIR = BASE_DIR / "portal_data"
 LINKS_FILE = DATA_DIR / "study_links.json"
+LINK_COLUMNS = ["Name", "Type", "Status", "Score", "Author", "Started", "Link"]
 STATUS_OPTIONS = ["Not started", "In progress", "Done"]
 LEGACY_STATUS_MAP = {"Not start": "Not started"}
 
@@ -109,28 +110,65 @@ def _normalise_link_rows(rows: list[dict]) -> tuple[list[dict], list[str]]:
 
 def _load_links_dataframe() -> pd.DataFrame:
     records = _read_json(LINKS_FILE, [])
-    columns = ["Name", "Type", "Status", "Score", "Author", "Started", "Link"]
-    df = pd.DataFrame(records, columns=columns)
-    for col in columns:
+    df = pd.DataFrame(records, columns=LINK_COLUMNS)
+    for col in LINK_COLUMNS:
         if col not in df:
             df[col] = ""
     if df.empty:
-        df = pd.DataFrame([{col: "" for col in columns}])
+        df = pd.DataFrame([{col: "" for col in LINK_COLUMNS}])
         df.loc[0, "Status"] = "Not started"
         df.loc[0, "Score"] = 1
     return _coerce_links_dataframe(df)
 
 
 def _coerce_links_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    columns = ["Name", "Type", "Status", "Score", "Author", "Started", "Link"]
     coerced = df.copy()
-    for col in columns:
+    for col in LINK_COLUMNS:
         if col not in coerced:
             coerced[col] = ""
     coerced["Score"] = pd.to_numeric(coerced["Score"], errors="coerce").fillna(1).astype(int)
     coerced["Status"] = coerced["Status"].replace(LEGACY_STATUS_MAP).fillna("Not started")
     coerced["Started"] = pd.to_datetime(coerced["Started"], errors="coerce")
-    return coerced[columns]
+    return coerced[LINK_COLUMNS]
+
+
+def _apply_editor_state(base_df: pd.DataFrame, edited_df: pd.DataFrame, editor_key: str) -> pd.DataFrame:
+    """Merge Streamlit data_editor's dynamic row payload into the returned dataframe."""
+    editor_state = st.session_state.get(editor_key, {})
+    returned = _coerce_links_dataframe(edited_df)
+    if not isinstance(editor_state, dict):
+        return returned
+
+    edited_rows = editor_state.get("edited_rows", {})
+    added_rows = [row for row in editor_state.get("added_rows", []) if isinstance(row, dict)]
+    deleted_rows = sorted((int(idx) for idx in editor_state.get("deleted_rows", [])), reverse=True)
+    if not edited_rows and not added_rows and not deleted_rows:
+        return returned
+
+    expected_rows = len(base_df) - len(deleted_rows) + len(added_rows)
+    if len(returned) >= expected_rows:
+        return returned
+
+    merged = _coerce_links_dataframe(base_df).reset_index(drop=True)
+
+    if deleted_rows:
+        merged = merged.drop(index=[idx for idx in deleted_rows if idx in merged.index]).reset_index(drop=True)
+
+    for raw_idx, changes in edited_rows.items():
+        idx = int(raw_idx)
+        if idx in merged.index:
+            for col, value in changes.items():
+                if col in LINK_COLUMNS:
+                    merged.at[idx, col] = value
+
+    if added_rows:
+        merged = pd.concat([merged, pd.DataFrame(added_rows)], ignore_index=True)
+
+    return _coerce_links_dataframe(merged)
+
+
+def _bump_links_editor_key() -> None:
+    st.session_state.study_links_editor_version = st.session_state.get("study_links_editor_version", 0) + 1
 
 
 def _book_title(path: Path) -> str:
@@ -214,49 +252,62 @@ def _render_links() -> None:
     st.markdown("### Links")
     st.caption("Edit the table, add rows with the plus control, delete rows from the table menu, then press Save.")
 
+    if notice := st.session_state.pop("study_links_notice", ""):
+        st.success(notice)
+
     if "study_links_df" not in st.session_state:
         st.session_state.study_links_df = _load_links_dataframe()
     else:
         st.session_state.study_links_df = _coerce_links_dataframe(st.session_state.study_links_df)
 
-    edited = st.data_editor(
-        st.session_state.study_links_df,
-        num_rows="dynamic",
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Name": st.column_config.TextColumn("Name", required=True),
-            "Type": st.column_config.TextColumn("Type"),
-            "Status": st.column_config.SelectboxColumn("Status", options=STATUS_OPTIONS, required=True),
-            "Score": st.column_config.NumberColumn("Score", min_value=1, max_value=5, step=1, format="%d"),
-            "Author": st.column_config.TextColumn("Author"),
-            "Started": st.column_config.DateColumn("Started"),
-            "Link": st.column_config.LinkColumn("Link", validate=r"^https?://.+", required=True),
-        },
-        key="study_links_editor",
-    )
+    editor_key = f"study_links_editor_{st.session_state.get('study_links_editor_version', 0)}"
+    with st.form(key=f"{editor_key}_form", clear_on_submit=False):
+        edited = st.data_editor(
+            st.session_state.study_links_df,
+            num_rows="dynamic",
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Name": st.column_config.TextColumn("Name", required=True),
+                "Type": st.column_config.TextColumn("Type"),
+                "Status": st.column_config.SelectboxColumn("Status", options=STATUS_OPTIONS, required=True),
+                "Score": st.column_config.NumberColumn("Score", min_value=1, max_value=5, step=1, format="%d"),
+                "Author": st.column_config.TextColumn("Author"),
+                "Started": st.column_config.DateColumn("Started"),
+                "Link": st.column_config.LinkColumn("Link", validate=r"^https?://.+", required=True),
+            },
+            key=editor_key,
+        )
 
-    preview_rows, preview_errors = _normalise_link_rows(edited.to_dict("records"))
+        col_save, col_reload = st.columns([1, 1])
+        with col_save:
+            save_clicked = st.form_submit_button("Save links", type="primary", use_container_width=True)
+        with col_reload:
+            reload_clicked = st.form_submit_button("Reload saved links", use_container_width=True)
+
+    current_df = _apply_editor_state(st.session_state.study_links_df, edited, editor_key)
+    preview_rows, preview_errors = _normalise_link_rows(current_df.to_dict("records"))
     if preview_rows:
         stars = pd.DataFrame(preview_rows)
         stars["Score"] = stars["Score"].apply(lambda value: "★" * int(value) + "☆" * (5 - int(value)))
         st.dataframe(stars, use_container_width=True, hide_index=True)
 
-    col_save, col_reload = st.columns([1, 1])
-    with col_save:
-        if st.button("Save links", type="primary", use_container_width=True):
-            rows, errors = _normalise_link_rows(edited.to_dict("records"))
-            if errors:
-                for error in errors:
-                    st.error(error)
-            else:
-                _write_json(LINKS_FILE, rows)
-                st.session_state.study_links_df = _coerce_links_dataframe(pd.DataFrame(rows)) if rows else _load_links_dataframe()
-                st.success("Links saved.")
-    with col_reload:
-        if st.button("Reload saved links", use_container_width=True):
-            st.session_state.study_links_df = _load_links_dataframe()
+    if save_clicked:
+        rows, errors = _normalise_link_rows(current_df.to_dict("records"))
+        if errors:
+            for error in errors:
+                st.error(error)
+        else:
+            _write_json(LINKS_FILE, rows)
+            st.session_state.study_links_df = _coerce_links_dataframe(pd.DataFrame(rows)) if rows else _load_links_dataframe()
+            st.session_state.study_links_notice = f"Links saved ({len(rows)} row{'s' if len(rows) != 1 else ''})."
+            _bump_links_editor_key()
             st.rerun()
+
+    if reload_clicked:
+        st.session_state.study_links_df = _load_links_dataframe()
+        _bump_links_editor_key()
+        st.rerun()
 
     if preview_errors:
         st.warning("Some rows need fixes before saving.")

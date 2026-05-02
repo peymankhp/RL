@@ -2,10 +2,28 @@
   {
     "Name": "CS 285: Deep RL, 2023",
     "Type": "Youtube",
-    "Status": "Not start",
+    "Status": "Not started",
     "Score": 5,
     "Author": "Sergey Levin",
     "Started": "",
     "Link": "https://www.youtube.com/playlist?list=PL_iWQOsE6TfVYGEGiAOMaOzzv41Jfm_Ps"
+  },
+  {
+    "Name": "Neural Networks: Zero to Hero",
+    "Type": "Youtube",
+    "Status": "Not started",
+    "Score": 5,
+    "Author": "Andrej Karpathy",
+    "Started": "",
+    "Link": "https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ"
+  },
+  {
+    "Name": "meeting link",
+    "Type": "",
+    "Status": "In progress",
+    "Score": 5,
+    "Author": "Farhad",
+    "Started": "",
+    "Link": "https://meet.google.com/yee-eopd-cas"
   }
 ]
