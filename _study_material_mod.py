@@ -22,7 +22,8 @@ PRIMARY_BOOKS_DIR = BASE_DIR / "StudyMaterial" / "Books"
 LEGACY_BOOKS_DIR = BASE_DIR / "Study Material" / "Books"
 DATA_DIR = BASE_DIR / "portal_data"
 LINKS_FILE = DATA_DIR / "study_links.json"
-STATUS_OPTIONS = ["Not start", "In progress", "Done"]
+STATUS_OPTIONS = ["Not started", "In progress", "Done"]
+LEGACY_STATUS_MAP = {"Not start": "Not started"}
 
 
 def _ensure_storage() -> None:
@@ -57,7 +58,8 @@ def _normalise_link_rows(rows: list[dict]) -> tuple[list[dict], list[str]]:
     for idx, row in enumerate(rows, start=1):
         name = str(row.get("Name", "") or "").strip()
         link_type = str(row.get("Type", "") or "").strip()
-        status = str(row.get("Status", "") or "Not start").strip()
+        status = str(row.get("Status", "") or "Not started").strip()
+        status = LEGACY_STATUS_MAP.get(status, status)
         author = str(row.get("Author", "") or "").strip()
         url = str(row.get("Link", "") or "").strip()
         started = row.get("Started", "")
@@ -114,11 +116,21 @@ def _load_links_dataframe() -> pd.DataFrame:
             df[col] = ""
     if df.empty:
         df = pd.DataFrame([{col: "" for col in columns}])
-        df.loc[0, "Status"] = "Not start"
+        df.loc[0, "Status"] = "Not started"
         df.loc[0, "Score"] = 1
-    df["Score"] = pd.to_numeric(df["Score"], errors="coerce").fillna(1).astype(int)
-    df["Started"] = pd.to_datetime(df["Started"], errors="coerce").dt.date
-    return df[columns]
+    return _coerce_links_dataframe(df)
+
+
+def _coerce_links_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    columns = ["Name", "Type", "Status", "Score", "Author", "Started", "Link"]
+    coerced = df.copy()
+    for col in columns:
+        if col not in coerced:
+            coerced[col] = ""
+    coerced["Score"] = pd.to_numeric(coerced["Score"], errors="coerce").fillna(1).astype(int)
+    coerced["Status"] = coerced["Status"].replace(LEGACY_STATUS_MAP).fillna("Not started")
+    coerced["Started"] = pd.to_datetime(coerced["Started"], errors="coerce")
+    return coerced[columns]
 
 
 def _book_title(path: Path) -> str:
@@ -161,7 +173,7 @@ def _discover_books() -> list[dict]:
 def _render_books() -> None:
     books = _discover_books()
     st.markdown("### Books")
-    st.caption(f"Drop files into `{PRIMARY_BOOKS_DIR}` and refresh the app to list them automatically.")
+    st.caption("Drop files into Books and refresh the app to list them automatically.")
 
     if not books:
         st.info("No books found yet.")
@@ -204,6 +216,8 @@ def _render_links() -> None:
 
     if "study_links_df" not in st.session_state:
         st.session_state.study_links_df = _load_links_dataframe()
+    else:
+        st.session_state.study_links_df = _coerce_links_dataframe(st.session_state.study_links_df)
 
     edited = st.data_editor(
         st.session_state.study_links_df,
@@ -237,7 +251,7 @@ def _render_links() -> None:
                     st.error(error)
             else:
                 _write_json(LINKS_FILE, rows)
-                st.session_state.study_links_df = pd.DataFrame(rows) if rows else _load_links_dataframe()
+                st.session_state.study_links_df = _coerce_links_dataframe(pd.DataFrame(rows)) if rows else _load_links_dataframe()
                 st.success("Links saved.")
     with col_reload:
         if st.button("Reload saved links", use_container_width=True):
