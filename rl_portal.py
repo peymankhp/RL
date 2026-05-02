@@ -115,12 +115,14 @@ def show_home():
     """, unsafe_allow_html=True)
 
     # ── Tabs ─────────────────────────────────────────────────────────────────
-    tab_road, tab_tree, tab_compare, tab_when, tab_all = st.tabs([
+    tab_road, tab_tree, tab_compare, tab_when, tab_all, tab_study, tab_discussion = st.tabs([
         "🗺️ Learning Roadmap",
         "🌲 Interactive Map",
         "⚖️ Method Comparison",
         "🎯 When to Use Which",
         "📦 All Modules",
+        "📚 Study Material",
+        "💬 Discussion Board",
     ])
 
     # ════════════════════════════════════════════════════════════════════════
@@ -860,6 +862,20 @@ def show_home():
         </div>
         """, unsafe_allow_html=True)
 
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 6 — STUDY MATERIAL
+    # ════════════════════════════════════════════════════════════════════════
+    with tab_study:
+        mod = load_study_material()
+        mod.main_study_material()
+
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 7 — DISCUSSION BOARD
+    # ════════════════════════════════════════════════════════════════════════
+    with tab_discussion:
+        mod = load_discussion_board()
+        mod.main_discussion_board()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BACK BUTTON (shown in sub-modules)
@@ -1041,6 +1057,26 @@ def load_frontier():
     spec = importlib.util.spec_from_file_location("frontier_mod", "_frontier_mod.py")
     mod  = importlib.util.module_from_spec(spec)
     sys.modules["frontier_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_study_material():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("study_material_mod", "_study_material_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["study_material_mod"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@st.cache_resource(show_spinner=False)
+def load_discussion_board():
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location("discussion_mod", "_discussion_mod.py")
+    mod  = importlib.util.module_from_spec(spec)
+    sys.modules["discussion_mod"] = mod
     spec.loader.exec_module(mod)
     return mod
 

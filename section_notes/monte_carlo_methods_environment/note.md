@@ -1,4 +1,4 @@
-# Monte Carlo Methods
+Monte Carlo Methods
 
 We consider our first learning methods for estimating value functions and discovering optimal policies. Here, **unlike in Dynamic Programming, we do not assume complete knowledge of the environment**. Monte Carlo methods require only experience—sample sequences of states, actions, and rewards from actual or simulated interaction with an environment. Learning from actual experience is striking because it requires no prior knowledge of the environment’s dynamics, yet can still attain optimal behavior. Learning from simulated experience is also powerful. Although a model is required, the model need only generate sample transitions, not the complete probability distributions of all possible transitions that is required for dynamic programming (DP). In surprisingly many cases it is easy to generate experience sampled according to the desired probability distributions, but infeasible to obtain the distributions in explicit form.
 
@@ -31,6 +31,7 @@ starts, and the other was that policy evaluation could be done with an infinite 
 
 ![Screenshot_2025-06-13_at_14.11.47.png](assets/Screenshot_2025-06-13_at_14.11.47.png)
 
+```python
 import random
 from collections import defaultdict
 import numpy as np
@@ -89,3 +90,5 @@ class MonteCarloES:
 
     def get_q(self):
         return self.Q
+```
+
