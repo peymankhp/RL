@@ -10,6 +10,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 from matplotlib.colors import LinearSegmentedColormap
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK  = "#0d0d1a"
@@ -1218,3 +1219,18 @@ class SumTree:
                 f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                 f'<br><span style="color:#9e9ebb;font-size:.87rem">{desc}</span></div>',
                 unsafe_allow_html=True)
+
+    vbrl_notes = [
+        (tab_env, "Environment", "value_based_deep_rl"),
+        (tab_dqn, "DQN", "value_based_deep_rl_dqn"),
+        (tab_ddqn, "Double DQN", "value_based_deep_rl_double_dqn"),
+        (tab_duel, "Dueling DQN", "value_based_deep_rl_dueling_dqn"),
+        (tab_per, "Prioritized Experience Replay", "value_based_deep_rl_prioritized_experience_replay"),
+        (tab_c51, "C51 Distributional RL", "value_based_deep_rl_c51_distributional_rl"),
+        (tab_rain, "Rainbow", "value_based_deep_rl_rainbow"),
+        (tab_dash, "Dashboard", "value_based_deep_rl_dashboard"),
+        (tab_plan, "Learning Plan", "value_based_deep_rl_learning_plan"),
+    ]
+    for tab, note_title, note_slug in vbrl_notes:
+        with tab:
+            render_notes(f"Value-Based Deep RL - {note_title}", note_slug)

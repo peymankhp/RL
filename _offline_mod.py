@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -366,3 +367,17 @@ def actor_update(batch, Q_network, actor_network, alpha=2.5):
              "https://arxiv.org/abs/2106.06860"),
         ]:
             st.markdown(_book(title, authors, why, url), unsafe_allow_html=True)
+
+    offline_notes = [
+        (tab_why, "Why Offline RL", "offline_batch_rl"),
+        (tab_bc, "Behaviour Cloning", "offline_batch_rl_behaviour_cloning"),
+        (tab_cql, "CQL", "offline_batch_rl_cql"),
+        (tab_iql, "IQL", "offline_batch_rl_iql"),
+        (tab_dt, "Decision Transformer", "offline_batch_rl_decision_transformer"),
+        (tab_td3bc, "TD3+BC", "offline_batch_rl_td3_bc"),
+        (tab_cmp, "Comparison", "offline_batch_rl_comparison"),
+        (tab_res, "Resources", "offline_batch_rl_resources"),
+    ]
+    for tab, note_title, note_slug in offline_notes:
+        with tab:
+            render_notes(f"Offline / Batch RL - {note_title}", note_slug)

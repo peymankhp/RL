@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -1303,3 +1304,17 @@ def main_ac():
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    ac_notes = [
+        (tab_ov, "Overview", "actor_critic_policy_gradient"),
+        (tab_rf, "REINFORCE", "actor_critic_policy_gradient_reinforce"),
+        (tab_ac_t, "Actor-Critic Theory", "actor_critic_policy_gradient_actor_critic_theory"),
+        (tab_a2c, "A2C / A3C", "actor_critic_policy_gradient_a2c_a3c"),
+        (tab_ppo, "PPO", "actor_critic_policy_gradient_ppo"),
+        (tab_trpo, "TRPO / SAC", "actor_critic_policy_gradient_trpo_sac"),
+        (tab_dash, "Dashboard", "actor_critic_policy_gradient_dashboard"),
+        (tab_plan, "Learning Plan", "actor_critic_policy_gradient_learning_plan"),
+    ]
+    for tab, note_title, note_slug in ac_notes:
+        with tab:
+            render_notes(f"Actor-Critic & Policy Gradient - {note_title}", note_slug)

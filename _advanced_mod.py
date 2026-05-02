@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -420,3 +421,14 @@ def her_replay(trajectory, goal, replay_buffer, n_relabel=4):
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    advanced_notes = [
+        (tab_marl, "MARL", "advanced_specialisations"),
+        (tab_hier, "Hierarchical RL", "advanced_specialisations_hierarchical_rl"),
+        (tab_safe, "Safe RL", "advanced_specialisations_safe_rl"),
+        (tab_meta, "Meta-RL", "advanced_specialisations_meta_rl"),
+        (tab_res, "Books & Resources", "advanced_specialisations_books_resources"),
+    ]
+    for tab, note_title, note_slug in advanced_notes:
+        with tab:
+            render_notes(f"Advanced Specialisations - {note_title}", note_slug)

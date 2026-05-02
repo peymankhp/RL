@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -425,3 +426,16 @@ def train_gail(env, expert_demos, n_iterations=500):
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    imitation_notes = [
+        (tab_why, "Why Imitation Learning", "imitation_learning"),
+        (tab_bc, "Behaviour Cloning", "imitation_learning_behaviour_cloning"),
+        (tab_dag, "DAgger", "imitation_learning_dagger"),
+        (tab_gail, "GAIL", "imitation_learning_gail"),
+        (tab_airl, "AIRL", "imitation_learning_airl"),
+        (tab_cmp, "Comparison", "imitation_learning_comparison"),
+        (tab_res, "Resources", "imitation_learning_resources"),
+    ]
+    for tab, note_title, note_slug in imitation_notes:
+        with tab:
+            render_notes(f"Imitation Learning - {note_title}", note_slug)

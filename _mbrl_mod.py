@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -476,3 +477,17 @@ def main_mbrl():
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    mbrl_notes = [
+        (tab_why, "Why Model-Based RL", "model_based_rl"),
+        (tab_dyna, "Dyna-Q", "model_based_rl_dyna_q"),
+        (tab_wm, "World Models", "model_based_rl_world_models"),
+        (tab_mu, "MuZero", "model_based_rl_muzero"),
+        (tab_dream, "Dreamer", "model_based_rl_dreamer"),
+        (tab_mpc, "MPC", "model_based_rl_mpc"),
+        (tab_cmp, "Comparison", "model_based_rl_comparison"),
+        (tab_res, "Resources", "model_based_rl_resources"),
+    ]
+    for tab, note_title, note_slug in mbrl_notes:
+        with tab:
+            render_notes(f"Model-Based RL - {note_title}", note_slug)

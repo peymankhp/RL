@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -592,3 +593,15 @@ def combined_reward(problem, response):
             ],
             "Year": ["2017", "2018", "2016", "2020", "2017", "2025", "2024–2025"],
         }), use_container_width=True, hide_index=True)
+
+    transfer_notes = [
+        (tab_cont, "Continual RL", "transfer_multi_task_modern_training"),
+        (tab_mt, "Multi-Task RL", "transfer_multi_task_modern_training_multi_task_rl"),
+        (tab_pbt, "Population-Based Training", "transfer_multi_task_modern_training_population_based_training"),
+        (tab_grpo, "GRPO", "transfer_multi_task_modern_training_grpo"),
+        (tab_rlvr, "RLVR", "transfer_multi_task_modern_training_rlvr"),
+        (tab_ov, "Overview", "transfer_multi_task_modern_training_overview"),
+    ]
+    for tab, note_title, note_slug in transfer_notes:
+        with tab:
+            render_notes(f"Transfer, Multi-Task & Modern Training - {note_title}", note_slug)

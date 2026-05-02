@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -593,3 +594,14 @@ print("Best hyperparameters:", study.best_params)
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    engineering_notes = [
+        (tab_debug, "Debugging", "practical_rl_engineering"),
+        (tab_rew, "Reward Design", "practical_rl_engineering_reward_design"),
+        (tab_dist, "Distributed RL", "practical_rl_engineering_distributed_rl"),
+        (tab_track, "Experiment Tracking", "practical_rl_engineering_experiment_tracking"),
+        (tab_res, "Resources", "practical_rl_engineering_resources"),
+    ]
+    for tab, note_title, note_slug in engineering_notes:
+        with tab:
+            render_notes(f"Practical RL Engineering - {note_title}", note_slug)

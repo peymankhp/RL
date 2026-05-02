@@ -13,6 +13,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.gridspec as gridspec
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1764,3 +1765,14 @@ for epoch in range(50):
                                     font-size:.79rem;color:#546e7a;margin-top:.3rem">
                         <b>Category:</b> {entry['category']}
                         </div>""", unsafe_allow_html=True)
+
+    prereq_notes = [
+        (tab_rnn, "RNNs & LSTMs", "deep_learning_prerequisites"),
+        (tab_norm, "Batch & Layer Norm", "deep_learning_prerequisites_batch_layer_norm"),
+        (tab_loop, "PyTorch Training Loop", "deep_learning_prerequisites_pytorch_training_loop"),
+        (tab_map, "Concept Map", "deep_learning_prerequisites_concept_map"),
+        (tab_gloss, "Glossary", "deep_learning_prerequisites_glossary"),
+    ]
+    for tab, note_title, note_slug in prereq_notes:
+        with tab:
+            render_notes(f"Deep Learning Prerequisites - {note_title}", note_slug)

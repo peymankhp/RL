@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -582,3 +583,15 @@ class TD3:
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+    continuous_notes = [
+        (tab_why, "Why Continuous Control", "continuous_control_ddpg_td3"),
+        (tab_ddpg, "DDPG", "continuous_control_ddpg_td3_ddpg"),
+        (tab_td3, "TD3", "continuous_control_ddpg_td3_td3"),
+        (tab_cmp, "Comparison", "continuous_control_ddpg_td3_comparison"),
+        (tab_code, "Code", "continuous_control_ddpg_td3_code"),
+        (tab_res, "Resources", "continuous_control_ddpg_td3_resources"),
+    ]
+    for tab, note_title, note_slug in continuous_notes:
+        with tab:
+            render_notes(f"Continuous Control: DDPG & TD3 - {note_title}", note_slug)

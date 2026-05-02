@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -570,3 +571,21 @@ def main_frontier():
             st.subheader(section)
             for title, authors, why, url in items:
                 st.markdown(_book(title, authors, why, url), unsafe_allow_html=True)
+
+    frontier_notes = [
+        (tab_ov, "Overview", "frontier_rl_research"),
+        (tab_rlhf, "RLHF at Scale", "frontier_rl_research_rlhf_at_scale"),
+        (tab_wm, "World Models", "frontier_rl_research_world_models"),
+        (tab_exp, "Exploration", "frontier_rl_research_exploration"),
+        (tab_safe, "Safe RL", "frontier_rl_research_safe_rl"),
+        (tab_fm, "Foundation Models", "frontier_rl_research_foundation_models"),
+        (tab_o2o, "Offline to Online", "frontier_rl_research_offline_to_online"),
+        (tab_llm, "LLM + RL", "frontier_rl_research_llm_rl"),
+        (tab_s2r, "Sim-to-Real", "frontier_rl_research_sim_to_real"),
+        (tab_diff, "Diffusion", "frontier_rl_research_diffusion"),
+        (tab_theory, "Theory", "frontier_rl_research_theory"),
+        (tab_res, "Resources", "frontier_rl_research_resources"),
+    ]
+    for tab, note_title, note_slug in frontier_notes:
+        with tab:
+            render_notes(f"Frontier RL Research - {note_title}", note_slug)

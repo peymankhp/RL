@@ -14,6 +14,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import pandas as pd
 from collections import defaultdict
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 
@@ -38,6 +39,10 @@ div[data-testid="metric-container"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+def render_dp_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Dynamic Programming - {tab_title}", tab_slug)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COLOURS
@@ -713,6 +718,7 @@ def main_dp():
 
             After k sweeps: V_k(s) ≈ **−(distance to nearest terminal)**.
             """)
+        render_dp_notes("Environment", "dynamic_programming")
 
     # ═══════════════════════════════════════════════════════════════════════
     # RUN ALL
@@ -885,6 +891,7 @@ def main_dp():
                     "Terminal?": "✅" if env.is_terminal(s) else ""
                 })
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            render_dp_notes("Policy Evaluation", "dynamic_programming_policy_evaluation")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 2 — POLICY IMPROVEMENT
@@ -1005,6 +1012,7 @@ def main_dp():
             This is the power of the Policy Improvement Theorem: a single greedy step using
             ANY value function V_π gives a policy that is at least as good as π.
             """), unsafe_allow_html=True)
+            render_dp_notes("Policy Improvement", "dynamic_programming_policy_improvement")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 3 — POLICY ITERATION
@@ -1108,6 +1116,7 @@ def main_dp():
                     "Total eval sweeps so far": sum(h["eval_sweeps"] for h in h_pi[:it["iter"]]),
                 })
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            render_dp_notes("Policy Iteration", "dynamic_programming_policy_iteration")
 
             st.markdown(_tip("""
             <b>Key observation:</b> Policy Iteration converges in very few iterations (typically 3 here)
@@ -1237,6 +1246,7 @@ def main_dp():
             ax2.text(0, ax2.get_ylim()[0]*0.85, "T", color="#4caf50", fontsize=9, ha="center")
             ax2.text(15, ax2.get_ylim()[0]*0.85, "T", color="#4caf50", fontsize=9, ha="center")
             plt.tight_layout(); st.pyplot(fig2); plt.close()
+            render_dp_notes("Value Iteration", "dynamic_programming_value_iteration")
 
             improvement = V_vi - V_rand
             c1,c2,c3 = st.columns(3)
@@ -1392,6 +1402,7 @@ def main_dp():
             sweeping allow DP-style algorithms to scale to larger problems.
             This is the bridge toward more practical algorithms like Dyna-Q and planning with rollouts.
             """), unsafe_allow_html=True)
+            render_dp_notes("Async DP", "dynamic_programming_async_dp")
 
         # ═══════════════════════════════════════════════════════════════════
         # TAB 6 — GPI FRAMEWORK
@@ -1540,11 +1551,21 @@ def main_dp():
                  "Needs explicit policy?": "❌ No"},
             ]
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            render_dp_notes("GPI Framework", "dynamic_programming_gpi_framework")
 
     else:
-        for t in [tab_eval, tab_impr, tab_pi, tab_vi, tab_async, tab_gpi]:
+        pending_tabs = [
+            (tab_eval, "Policy Evaluation", "dynamic_programming_policy_evaluation"),
+            (tab_impr, "Policy Improvement", "dynamic_programming_policy_improvement"),
+            (tab_pi, "Policy Iteration", "dynamic_programming_policy_iteration"),
+            (tab_vi, "Value Iteration", "dynamic_programming_value_iteration"),
+            (tab_async, "Async DP", "dynamic_programming_async_dp"),
+            (tab_gpi, "GPI Framework", "dynamic_programming_gpi_framework"),
+        ]
+        for t, note_title, note_slug in pending_tabs:
             with t:
                 st.info("👈 Click **Run All Methods** in the sidebar to generate all charts.")
+                render_dp_notes(note_title, note_slug)
 
     # ═══════════════════════════════════════════════════════════════════════
     # TAB 7 — METHOD GUIDE (always visible)
@@ -1712,6 +1733,7 @@ def main_dp():
         Solutions: Function approximation (neural nets for V or Q), sampling (MC/TD),
         or model-learning + planning (Dyna, model-based RL).
         """)
+        render_dp_notes("Method Guide", "dynamic_programming_method_guide")
 
 
 if __name__ == "__main__":
