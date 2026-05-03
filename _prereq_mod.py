@@ -13,6 +13,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.gridspec as gridspec
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -60,6 +61,9 @@ def _section_header(emoji, title, subtitle, color="#00bcd4"):
 def smooth(arr, w=5):
     if len(arr) <= w: return np.array(arr, dtype=float)
     return np.convolve(arr, np.ones(w)/w, mode="valid")
+
+def render_prereq_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Deep Learning Prerequisites - {tab_title}", tab_slug)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SIGMOID & TANH UTILS
@@ -375,6 +379,8 @@ def main_prereq():
     # ═══════════════════════════════════════════════════════════════════════
     # TAB 2 — NORMALIZATION
     # ═══════════════════════════════════════════════════════════════════════
+        render_prereq_notes("RNNs & LSTMs", "deep_learning_prerequisites")
+
     with tab_norm:
         _section_header("📐", "Batch Normalization & Layer Normalization",
                          "Stabilising deep network training by controlling activation distributions", "#e65100")
@@ -590,6 +596,8 @@ def main_prereq():
     # ═══════════════════════════════════════════════════════════════════════
     # TAB 3 — PYTORCH TRAINING LOOP
     # ═══════════════════════════════════════════════════════════════════════
+        render_prereq_notes("Batch & Layer Norm", "deep_learning_prerequisites_batch_layer_norm")
+
     with tab_loop:
         _section_header("⚙️", "PyTorch Full Training Loop",
                          "Every component of the neural network training cycle — from data loading to evaluation", "#ffa726")
@@ -1038,6 +1046,8 @@ for epoch in range(50):
     # ═══════════════════════════════════════════════════════════════════════
     # TAB 4 — CONCEPT MAP
     # ═══════════════════════════════════════════════════════════════════════
+        render_prereq_notes("PyTorch Training Loop", "deep_learning_prerequisites_pytorch_training_loop")
+
     with tab_map:
         _section_header("🗺️", "How Everything Connects",
                          "The complete prerequisite knowledge graph from linear algebra to deep RL", "#4caf50")
@@ -1152,6 +1162,8 @@ for epoch in range(50):
     # ═══════════════════════════════════════════════════════════════════════
     # TAB 5 — GLOSSARY
     # ═══════════════════════════════════════════════════════════════════════
+        render_prereq_notes("Concept Map", "deep_learning_prerequisites_concept_map")
+
     with tab_gloss:
         _section_header("📖", "Deep Learning & RL Glossary",
                          "Every key term defined in plain English with formulas — searchable, categorised, and cross-referenced", "#00bcd4")
@@ -1764,3 +1776,5 @@ for epoch in range(50):
                                     font-size:.79rem;color:#546e7a;margin-top:.3rem">
                         <b>Category:</b> {entry['category']}
                         </div>""", unsafe_allow_html=True)
+
+        render_prereq_notes("Glossary", "deep_learning_prerequisites_glossary")

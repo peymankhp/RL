@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -46,6 +47,9 @@ def _sec(emoji, title, sub, color="#00897b"):
 
 def smooth(a, w=8):
     return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
+
+def render_offline_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Offline / Batch RL - {tab_title}", tab_slug)
 
 
 def main_offline():
@@ -113,6 +117,8 @@ def main_offline():
 
         st.markdown(_insight("Why extrapolation is catastrophic: if Q(s, a_ood) is overestimated, the policy will choose a_ood as its best action. But a_ood was never in the dataset — the Q estimate is wrong. The policy tries an action the model has no data for, gets terrible reward, and the offline training loop cannot correct this because there's no new environment interaction."), unsafe_allow_html=True)
 
+        render_offline_notes("Why Offline RL?", "offline_batch_rl")
+
     with tab_bc:
         _sec("📋","Behaviour Cloning","The simplest offline approach: clone the expert","#546e7a")
         st.markdown(_card("#546e7a","📋","Behaviour Cloning: supervised learning on demonstrations",
@@ -154,6 +160,8 @@ def main_offline():
         axes_bc[1].set_title("BC vs Offline RL (IQL)\nD4RL HalfCheetah-medium", color="white", fontweight="bold")
         axes_bc[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_bc[1].grid(alpha=0.12)
         plt.tight_layout(); st.pyplot(fig_bc); plt.close()
+
+        render_offline_notes("Behaviour Cloning", "offline_batch_rl_behaviour_cloning")
 
     with tab_cql:
         _sec("🔒","CQL — Conservative Q-Learning","Kumar et al. 2020 — the most widely used offline RL algorithm","#0288d1")
@@ -197,6 +205,8 @@ def main_offline():
         ax_cql.legend(facecolor=CARD, labelcolor="white"); ax_cql.grid(alpha=0.12, axis="y")
         ax_cql.axhline(100, color="#ffa726", ls="--", lw=1, alpha=0.5, label="Expert level")
         plt.tight_layout(); st.pyplot(fig_cql); plt.close()
+
+        render_offline_notes("CQL", "offline_batch_rl_cql")
 
     with tab_iql:
         _sec("📐","IQL — Implicit Q-Learning","Kostrikov et al. 2021 — no OOD action evaluation, expectile regression","#7c4dff")
@@ -242,6 +252,8 @@ def main_offline():
         axes_iq[1].legend(facecolor=CARD, labelcolor="white", fontsize=8); axes_iq[1].grid(alpha=0.12)
         axes_iq[1].set_ylim(0, 20)
         plt.tight_layout(); st.pyplot(fig_iq); plt.close()
+
+        render_offline_notes("IQL", "offline_batch_rl_iql")
 
     with tab_dt:
         _sec("🤖","Decision Transformer","Chen et al. 2021 — offline RL as sequence modelling with GPT","#ffa726")
@@ -289,6 +301,8 @@ def main_offline():
         }), use_container_width=True, hide_index=True)
         st.markdown(_insight("DT is competitive with CQL/IQL on expert and high-quality data, but underperforms on 'medium' and 'medium-replay' datasets where the sequence structure is less clear. DT's strength is long-horizon tasks and multi-task settings."), unsafe_allow_html=True)
 
+        render_offline_notes("Decision Transformer", "offline_batch_rl_decision_transformer")
+
     with tab_td3bc:
         _sec("🎯","TD3+BC — The Simplest Competitive Baseline","Fujimoto & Gu 2021 — add one BC term to TD3, beat complex methods","#e65100")
         st.markdown(_card("#e65100","🎯","TD3+BC: one line of code beats complicated algorithms",
@@ -324,6 +338,8 @@ def actor_update(batch, Q_network, actor_network, alpha=2.5):
     return actor_loss
 """, language="python")
 
+        render_offline_notes("TD3+BC", "offline_batch_rl_td3_bc")
+
     with tab_cmp:
         _sec("📊","Offline RL Benchmark — D4RL Results","Normalised scores across all major algorithms and datasets","#00897b")
         st.dataframe(pd.DataFrame({
@@ -336,6 +352,8 @@ def actor_update(batch, Q_network, actor_network, alpha=2.5):
             "Requires env?": ["No","No","No","No","No","No","Yes (fine-tune)"],
         }), use_container_width=True, hide_index=True)
         st.caption("Scores are D4RL normalised: 0=random, 100=expert-level. HC=HalfCheetah.")
+
+        render_offline_notes("Benchmark", "offline_batch_rl_comparison")
 
     with tab_res:
         _sec("📚","Books & Deep-Dive Resources","The best offline RL papers, books, and courses","#546e7a")
@@ -366,3 +384,5 @@ def actor_update(batch, Q_network, actor_network, alpha=2.5):
              "https://arxiv.org/abs/2106.06860"),
         ]:
             st.markdown(_book(title, authors, why, url), unsafe_allow_html=True)
+
+        render_offline_notes("Books & Resources", "offline_batch_rl_resources")

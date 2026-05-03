@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -46,6 +47,9 @@ def _sec(emoji, title, sub, color="#6a1b9a"):
 
 def smooth(a, w=8):
     return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
+
+def render_advanced_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Advanced Specialisations - {tab_title}", tab_slug)
 
 def main_advanced():
     st.markdown(
@@ -136,6 +140,8 @@ def main_advanced():
         ax_as.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_as.grid(alpha=0.12, which="both")
         plt.tight_layout(); st.pyplot(fig_as); plt.close()
 
+        render_advanced_notes("MARL", "advanced_specialisations")
+
     with tab_hier:
         _sec("🏗️","Hierarchical Reinforcement Learning",
              "Options · HER · Feudal Networks — solving long-horizon tasks via temporal abstraction","#e65100")
@@ -210,6 +216,8 @@ def her_replay(trajectory, goal, replay_buffer, n_relabel=4):
         ax_ta.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_ta.grid(alpha=0.12)
         plt.tight_layout(); st.pyplot(fig_ta); plt.close()
 
+        render_advanced_notes("Hierarchical RL", "advanced_specialisations_hierarchical_rl")
+
     with tab_safe:
         _sec("🛡️","Safe Reinforcement Learning",
              "CMDP · Lagrangian PPO · CPO · CBF — constraints during training AND deployment","#ef5350")
@@ -276,6 +284,8 @@ def her_replay(trajectory, goal, replay_buffer, n_relabel=4):
         }), use_container_width=True, hide_index=True)
         st.markdown(_insight("Best current practice: CBF shield (hard training-time guarantee) + CMDP/Lagrangian (asymptotic deployment guarantee). Both are needed for real-world safe deployment."), unsafe_allow_html=True)
 
+        render_advanced_notes("Safe RL", "advanced_specialisations_safe_rl")
+
     with tab_meta:
         _sec("🧬","Meta-Reinforcement Learning",
              "MAML · RL² · PEARL — learn to learn: adapt to new tasks in 5–10 steps","#00897b")
@@ -339,6 +349,8 @@ def her_replay(trajectory, goal, replay_buffer, n_relabel=4):
             "Steps to 90% performance":["500+","50–100","5–10","10–20 (within trial)","5–10"],
             "Gradient at test?":["Yes","Yes","Yes (K)","No","No"],
         }), use_container_width=True, hide_index=True)
+
+        render_advanced_notes("Meta-RL", "advanced_specialisations_meta_rl")
 
     with tab_res:
         _sec("📚","Books & Deep-Dive Resources",
@@ -420,3 +432,5 @@ def her_replay(trajectory, goal, replay_buffer, n_relabel=4):
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+        render_advanced_notes("Books & Resources", "advanced_specialisations_books_resources")

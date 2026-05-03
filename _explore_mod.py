@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -46,6 +47,9 @@ def _sec(emoji, title, sub, color="#f57f17"):
 
 def smooth(a, w=8):
     return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
+
+def render_explore_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Exploration Methods - {tab_title}", tab_slug)
 
 # ── Multi-armed bandit simulation ─────────────────────────────────────────────
 def run_bandit(n_arms, n_steps, strategy, seed=42):
@@ -136,6 +140,8 @@ def main_explore():
         st.latex(r"\text{Regret}(T) = T\mu^* - \sum_{t=1}^T \mu_{a_t} = \sum_{t=1}^T(\mu^*-\mu_{a_t})")
         st.markdown("**Lower bound (Lai & Robbins 1985):** no algorithm can achieve better than O(log T) regret. UCB and Thompson Sampling are **asymptotically optimal** — they achieve this bound.")
 
+        render_explore_notes("Explore-Exploit", "exploration_methods")
+
     with tab_ucb:
         _sec("📊","UCB — Upper Confidence Bound","Optimism in the face of uncertainty: pick the action with the highest upper confidence bound","#f57f17")
         st.markdown(_card("#f57f17","📊","UCB: be optimistic about uncertain actions",
@@ -199,6 +205,8 @@ def main_explore():
             for col_ui, (strat, (rw,reg)) in zip([c1,c2,c3,c4], res.items()):
                 col_ui.metric(labels[strat], f"Regret={reg[-1]:.0f}", f"Avg r={np.mean(rw[-100:]):.2f}")
 
+        render_explore_notes("UCB", "exploration_methods_ucb")
+
     with tab_ts:
         _sec("🎲","Thompson Sampling — Bayesian Exploration","Sample from posterior beliefs — provably optimal, naturally adapts to uncertainty","#0288d1")
         st.markdown(_card("#0288d1","🎲","Thompson Sampling: Bayesian approach to exploration",
@@ -247,6 +255,8 @@ def main_explore():
 
         st.markdown(_insight("Thompson Sampling in practice: Netflix estimates click probability for movie thumbnails using TS with Beta(α,β) posteriors. Each user impression updates α or β based on whether the user clicked. TS automatically shows the most promising thumbnail more often while still gathering data on alternatives."), unsafe_allow_html=True)
 
+        render_explore_notes("Thompson Sampling", "exploration_methods_thompson_sampling")
+
     with tab_cb:
         _sec("🔢","Count-Based Exploration","Visit counts as exploration bonus — from tabular to neural density models","#7c4dff")
         st.markdown(_card("#7c4dff","🔢","Count-based: explore states you\'ve visited least",
@@ -284,6 +294,8 @@ def main_explore():
         axes_cb[1].set_title("Count-based bonus: high for rarely-visited states", color="white", fontweight="bold")
         axes_cb[1].grid(alpha=0.12)
         plt.tight_layout(); st.pyplot(fig_cb); plt.close()
+
+        render_explore_notes("Count-Based", "exploration_methods_count_based_exploration")
 
     with tab_icm:
         _sec("🧠","ICM — Intrinsic Curiosity Module","Pathak et al. 2017 — reward = prediction error of your own actions","#ad1457")
@@ -333,6 +345,8 @@ def main_explore():
             "ICM (intrinsic only)": ["Explores full map","Completes levels 1-3","~2500 score"],
             "ICM + extrinsic": ["Solves in half steps","Fastest completion","~3000 score"],
         }), use_container_width=True, hide_index=True)
+
+        render_explore_notes("ICM (Curiosity)", "exploration_methods_icm")
 
     with tab_rnd:
         _sec("🎯","RND — Random Network Distillation","Burda et al. 2018 — simplest scalable exploration bonus for deep RL","#f57f17")
@@ -384,6 +398,8 @@ def main_explore():
 
         st.markdown("**Practical tip:** RND should be normalised — maintain running mean and std of the intrinsic reward and normalise to unit variance. This prevents intrinsic reward from dominating extrinsic reward as the predictor improves over training.")
 
+        render_explore_notes("RND", "exploration_methods_rnd")
+
     with tab_res:
         _sec("📚","Books & Deep-Dive Resources","The best exploration RL papers, books, and courses","#546e7a")
         for title, authors, why, url in [
@@ -428,3 +444,5 @@ def main_explore():
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+        render_explore_notes("Books & Resources", "exploration_methods_resources")

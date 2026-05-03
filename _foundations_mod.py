@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -47,6 +48,9 @@ def _sec(emoji, title, sub, color="#00695c"):
         f'<p style="color:#9e9ebb;margin:.3rem 0 0;font-size:.9rem">{sub}</p></div>',
         unsafe_allow_html=True)
 
+
+def render_foundations_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Math & CS Foundations - {tab_title}", tab_slug)
 
 
 def main_foundations():
@@ -116,6 +120,8 @@ def main_foundations():
         }), use_container_width=True, hide_index=True)
 
     # ── LINEAR ALGEBRA ────────────────────────────────────────────────────
+        render_foundations_notes("Why & What", "foundations")
+
     with tab_la:
         _sec("🔢", "Linear Algebra — The Language of Neural Networks",
              "Vectors, matrices, dot products, eigenvalues — inside every neural network and RL formula", "#6a1b9a")
@@ -209,6 +215,8 @@ d_W1 = np.outer(d_h1, s)   # shape (32,4) — gradient w.r.t. weights
 """, language="python")
 
     # ── CALCULUS ─────────────────────────────────────────────────────────
+        render_foundations_notes("Linear Algebra", "foundations_linear_algebra")
+
     with tab_calc:
         _sec("📈", "Calculus — Derivatives Power Every RL Update",
              "Gradients, chain rule, backpropagation — the mathematics of all policy learning", "#e65100")
@@ -304,6 +312,8 @@ d_W1 = np.outer(s, d_z1); d_b1 = d_z1                     # through W1
 """, language="python")
 
     # ── OPTIMISATION ──────────────────────────────────────────────────────
+        render_foundations_notes("Calculus", "foundations_calculus")
+
     with tab_opt:
         _sec("🎯", "Optimisation — Finding the Best Policy Parameters",
              "Gradient descent, Adam, learning rates, convergence — all RL updates are optimisation", "#f57f17")
@@ -360,6 +370,8 @@ d_W1 = np.outer(s, d_z1); d_b1 = d_z1                     # through W1
         }), use_container_width=True, hide_index=True)
 
     # ── PROBABILITY ───────────────────────────────────────────────────────
+        render_foundations_notes("Optimisation", "foundations_optimisation")
+
     with tab_prob:
         _sec("🎲", "Probability — The Language of Stochastic Policies",
              "Distributions, expectations, Bayes — RL is fundamentally probabilistic at every level", "#7c4dff")
@@ -408,6 +420,8 @@ d_W1 = np.outer(s, d_z1); d_b1 = d_z1                     # through W1
         st.markdown("PSRL: maintain a posterior P(MDP | experience). Each episode, **sample one MDP** from the posterior and act optimally in it. This is Thompson Sampling extended to full MDPs — it automatically balances exploration and exploitation.")
 
     # ── STATISTICS ────────────────────────────────────────────────────────
+        render_foundations_notes("Probability", "foundations_probability")
+
     with tab_stat:
         _sec("📊", "Statistics — Evaluating and Comparing RL Algorithms",
              "Variance, bias-variance, confidence intervals — critical for reproducible RL research", "#0288d1")
@@ -472,6 +486,8 @@ print(f"Result: {mean:.0f} ± {stderr:.0f} (n={len(seeds)} seeds)")
 """, language="python")
 
     # ── INFORMATION THEORY ────────────────────────────────────────────────
+        render_foundations_notes("Statistics", "foundations_statistics")
+
     with tab_info:
         _sec("📡", "Information Theory — Entropy, KL Divergence, Cross-Entropy",
              "H(π) in SAC, D_KL in PPO/TRPO, −logπ as policy loss — in every modern RL algorithm", "#ad1457")
@@ -544,6 +560,8 @@ print(f"Result: {mean:.0f} ± {stderr:.0f} (n={len(seeds)} seeds)")
         st.markdown("The one-hot δ(k=a) collapses the sum to one term. Minimising cross-entropy = maximising log-probability of taken action. Weighted by advantage → REINFORCE/PPO gradient update.")
 
     # ── PYTHON & NUMPY ────────────────────────────────────────────────────
+        render_foundations_notes("Information Theory", "foundations_information_theory")
+
     with tab_py:
         _sec("🐍", "Python & NumPy — The Implementation Layer",
              "Vectorised ops, broadcasting, all essential RL patterns — used throughout the portal", "#0288d1")
@@ -634,6 +652,8 @@ def compute_gae(rewards, values, dones, last_val, gamma=0.99, lam=0.95):
 """, language="python")
 
     # ── NEURAL NETWORK MATH ──────────────────────────────────────────────
+        render_foundations_notes("Python & NumPy", "foundations_python_numpy")
+
     with tab_nn:
         _sec("🧠", "Neural Network Math — Implement Backprop Once, Use Forever",
              "Activations, forward pass, manual backprop, weight init — understand before using autograd", "#558b2f")
@@ -744,6 +764,8 @@ class TwoLayerPolicy:
         plt.tight_layout(); st.pyplot(fig_ini); plt.close()
 
     # ── SELF-ASSESSMENT ────────────────────────────────────────────────────
+        render_foundations_notes("Neural Network Math", "foundations_neural_network_math")
+
     with tab_test:
         _sec("✅", "Self-Assessment — Are You Ready for Stage 0?",
              "Answer all questions confidently before starting Deep Learning Prerequisites", "#ffa726")
@@ -811,3 +833,5 @@ class TwoLayerPolicy:
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+        render_foundations_notes("Self-Assessment", "foundations_self_assessment")

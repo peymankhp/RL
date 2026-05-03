@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -47,6 +48,9 @@ def _sec(emoji, title, sub, color="#e65100"):
 
 def smooth(a, w=8):
     return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
+
+def render_mbrl_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Model-Based RL - {tab_title}", tab_slug)
 
 # ── Dyna-Q GridWorld environment ─────────────────────────────────────────────
 class GridEnv:
@@ -157,6 +161,8 @@ def main_mbrl():
         axes_eff[1].grid(alpha=0.12)
         plt.tight_layout(); st.pyplot(fig_eff); plt.close()
 
+        render_mbrl_notes("Why Model-Based?", "model_based_rl")
+
     with tab_dyna:
         _sec("🔄","Dyna-Q — Tabular Model-Based RL","Learn a model table, plan with it, act in the real env","#e65100")
         st.markdown(_card("#e65100","🔄","Dyna-Q: the simplest model-based algorithm",
@@ -219,6 +225,8 @@ def main_mbrl():
             c2.metric(f"Dyna-Q (n={n_p}) late success", f"{np.mean(rw_n[-10:]):.2f}")
             c3.metric("Planning efficiency gain", f"{n_p+1}× data/real step")
 
+        render_mbrl_notes("Dyna-Q", "model_based_rl_dyna_q")
+
     with tab_wm:
         _sec("🌍","World Models (Ha & Schmidhuber 2018)","VAE + MDN-RNN + Controller — dream, learn, act","#7c4dff")
         st.markdown(_card("#7c4dff","🌍","The World Models architecture — three components working together",
@@ -270,6 +278,8 @@ def main_mbrl():
         ax_dream.set_title("Real vs Imagined Trajectories in Latent Space\n(Model errors compound, but dreams train the controller)", color="white", fontweight="bold")
         ax_dream.legend(facecolor=CARD, labelcolor="white", fontsize=8); ax_dream.grid(alpha=0.12)
         plt.tight_layout(); st.pyplot(fig_dream); plt.close()
+
+        render_mbrl_notes("World Models", "model_based_rl_world_models")
 
     with tab_mu:
         _sec("♟️","MuZero — Learning to Plan Without Environment Rules",
@@ -326,6 +336,8 @@ def main_mbrl():
             "DQN median": ["N/A","N/A","N/A","100%"],
         }), use_container_width=True, hide_index=True)
 
+        render_mbrl_notes("MuZero", "model_based_rl_muzero")
+
     with tab_dream:
         _sec("🌙","DreamerV3 — One Algorithm for Everything",
              "Latent RSSM + symlog + fixed hyperparams — Atari, DMControl, Minecraft, robotics","#ad1457")
@@ -367,6 +379,8 @@ def main_mbrl():
         st.markdown("**World model loss (4 terms trained jointly):**")
         st.latex(r"\mathcal{L}_\text{WM} = \underbrace{\mathbb{E}[\log p(o_t|z_t,h_t)]}_\text{reconstruction} + \underbrace{\mathbb{E}[\log p(r_t|z_t,h_t)]}_\text{reward} + \underbrace{\mathbb{E}[\log p(d_t|z_t,h_t)]}_\text{episode end} - \underbrace{\beta D_\text{KL}(q\|p)}_\text{latent regularisation}")
         st.markdown(_insight("DreamerV3 practical tip: on GPU, it runs 1000+ imagination steps per second. Real-world training uses 50% world model updates, 50% actor-critic updates in imagination. The actor never touches the real environment during training — only the replay buffer does."), unsafe_allow_html=True)
+
+        render_mbrl_notes("DreamerV3", "model_based_rl_dreamer")
 
     with tab_mpc:
         _sec("🎯","MPC, PETS & TD-MPC2 — Model Predictive Control for RL",
@@ -420,6 +434,8 @@ def main_mbrl():
             "Planning": ["None","CEM in state space","Actor in latent dream","CEM in latent space"],
         }), use_container_width=True, hide_index=True)
 
+        render_mbrl_notes("MPC & TD-MPC2", "model_based_rl_mpc")
+
     with tab_cmp:
         _sec("📊","Model-Based RL Comparison","When to use each algorithm","#546e7a")
         st.dataframe(pd.DataFrame({
@@ -431,6 +447,8 @@ def main_mbrl():
             "Best env":["GridWorlds","CarRacing","Games (Go/Chess)","Everything","Mujoco","DMControl"],
             "Year":["1991","2018","2019","2023","2018","2023"],
         }), use_container_width=True, hide_index=True)
+
+        render_mbrl_notes("Comparison", "model_based_rl_comparison")
 
     with tab_res:
         _sec("📚","Books & Deep-Dive Resources","Best resources to go deep on Model-Based RL","#546e7a")
@@ -476,3 +494,5 @@ def main_mbrl():
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+        render_mbrl_notes("Books & Resources", "model_based_rl_resources")

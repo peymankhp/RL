@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -55,6 +56,10 @@ def _sec(emoji, title, sub, color="#546e7a"):
 
 def smooth(a, w=8):
     return np.convolve(a, np.ones(w) / w, mode="valid") if len(a) > w else np.array(a, float)
+
+
+def render_engineering_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Practical RL Engineering - {tab_title}", tab_slug)
 
 
 def main_engineering():
@@ -251,6 +256,8 @@ def main_engineering():
     # ══════════════════════════════════════════════════════════════
     # REWARD DESIGN
     # ══════════════════════════════════════════════════════════════
+        render_engineering_notes("RL Debugging", "practical_rl_engineering")
+
     with tab_rew:
         _sec("🎯", "Reward Design — The Most Underrated Skill in Applied RL",
              "Potential-based shaping · RLHF pipeline · Goodhart's Law — a bad reward is the #1 failure mode", "#ffa726")
@@ -357,6 +364,8 @@ def main_engineering():
     # ══════════════════════════════════════════════════════════════
     # DISTRIBUTED RL
     # ══════════════════════════════════════════════════════════════
+        render_engineering_notes("Reward Design", "practical_rl_engineering_reward_design")
+
     with tab_dist:
         _sec("⚡", "Distributed Reinforcement Learning",
              "IMPALA · Ape-X · R2D2 · EnvPool — scale to 1000+ parallel workers", "#0288d1")
@@ -444,6 +453,8 @@ for _ in range(n_steps):
     # ══════════════════════════════════════════════════════════════
     # EXPERIMENT TRACKING
     # ══════════════════════════════════════════════════════════════
+        render_engineering_notes("Distributed RL", "practical_rl_engineering_distributed_rl")
+
     with tab_track:
         _sec("📊", "Experiment Tracking & Reproducibility",
              "W&B · MLflow · Seeds · Evaluation protocol · Optuna — most RL results aren't reproducible without this", "#00897b")
@@ -530,6 +541,8 @@ print("Best hyperparameters:", study.best_params)
     # ══════════════════════════════════════════════════════════════
     # BOOKS
     # ══════════════════════════════════════════════════════════════
+        render_engineering_notes("Experiment Tracking", "practical_rl_engineering_experiment_tracking")
+
     with tab_res:
         _sec("📚", "Books & Deep-Dive Resources",
              "Best books, papers, and tools for practical RL engineering", "#546e7a")
@@ -593,3 +606,5 @@ print("Best hyperparameters:", study.best_params)
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+        render_engineering_notes("Books & Resources", "practical_rl_engineering_resources")

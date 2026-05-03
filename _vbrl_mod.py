@@ -10,6 +10,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 from matplotlib.colors import LinearSegmentedColormap
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK  = "#0d0d1a"
@@ -60,6 +61,9 @@ def smooth(a, w=10):
     if len(a) <= w:
         return np.array(a, float)
     return np.convolve(a, np.ones(w)/w, mode="valid")
+
+def render_vbrl_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Value-Based Deep RL - {tab_title}", tab_slug)
 
 # ── Tiny CartPole simulator (no gym dependency) ───────────────────────────
 class CartPole:
@@ -336,6 +340,8 @@ def main_vbrl():
     # ══════════════════════════════════════════════════════════════════════
     # TAB 1 — DQN
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Environment", "value_based_deep_rl")
+
     with tab_dqn:
         _sec("🧠","Deep Q-Network (DQN)",
              "Mnih et al. 2015 — the paper that started the deep RL revolution","#1565c0")
@@ -520,6 +526,8 @@ For episode = 1 … M:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 2 — DOUBLE DQN
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("DQN", "value_based_deep_rl_dqn")
+
     with tab_ddqn:
         _sec("🔄","Double DQN — Eliminating Overestimation Bias",
              "van Hasselt, Guez & Silver, 2016 — a one-line change that consistently improves DQN","#00897b")
@@ -632,6 +640,8 @@ For episode = 1 … M:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 3 — DUELING DQN
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Double DQN", "value_based_deep_rl_double_dqn")
+
     with tab_duel:
         _sec("🏗️","Dueling Network Architecture",
              "Wang et al. 2016 — decompose Q into state value V and action advantage A","#7c4dff")
@@ -737,6 +747,8 @@ For episode = 1 … M:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 4 — PRIORITIZED EXPERIENCE REPLAY
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Dueling DQN", "value_based_deep_rl_dueling_dqn")
+
     with tab_per:
         _sec("🎯","Prioritized Experience Replay (PER)",
              "Schaul et al. 2016 — sample important transitions more often by their TD error","#e65100")
@@ -860,6 +872,8 @@ class SumTree:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 5 — C51 DISTRIBUTIONAL RL
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Prioritized Replay", "value_based_deep_rl_prioritized_experience_replay")
+
     with tab_c51:
         _sec("📊","Distributional RL — C51",
              "Bellemare, Dabney & Munos 2017 — predict the full return distribution, not just its mean","#ad1457")
@@ -947,6 +961,8 @@ class SumTree:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 6 — RAINBOW & IQN
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Distributional RL (C51)", "value_based_deep_rl_c51_distributional_rl")
+
     with tab_rain:
         _sec("🌈","Rainbow & IQN — Combining Everything",
              "Hessel et al. 2018 — all improvements combined; Dabney et al. 2018 — implicit quantile networks","#f57f17")
@@ -1074,6 +1090,8 @@ class SumTree:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 7 — DASHBOARD
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Rainbow & IQN", "value_based_deep_rl_rainbow")
+
     with tab_dash:
         _sec("📈","Algorithm Dashboard","Run all value-based RL variants and compare them on CartPole","#f57f17")
 
@@ -1141,6 +1159,8 @@ class SumTree:
     # ══════════════════════════════════════════════════════════════════════
     # TAB 8 — STUDY PLAN
     # ══════════════════════════════════════════════════════════════════════
+        render_vbrl_notes("Dashboard", "value_based_deep_rl_dashboard")
+
     with tab_plan:
         _sec("📚","Value-Based Deep RL — Study Plan",
              "A structured 4-week curriculum from DQN to Rainbow with resources and milestones","#1565c0")
@@ -1218,3 +1238,5 @@ class SumTree:
                 f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                 f'<br><span style="color:#9e9ebb;font-size:.87rem">{desc}</span></div>',
                 unsafe_allow_html=True)
+
+        render_vbrl_notes("Study Plan", "value_based_deep_rl_learning_plan")

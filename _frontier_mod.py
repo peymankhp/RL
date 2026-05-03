@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -56,6 +57,10 @@ def _sec(emoji, title, sub, color="#ad1457"):
 
 def smooth(a, w=8):
     return np.convolve(a, np.ones(w) / w, mode="valid") if len(a) > w else np.array(a, float)
+
+
+def render_frontier_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Frontier RL Research - {tab_title}", tab_slug)
 
 
 def main_frontier():
@@ -115,6 +120,8 @@ def main_frontier():
         }), use_container_width=True, hide_index=True)
 
     # ── RLHF AT SCALE ────────────────────────────────────────────
+        render_frontier_notes("Overview", "frontier_rl_research")
+
     with tab_rlhf:
         _sec("🧠", "RLHF at Scale — Aligning Superhuman AI",
              "Evaluator collapse · Constitutional AI · Debate · Scalable Oversight", "#e65100")
@@ -164,6 +171,8 @@ def main_frontier():
         st.markdown("**Why truthfulness is the equilibrium:** if D₁ makes a false claim, D₂ can expose it. The human can verify the exposure (easier than verifying the original claim) even without domain expertise.")
 
     # ── WORLD MODELS ─────────────────────────────────────────────
+        render_frontier_notes("RLHF at Scale", "frontier_rl_research_rlhf_at_scale")
+
     with tab_wm:
         _sec("🌍", "World Models + RL — Scaling to Real Robotics",
              "RSSM architecture · Compounding errors · Uncertainty-aware planning", "#00897b")
@@ -209,6 +218,8 @@ def main_frontier():
         st.latex(r"\text{symlog}(x) = \text{sign}(x)\cdot\log(|x|+1)")
 
     # ── EXPLORATION ───────────────────────────────────────────────
+        render_frontier_notes("World Models + RL", "frontier_rl_research_world_models")
+
     with tab_exp:
         _sec("🔍", "Exploration in Large State Spaces",
              "No O(log T) regret algorithm in continuous MDPs — the fundamental open problem", "#7c4dff")
@@ -247,6 +258,8 @@ def main_frontier():
         st.latex(r"r_\text{bonus}(s) = \beta\cdot(-\log\hat p_\phi(s)) \quad\text{(novel states have low density)}")
 
     # ── SAFE RL ───────────────────────────────────────────────────
+        render_frontier_notes("Exploration (Large)", "frontier_rl_research_exploration")
+
     with tab_safe:
         _sec("🛡️", "Safe RL with Formal Guarantees",
              "CMDP · CBF · CPO — constraint satisfaction during training, not just at convergence", "#ef5350")
@@ -291,6 +304,8 @@ def main_frontier():
         st.markdown(_insight("Best practice: CBF shield (hard zero-violation guarantee during training) + CMDP Lagrangian (deployment constraint guarantee). Both are needed. CBF handles training safety; Lagrangian handles deployment. The combination is used in autonomous vehicle and surgical robot research."), unsafe_allow_html=True)
 
     # ── FOUNDATION MODELS ─────────────────────────────────────────
+        render_frontier_notes("Safe RL (Formal)", "frontier_rl_research_safe_rl")
+
     with tab_fm:
         _sec("🌐", "Foundation Models for RL",
              "Gato · RT-2 · Algorithm Distillation — one model, any task, no retraining", "#0288d1")
@@ -319,6 +334,8 @@ def main_frontier():
         }), use_container_width=True, hide_index=True)
 
     # ── OFFLINE TO ONLINE ─────────────────────────────────────────
+        render_frontier_notes("Foundation Models", "frontier_rl_research_foundation_models")
+
     with tab_o2o:
         _sec("📐", "Offline → Online RL — Fine-Tuning Without Forgetting",
              "Cal-QL · IQL→online · Mixed replay — the distributional shift challenge", "#558b2f")
@@ -357,6 +374,8 @@ def main_frontier():
             plt.tight_layout(); st.pyplot(fig_o2); plt.close()
 
     # ── LLM + RL ─────────────────────────────────────────────────
+        render_frontier_notes("Offline→Online RL", "frontier_rl_research_offline_to_online")
+
     with tab_llm:
         _sec("💬", "LLM + RL: RLHF and DPO Basics",
              "PPO on language models · DPO derivation · The pipeline behind ChatGPT and Claude", "#e65100")
@@ -393,6 +412,8 @@ def main_frontier():
         plt.tight_layout(); st.pyplot(fig_pipe); plt.close()
 
     # ── SIM TO REAL ───────────────────────────────────────────────
+        render_frontier_notes("LLM + RL Basics", "frontier_rl_research_llm_rl")
+
     with tab_s2r:
         _sec("🤖", "Sim-to-Real Transfer",
              "Domain randomisation · System ID · RMA — closing the reality gap", "#00897b")
@@ -425,6 +446,8 @@ def main_frontier():
         st.markdown(_insight("The most successful sim-to-real approach combines: domain randomisation (robust training) + system identification (accurate simulation) + RMA adaptive policy (residual correction). OpenAI Dexterous Hand, ETH ANYmal, and Boston Dynamics Spot all use this combination. Key insight: don't try to eliminate the sim-to-real gap — design the policy to handle it."), unsafe_allow_html=True)
 
     # ── DIFFUSION ─────────────────────────────────────────────────
+        render_frontier_notes("Sim-to-Real", "frontier_rl_research_sim_to_real")
+
     with tab_diff:
         _sec("🌊", "Diffusion Models for RL",
              "Diffuser · Decision Diffuser — trajectories as denoised samples from a generative model", "#7c4dff")
@@ -458,6 +481,8 @@ def main_frontier():
         st.markdown("**Current limitation:** 100–1000 denoising steps required per plan → slow for real-time replanning. DDIM and consistency models reduce this to 1–5 steps.")
 
     # ── RL THEORY ─────────────────────────────────────────────────
+        render_frontier_notes("Diffusion RL", "frontier_rl_research_diffusion")
+
     with tab_theory:
         _sec("📏", "RL Theory — Mathematical Foundations",
              "PAC-MDP · Regret bounds · Policy gradient convergence — why algorithms work", "#6a1b9a")
@@ -493,6 +518,8 @@ def main_frontier():
         plt.tight_layout(); st.pyplot(fig_conv); plt.close()
 
     # ── BOOKS ─────────────────────────────────────────────────────
+        render_frontier_notes("RL Theory", "frontier_rl_research_theory")
+
     with tab_res:
         _sec("📚", "Books & Deep-Dive Resources",
              "The definitive reading list for every Frontier RL topic", "#546e7a")
@@ -570,3 +597,5 @@ def main_frontier():
             st.subheader(section)
             for title, authors, why, url in items:
                 st.markdown(_book(title, authors, why, url), unsafe_allow_html=True)
+
+        render_frontier_notes("Books & Resources", "frontier_rl_research_resources")

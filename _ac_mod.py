@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import pandas as pd
 import warnings
+from _notes_mod import render_notes
 warnings.filterwarnings("ignore")
 
 DARK, CARD, GRID = "#0d0d1a", "#12121f", "#2a2a3e"
@@ -43,6 +44,9 @@ def _sec(emoji, title, sub, color="#7c4dff"):
 
 def smooth(a, w=10):
     return np.convolve(a, np.ones(w)/w, mode="valid") if len(a) > w else np.array(a, float)
+
+def render_ac_notes(tab_title: str, tab_slug: str) -> None:
+    render_notes(f"Actor-Critic & Policy Gradient - {tab_title}", tab_slug)
 
 # ── CartPole (no gym dependency) ──────────────────────────────────────────
 class CartPole:
@@ -476,6 +480,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 1 — REINFORCE
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("Overview", "actor_critic_policy_gradient")
+
     with tab_rf:
         st.subheader("🎲 REINFORCE — Monte Carlo Policy Gradient (Williams, 1992)")
 
@@ -625,6 +631,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 2 — ACTOR-CRITIC
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("REINFORCE", "actor_critic_policy_gradient_reinforce")
+
     with tab_ac_t:
         st.subheader("🎭 Vanilla Actor-Critic — Online TD-Based Policy Gradient")
 
@@ -782,6 +790,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 3 — A2C & A3C
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("Actor-Critic Theory", "actor_critic_policy_gradient_actor_critic_theory")
+
     with tab_a2c:
         st.subheader("🤝 A2C & A3C — Advantage Actor-Critic (Mnih et al. 2016)")
 
@@ -937,6 +947,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 4 — PPO
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("A2C / A3C", "actor_critic_policy_gradient_a2c_a3c")
+
     with tab_ppo:
         st.subheader("🔐 PPO — Proximal Policy Optimization (Schulman et al. 2017)")
 
@@ -1113,6 +1125,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 5 — TRPO & SAC
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("PPO", "actor_critic_policy_gradient_ppo")
+
     with tab_trpo:
         st.subheader("🏛️ TRPO & SAC — Advanced Policy Methods")
         col_t, col_s = st.columns(2)
@@ -1180,6 +1194,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 6 — DASHBOARD
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("TRPO / SAC", "actor_critic_policy_gradient_trpo_sac")
+
     with tab_dash:
         st.subheader("📈 Full Policy Gradient Family Benchmark — CartPole")
         st.markdown("Run all methods simultaneously and compare learning curves, convergence speed, and stability.")
@@ -1239,6 +1255,8 @@ def main_ac():
     # ══════════════════════════════════════════════════════════════════
     # TAB 7 — STUDY PLAN
     # ══════════════════════════════════════════════════════════════════
+        render_ac_notes("Dashboard", "actor_critic_policy_gradient_dashboard")
+
     with tab_plan:
         st.subheader("📚 4-Week Policy Gradient Mastery Plan")
 
@@ -1303,3 +1321,5 @@ def main_ac():
                         f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {title}</a>'
                         f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span></div>',
                         unsafe_allow_html=True)
+
+        render_ac_notes("Learning Plan", "actor_critic_policy_gradient_learning_plan")
