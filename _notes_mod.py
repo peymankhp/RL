@@ -1,7 +1,7 @@
 """
 Reusable persistent notes panel for the RL Learning Portal.
 
-Each section or tab gets:
+Each section gets:
   section_notes/<section_slug>/note.md
   section_notes/<section_slug>/assets/
 
@@ -53,11 +53,6 @@ def _read_note(note_file: Path) -> str:
 
 def _reload_note(note_file: Path, draft_key: str) -> None:
     st.session_state[draft_key] = _read_note(note_file)
-
-
-def _append_to_draft(draft_key: str, content: str) -> None:
-    current = st.session_state.get(draft_key, "").rstrip()
-    st.session_state[draft_key] = f"{current}\n\n{content.strip()}\n" if current else f"{content.strip()}\n"
 
 
 def _render_markdown_with_local_images(markdown_text: str, note_dir: Path) -> None:
@@ -113,7 +108,7 @@ def render_notes(section_title: str, section_slug: str | None = None) -> None:
                     padding:1rem 1.2rem;margin:.5rem 0 1rem">
             <h3 style="color:white;margin:0;font-size:1.2rem">📝 Notes for {section_title}</h3>
             <p style="color:#9e9ebb;margin:.35rem 0 0;font-size:.9rem;line-height:1.6">
-            Add text, LaTeX formulas, and images. Saved notes reload automatically next time.
+            Add Markdown text, LaTeX formulas, and images. Saved notes reload automatically next time.
             </p>
         </div>
         """,
@@ -127,62 +122,22 @@ def render_notes(section_title: str, section_slug: str | None = None) -> None:
         else:
             st.info("No saved note yet.")
 
-    content_type = st.radio(
-        "Add content",
-        ["Text", "LaTeX formula", "Image"],
-        horizontal=True,
-        key=f"note_content_type_{slug}",
+    uploaded_files = st.file_uploader(
+        "Add pictures to this note",
+        type=IMAGE_TYPES,
+        accept_multiple_files=True,
+        key=f"note_upload_{slug}",
     )
+    if uploaded_files and st.button("Insert uploaded pictures", key=f"note_insert_images_{slug}"):
+        inserted = []
+        for uploaded in uploaded_files:
+            target = _unique_path(assets_dir, uploaded.name)
+            target.write_bytes(uploaded.getbuffer())
+            inserted.append(f"![{target.name}](assets/{target.name})")
 
-    if content_type == "Text":
-        text_key = f"note_text_piece_{slug}"
-        st.text_area(
-            "Text",
-            key=text_key,
-            height=120,
-            placeholder="Write a short explanation, definition, or reminder.",
-        )
-        if st.button("Append text", key=f"note_append_text_{slug}"):
-            text = st.session_state.get(text_key, "").strip()
-            if text:
-                _append_to_draft(draft_key, text)
-                st.rerun()
-            else:
-                st.warning("Write some text before appending.")
-
-    elif content_type == "LaTeX formula":
-        latex_key = f"note_latex_piece_{slug}"
-        st.text_area(
-            "LaTeX formula",
-            key=latex_key,
-            height=120,
-            placeholder=r"V^\pi(s)=\mathbb{E}_\pi[G_t\mid S_t=s]",
-        )
-        if st.button("Append formula", key=f"note_append_latex_{slug}"):
-            formula = st.session_state.get(latex_key, "").strip()
-            if formula:
-                formula = formula.strip("$")
-                _append_to_draft(draft_key, f"$${formula}$$")
-                st.rerun()
-            else:
-                st.warning("Write a formula before appending.")
-
-    else:
-        uploaded_files = st.file_uploader(
-            "Image",
-            type=IMAGE_TYPES,
-            accept_multiple_files=True,
-            key=f"note_upload_{slug}",
-        )
-        if uploaded_files and st.button("Insert image", key=f"note_insert_images_{slug}"):
-            inserted = []
-            for uploaded in uploaded_files:
-                target = _unique_path(assets_dir, uploaded.name)
-                target.write_bytes(uploaded.getbuffer())
-                inserted.append(f"![{target.name}](assets/{target.name})")
-
-            _append_to_draft(draft_key, "\n\n".join(inserted))
-            st.rerun()
+        current = st.session_state.get(draft_key, "").rstrip()
+        st.session_state[draft_key] = f"{current}\n\n" + "\n\n".join(inserted) + "\n"
+        st.rerun()
 
     st.text_area(
         "Write your note",

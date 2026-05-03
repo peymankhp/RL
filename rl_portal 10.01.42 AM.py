@@ -4,6 +4,7 @@ Combines DP, MC, and TD explorers into a single professional educational portal.
 """
 
 import streamlit as st
+from _notes_mod import render_notes
 
 st.set_page_config(
     page_title="RL Learning Portal",
@@ -87,168 +88,6 @@ def go(page):
     st.rerun()
 
 
-def _html_bullets(items):
-    return "".join(f"<li>{item}</li>" for item in items)
-
-
-MODULE_LIBRARY = [
-    ("foundations","📐","Math & CS Foundations","#00695c","Linear algebra, calculus, probability, information theory, Python/NumPy, and neural network math."),
-    ("prereq","🧬","Deep Learning Prerequisites","#00897b","Autograd, optimizers, normalization, CNNs, RNNs, transformers, and PyTorch training loops."),
-    ("dp","🧮","Dynamic Programming","#6a1b9a","Exact Bellman planning, policy evaluation, policy improvement, policy iteration, value iteration, and GPI."),
-    ("mc","🎲","Monte Carlo Methods","#7c4dff","Episode-based value estimation, control, off-policy importance sampling, and return variance management."),
-    ("td","⚡","Temporal-Difference Learning","#e65100","Online bootstrapping with TD(0), SARSA, Q-learning, Expected SARSA, Double Q, n-step TD, and traces."),
-    ("vbrl","🎮","Value-Based Deep RL","#1565c0","DQN, Double DQN, Dueling DQN, prioritized replay, distributional RL, IQN, and Rainbow."),
-    ("continuous","🎯","Continuous Control: DDPG & TD3","#0288d1","Deterministic policy gradients, actor-critic control, twin critics, target smoothing, and delayed updates."),
-    ("ac","🎭","Actor-Critic & Policy Gradient","#7c4dff","REINFORCE, Actor-Critic, A2C/A3C, PPO, TRPO, and SAC for direct policy optimization."),
-    ("imitation","🎓","Imitation Learning","#ad1457","Behavior cloning, DAgger, GAIL, AIRL, inverse RL, and learning from expert demonstrations."),
-    ("mbrl","🏗️","Model-Based RL","#e65100","Dyna-Q, world models, MPC, PETS, MuZero, Dreamer, and planning through learned dynamics."),
-    ("offline","📦","Offline / Batch RL","#00897b","Behavior cloning, CQL, IQL, Decision Transformer, TD3+BC, and fixed-dataset policy learning."),
-    ("explore","🔍","Exploration Methods","#f57f17","UCB, Thompson sampling, count bonuses, intrinsic curiosity, RND, and posterior sampling."),
-    ("advanced","🚀","Advanced Specialisations","#6a1b9a","Multi-agent RL, hierarchical RL, safe RL, meta-RL, constraints, and long-horizon structure."),
-    ("transfer","🔄","Transfer, Multi-Task & Modern Training","#f57f17","Continual RL, multi-task optimization, population-based training, GRPO, RLVR, and transfer."),
-    ("engineering","🔧","Practical RL Engineering","#546e7a","Reward design, debugging, experiment tracking, distributed rollout, reproducibility, and failure analysis."),
-    ("frontier","🔬","Frontier RL Research","#ad1457","RLHF, diffusion RL, world models, safe RL, foundation-model agents, and offline-to-online research."),
-]
-
-
-def render_module_catalog(button_prefix):
-    st.markdown("""
-    <h3 style="color:white;font-size:1.25rem;margin:1.5rem 0 .3rem">📦 Module Library</h3>
-    <p style="color:#9e9ebb;margin-bottom:1rem">Scan the full curriculum and open any module directly.</p>
-    """, unsafe_allow_html=True)
-
-    for page_key, icon, title, color, summary in MODULE_LIBRARY:
-        bullets = _html_bullets([
-            f"<b>Focus:</b> {summary}",
-            "<b>Why learn it:</b> It provides one practical layer in the path from foundations to professional RL systems.",
-            "<b>Decision value:</b> Use it to choose, implement, or debug algorithms in this family.",
-            "<b>Practice:</b> Run the module demos, change one setting, and interpret the behavior.",
-            "<b>Outcome:</b> Be able to explain when this family is appropriate and when it is not.",
-        ])
-        col_a, col_b = st.columns([5, 1])
-        with col_a:
-            st.markdown(f"""
-            <div style="background:#12121f;border:1px solid {color}44;border-radius:12px;
-                        padding:1rem 1.4rem;margin-bottom:.75rem;border-left:4px solid {color}">
-                <b style="color:white;font-size:1rem">{icon} {title}</b>
-                <ul style="color:#b0b0cc;font-size:.8rem;line-height:1.45;margin:.6rem 0 0 1.1rem;padding:0">
-                    {bullets}
-                </ul>
-                <div style="margin-top:.6rem;color:#a5d6a7;font-size:.78rem">
-                    <b>Top books:</b> Sutton & Barto · Bertsekas · Deep Reinforcement Learning Hands-On
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col_b:
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            if st.button(f"Open {icon}", key=f"{button_prefix}_{page_key}", use_container_width=True):
-                go(page_key)
-
-
-def render_algorithm_selection_guide():
-    cards = [
-        ("⚡ Value-Based","#1565c0","Discrete actions, simpler problems"),
-        ("🎯 Policy-Based","#f57f17","Continuous control, direct optimization"),
-        ("⚖️ Actor-Critic","#7c4dff","Balance of stability + performance"),
-    ]
-    algorithms = [
-        ("SARSA","⚡","Value-based","#e65100","Green","Discrete online control where exploratory behavior must be included.","Need off-policy optimal control or continuous actions.","Safer on-policy learning; stable tabular update.","Conservative policies; poor scaling.","Learns the value of the policy actually followed.","CliffWalking, safe grid control."),
-        ("Q-Learning","⚡","Value-based","#1565c0","Green","Discrete actions with online off-policy learning.","Unsafe exploration or continuous action spaces.","Simple greedy control; reusable exploratory data.","Overestimation bias; risky learned paths.","Learns greedy targets independent of behavior policy.","Games, routing, discrete simulators."),
-        ("Expected SARSA","⚡","Value-based","#e65100","Yellow","Stochastic discrete policies where lower variance matters.","Large action spaces or max-control requirements.","Lower variance than SARSA; stable updates.","Needs policy probabilities; extra action sweep.","Uses expected next action value instead of one sample.","Small stochastic control tasks."),
-        ("Double Q-Learning","⚡","Value-based","#1565c0","Green","Noisy discrete control with Q overestimation.","Tiny deterministic tasks where basic Q-learning is enough.","Reduces max bias; improves calibration.","More bookkeeping; still tabular unless deepened.","Separates action selection and evaluation.","Noisy games, Double DQN foundations."),
-        ("n-step TD / SARSA(λ)","⚡","Value-based","#00838f","Yellow","Delayed rewards needing faster credit assignment.","Unstable approximation or no tolerance for trace tuning.","Balances TD bias and MC variance.","Extra hyperparameters; harder debugging.","Uses multi-step returns to propagate rewards faster.","Long-horizon tabular control."),
-        ("DQN","⚡","Value-based","#1565c0","Green","<b>Discrete actions only</b> with high-dimensional observations.","Continuous control or severe sparse reward exploration.","Replay reuse; target-network stability.","Reward-scale sensitivity; overestimation risk.","Neural Q-learning with replay and target networks.","Atari, discrete game agents."),
-        ("Double DQN","⚡","Value-based","#1565c0","Green","DQN tasks with inflated Q-values.","Problems dominated by exploration failure.","Better value calibration; low implementation cost.","Still needs replay and target tuning.","Splits selection and evaluation in neural Q-learning.","Atari, visual discrete RL."),
-        ("Dueling DQN","⚡","Value-based","#1565c0","Yellow","Many actions with similar value.","Small action spaces with clear action differences.","Learns state value separately from advantages.","Architecture adds complexity.","Separates V(s) from A(s,a).","Discrete control with redundant actions."),
-        ("PER","⚡","Value-based","#00838f","Yellow","Replay agents with rare informative transitions.","Noisy TD errors or strict unbiasedness needs.","Improves sample efficiency; focuses useful data.","Can over-sample noise; needs correction weights.","Samples high-error transitions more often.","DQN upgrades, sparse events."),
-        ("Distributional RL (C51 / IQN)","⚡","Value-based","#7c4dff","Yellow","Stochastic-return discrete tasks or risk-sensitive value learning.","Need simplest baseline or continuous control.","Models return distributions; strong benchmark gains.","More complex loss/output diagnostics.","Learns the distribution of returns, not just the mean.","Atari, risk-aware control."),
-        ("Rainbow","⚡","Value-based","#7c4dff","Green","Discrete benchmarks where performance matters.","Need minimal complexity or continuous actions.","Combines proven DQN improvements.","Many moving parts; harder ablations.","A production-strength DQN stack.","Atari, high-performing discrete baselines."),
-        ("REINFORCE","🎯","Policy-based","#f57f17","Red","Teaching or tiny episodic tasks.","Production, long horizons, high variance settings.","Direct policy gradients; simple conceptually.","Very high variance; poor sample efficiency.","Optimizes policy from complete returns.","Education, sanity checks."),
-        ("Actor-Critic (AC)","⚖️","Actor-Critic","#7c4dff","Green","Need lower variance than REINFORCE.","Critic cannot learn reliable values.","Combines policy learning with value baselines.","Critic bias can mislead the actor.","Critic estimates value; actor updates policy.","Continuous control foundations."),
-        ("A2C / A3C","⚖️","Actor-Critic","#7c4dff","Yellow","Parallel environments and on-policy training.","Interaction is expensive or PPO is available.","Parallel rollout collection; stable baseline.","Less sample efficient than replay methods.","Uses parallel actors to stabilize actor-critic.","Classic control, parallel simulation."),
-        ("PPO","⚖️","Actor-Critic","#7c4dff","Green","<b>Need stability</b>; fast simulation; RLHF.","Maximum sample efficiency is required.","Robust clipped updates; reliable default.","On-policy and data hungry.","Limits policy change to prevent destructive updates.","RLHF, robotics sim, games."),
-        ("TRPO","🎯","Policy-based","#f57f17","Yellow","Trust-region research or strict KL control.","Need simple scalable engineering.","Principled update constraints.","Complex and heavier than PPO.","Constrains policy change with a KL trust region.","Policy optimization research."),
-        ("SAC","⚖️","Actor-Critic","#00897b","Green","<b>Continuous control</b> with expensive interaction.","Very simple discrete tasks.","High sample efficiency; entropy exploration.","More components; reward-scale sensitivity.","Optimizes reward plus entropy for robust exploration.","Robotics, locomotion, manipulation."),
-        ("Dyna-Q","🧠","Model-based","#e65100","Yellow","Small discrete tasks with learnable dynamics.","Complex high-dimensional model error.","Adds planning updates; sample efficient.","Model bias can mislead learning.","Learns a model and plans from imagined transitions.","GridWorld, planning demos."),
-        ("Dreamer / MuZero","🧠","Model-based","#e65100","Green","Sample-constrained visual control, planning, or games.","Need quick simple baseline.","Latent imagination; strong sample efficiency.","High complexity; compounding model error.","Learns predictive structure for planning or policy learning.","Atari, board games, robot simulation."),
-        ("CQL / IQL / Decision Transformer","⚡","Offline","#00897b","Green","<b>No environment access</b>; fixed logged datasets.","Dataset lacks good actions or online exploration is cheap.","Offline training; conservative or sequence-based control.","Bounded by data coverage; shift risk.","Avoids trusting unsupported actions.","Healthcare, finance, robotics logs."),
-        ("RND / ICM / UCB","⚡","Exploration","#f57f17","Yellow","Sparse rewards or hard exploration.","Dense rewards with reliable exploration.","Improves discovery and coverage.","Can chase novelty; bonus tuning is sensitive.","Adds novelty or uncertainty as a decision signal.","Sparse games, bandits."),
-        ("MADDPG / QMIX / MAPPO","⚖️","Multi-agent","#0288d1","Green","Multiple learning agents and coordination.","Single-agent tasks.","Handles non-stationarity and cooperation.","Credit assignment and scaling are hard.","Accounts for other agents changing the environment.","Traffic, teams, strategy games."),
-        ("Hierarchical RL (Options / HER)","🧠","Specialisation","#6a1b9a","Yellow","Long horizons, subgoals, sparse rewards.","Short tasks with no subgoal structure.","Temporal abstraction; learns from failed goals.","Subgoal design complexity.","Breaks tasks into reusable skills or goals.","Navigation, manipulation."),
-        ("Safe RL (CPO / Lagrangian)","⚖️","Constrained","#c62828","Yellow","Constraint violations are costly.","Constraints cannot be measured reliably.","Explicit safety budgets; auditable tradeoffs.","Tuning constraints can reduce performance.","Treats safety as a constraint, not only a reward.","Robotics, healthcare, finance."),
-        ("Meta-RL (MAML / RL²)","🧠","Specialisation","#6a1b9a","Yellow","Many related tasks and fast adaptation needs.","Single-task training or limited compute.","Learns adaptation; transfers across task families.","High training cost; task distribution sensitive.","Optimizes the learning process itself.","Personalized agents, adaptive control."),
-        ("RLHF (PPO-based)","⚖️","Human feedback","#7c4dff","Green","Language-model policy optimization with reward models.","Weak preference data or untrusted reward model.","Directly optimizes learned preferences.","Reward hacking; on-policy infrastructure.","Uses PPO while controlling model drift.","LLM alignment, assistant tuning."),
-        ("DPO","🎯","Preference","#f57f17","Green","Preference pairs and simpler alignment workflow.","Need online exploration or environment rewards.","Supervised-style preference optimization.","Limited by preference coverage.","Turns pairwise preferences into a direct policy objective.","LLM preference tuning."),
-        ("Diffusion RL","🧠","Frontier","#ad1457","Yellow","Multimodal action sequences or trajectory generation.","Need mature simple baselines.","Models diverse trajectories.","Sampling cost and maturity risk.","Generates action trajectories rather than single actions.","Robotic manipulation, offline control."),
-    ]
-
-    st.markdown("""
-    <h3 style="color:white;font-size:1.35rem;margin:1.8rem 0 .25rem">RL Algorithm Selection Guide</h3>
-    <p style="color:#9e9ebb;margin-bottom:1rem">Decision dashboard for selecting RL algorithms by action space, data access, stability, exploration, and sample budget.</p>
-    """, unsafe_allow_html=True)
-    cols = st.columns(3)
-    for col, (title, color, text) in zip(cols, cards):
-        with col:
-            st.markdown(f'<div style="background:#12121f;border:1px solid {color}55;border-radius:10px;padding:1rem;border-left:4px solid {color}"><b style="color:{color}">{title}</b><br><span style="color:#b0b0cc;font-size:.82rem">{text}</span></div>', unsafe_allow_html=True)
-
-    tag_colors = {"Green":"#2e7d32","Yellow":"#f9a825","Red":"#c62828"}
-    for name, icon, category, color, tag, best, avoid, strengths, weaknesses, insight, use in algorithms:
-        tag_color = tag_colors[tag]
-        st.markdown(f"""
-        <div style="background:#12121f;border:1px solid {color}44;border-radius:12px;padding:1rem 1.2rem;margin:.85rem 0;border-left:4px solid {color}">
-            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
-                <div><b style="color:white;font-size:1rem">{icon} {name}</b><br><span style="color:{color};font-size:.8rem;font-weight:700">Category: {category}</span></div>
-                <span style="background:{tag_color}22;border:1px solid {tag_color}66;color:{tag_color};border-radius:999px;padding:.16rem .6rem;font-size:.74rem;font-weight:800">{tag}</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin-top:.75rem">
-                <div><b style="color:#a5d6a7;font-size:.78rem">Best Used When</b><ul style="color:#b0b0cc;font-size:.78rem;line-height:1.45;margin:.3rem 0 0 1rem;padding:0"><li>{best}</li></ul></div>
-                <div><b style="color:#ef9a9a;font-size:.78rem">Avoid When</b><ul style="color:#b0b0cc;font-size:.78rem;line-height:1.45;margin:.3rem 0 0 1rem;padding:0"><li>{avoid}</li></ul></div>
-                <div><b style="color:#90caf9;font-size:.78rem">Strengths</b><ul style="color:#b0b0cc;font-size:.78rem;line-height:1.45;margin:.3rem 0 0 1rem;padding:0"><li>{strengths}</li></ul></div>
-                <div><b style="color:#ffcc80;font-size:.78rem">Weaknesses</b><ul style="color:#b0b0cc;font-size:.78rem;line-height:1.45;margin:.3rem 0 0 1rem;padding:0"><li>{weaknesses}</li></ul></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.75rem">
-                <div style="background:#0a1a2e;border:1px solid #1565c055;border-radius:8px;padding:.65rem .8rem"><b style="color:#90caf9;font-size:.78rem">Key Insight</b><br><span style="color:#b0b0cc;font-size:.78rem;line-height:1.45">{insight}</span></div>
-                <div style="background:#0d1a0d;border:1px solid #1b5e2055;border-radius:8px;padding:.65rem .8rem"><b style="color:#a5d6a7;font-size:.78rem">Typical Use Cases</b><br><span style="color:#b0b0cc;font-size:.78rem;line-height:1.45">{use}</span></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    quick = _html_bullets([
-        "<b>Discrete actions</b> → DQN / Rainbow",
-        "<b>Continuous control</b> → PPO / SAC",
-        "<b>Need stability</b> → PPO",
-        "<b>Need sample efficiency</b> → SAC / Offline RL",
-        "<b>No environment access</b> → CQL / IQL / Decision Transformer",
-        "<b>Hard exploration</b> → RND / ICM / UCB",
-        "<b>Multi-agent</b> → MAPPO / QMIX / MADDPG",
-        "<b>Human feedback</b> → PPO-based RLHF / DPO",
-    ])
-    st.markdown(f'<div style="background:#0a1a2e;border:1px solid #1565c066;border-radius:12px;padding:1rem 1.2rem;margin:1.2rem 0"><b style="color:#90caf9;font-size:1rem">Quick Decision Tree</b><ul style="color:#b0b0cc;font-size:.84rem;line-height:1.65;margin:.6rem 0 0 1.1rem;padding:0">{quick}</ul></div>', unsafe_allow_html=True)
-
-
-def render_method_comparison():
-    st.markdown("""
-    <h3 style="color:white;font-size:1.35rem;margin:1.8rem 0 .25rem">⚖️ Method Comparison</h3>
-    <p style="color:#9e9ebb;margin-bottom:1rem">Compact comparison by dynamics access, data regime, action space, stability, and sample efficiency.</p>
-    """, unsafe_allow_html=True)
-    st.markdown("""
-    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1rem">
-        <div style="background:#12121f;border:1px solid #6a1b9a55;border-radius:10px;padding:1rem;border-left:4px solid #6a1b9a"><b style="color:#ce93d8">🧠 Model-Based</b><br><span style="color:#b0b0cc;font-size:.82rem">Use when interaction is expensive and dynamics can be planned or learned.</span></div>
-        <div style="background:#12121f;border:1px solid #1565c055;border-radius:10px;padding:1rem;border-left:4px solid #1565c0"><b style="color:#90caf9">⚡ Model-Free Online</b><br><span style="color:#b0b0cc;font-size:.82rem">Use when environment access is available and model error is riskier than sample cost.</span></div>
-        <div style="background:#12121f;border:1px solid #00897b55;border-radius:10px;padding:1rem;border-left:4px solid #00897b"><b style="color:#80cbc4">📦 Offline RL</b><br><span style="color:#b0b0cc;font-size:.82rem">Use when only logged data is available and exploration is unsafe or impossible.</span></div>
-    </div>
-    """, unsafe_allow_html=True)
-    import pandas as pd
-    st.dataframe(pd.DataFrame({
-        "Algorithm":["SARSA","Q-Learning","DQN / Rainbow","PPO","SAC","Dreamer / MuZero","CQL / IQL","Decision Transformer","RLHF PPO","DPO"],
-        "Data Regime":["Online","Online off-policy","Online off-policy","Online on-policy","Online off-policy","Online + model","Offline","Offline","Preference + online RL","Preference offline"],
-        "Action Space":["Discrete","Discrete","Discrete","Both","Continuous","Both","Both","Both","Text tokens","Text tokens"],
-        "Sample Efficiency":["Medium","Medium","High","Medium","Very high","Very high","Dataset-limited","Dataset-limited","Medium","High"],
-        "Stability":["Medium","Medium","High","Very high","High","High","High","Medium","High","High"],
-        "Best Fit":["Safe tabular control","Greedy tabular control","Atari / games","Stable default","Robotics control","Sample-constrained control","No env access","Large offline datasets","Human feedback RL","Preference tuning"],
-    }), use_container_width=True, hide_index=True)
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # LANDING PAGE
 # ─────────────────────────────────────────────────────────────────────────────
@@ -277,11 +116,12 @@ def show_home():
     """, unsafe_allow_html=True)
 
     # ── Tabs ─────────────────────────────────────────────────────────────────
-    tab_road, tab_tree, tab_study, tab_discussion = st.tabs([
+    tab_road, tab_tree, tab_compare, tab_when, tab_all = st.tabs([
         "🗺️ Learning Roadmap",
-        "🌲 Learning Hub",
-        "📚 Study Material",
-        "💬 Discussion Board",
+        "🌲 Interactive Map",
+        "⚖️ Method Comparison",
+        "🎯 When to Use Which",
+        "📦 All Modules",
     ])
 
     # ════════════════════════════════════════════════════════════════════════
@@ -709,14 +549,31 @@ def show_home():
         st.pyplot(fig_tree, use_container_width=True)
         plt.close()
 
-        render_module_catalog("tree")
-        render_algorithm_selection_guide()
-        render_method_comparison()
+        st.markdown("### 🔗 Jump to Any Module")
+        # Grid of clickable buttons matching the tree
+        btn_rows = [
+            [("foundations","📐 Math Foundations","#4caf50"),("prereq","🧬 Deep Learning","#00897b")],
+            [("dp","🧮 DP","#6a1b9a"),("mc","🎲 MC","#7c4dff"),("td","⚡ TD","#e65100")],
+            [("vbrl","🎮 Value-Based","#1565c0"),("continuous","🎯 DDPG+TD3","#0288d1"),("ac","🎭 Actor-Critic","#7c4dff")],
+            [("imitation","🎓 Imitation","#ad1457"),("mbrl","🏗️ Model-Based","#e65100"),("offline","📦 Offline RL","#00897b")],
+            [("explore","🔍 Exploration","#f57f17"),("advanced","🚀 Advanced","#6a1b9a"),("transfer","🔄 Transfer/GRPO","#f57f17")],
+            [("engineering","🔧 Engineering","#546e7a"),("frontier","🔬 Frontier","#ad1457")],
+        ]
+        for row in btn_rows:
+            cols = st.columns(len(row))
+            for col_ui, (page_key, label, color) in zip(cols, row):
+                with col_ui:
+                    st.markdown(f'<div style="background:{color}22;border:1px solid {color}66;border-radius:8px;'
+                                f'padding:.3rem .5rem;text-align:center;margin:.15rem 0">'
+                                f'<span style="color:{color};font-size:.85rem;font-weight:700">{label}</span>'
+                                f'</div>', unsafe_allow_html=True)
+                    if st.button("Open →", key=f"tree_{page_key}", use_container_width=True):
+                        go(page_key)
 
     # ════════════════════════════════════════════════════════════════════════
     # TAB 3 — METHOD COMPARISON (UPDATED)
     # ════════════════════════════════════════════════════════════════════════
-    if False:
+    with tab_compare:
         st.markdown("""
         <h2 style="color:white;font-size:1.5rem;margin-bottom:.3rem">⚖️ RL Method Family Comparison</h2>
         <p style="color:#9e9ebb;margin-bottom:1.2rem">Complete comparison across all algorithm families including 2025 additions.</p>
@@ -823,7 +680,7 @@ def show_home():
     # ════════════════════════════════════════════════════════════════════════
     # TAB 4 — WHEN TO USE WHICH (now in new code)
     # ════════════════════════════════════════════════════════════════════════
-    if False:
+    with tab_when:
         st.markdown("""
         <h2 style="color:white;font-size:1.5rem;margin-bottom:.3rem">🎯 Decision Guide — What Algorithm for Your Problem?</h2>
         <p style="color:#9e9ebb;margin-bottom:1.2rem">Answer these questions in order. Covers all algorithms including 2025 additions.</p>
@@ -902,7 +759,7 @@ def show_home():
     # ════════════════════════════════════════════════════════════════════════
     # TAB 5 — ALL MODULES
     # ════════════════════════════════════════════════════════════════════════
-    if False:
+    with tab_all:
         st.markdown("""
         <h2 style="color:white;font-size:1.5rem;margin-bottom:.3rem">📦 All Modules</h2>
         <p style="color:#9e9ebb;margin-bottom:1.2rem">Click any module to jump directly to it.</p>
@@ -1003,20 +860,6 @@ def show_home():
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-    # ════════════════════════════════════════════════════════════════════════
-    # TAB 3 — STUDY MATERIAL
-    # ════════════════════════════════════════════════════════════════════════
-    with tab_study:
-        mod = load_study_material()
-        mod.main_study_material()
-
-    # ════════════════════════════════════════════════════════════════════════
-    # TAB 4 — DISCUSSION BOARD
-    # ════════════════════════════════════════════════════════════════════════
-    with tab_discussion:
-        mod = load_discussion_board()
-        mod.main_discussion_board()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1203,26 +1046,6 @@ def load_frontier():
     return mod
 
 
-@st.cache_resource(show_spinner=False)
-def load_study_material():
-    import importlib.util, sys
-    spec = importlib.util.spec_from_file_location("study_material_mod", "_study_material_mod.py")
-    mod  = importlib.util.module_from_spec(spec)
-    sys.modules["study_material_mod"] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-@st.cache_resource(show_spinner=False)
-def load_discussion_board():
-    import importlib.util, sys
-    spec = importlib.util.spec_from_file_location("discussion_mod", "_discussion_mod.py")
-    mod  = importlib.util.module_from_spec(spec)
-    sys.modules["discussion_mod"] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # ROUTER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1235,81 +1058,97 @@ elif page == "foundations":
     show_back_bar("Math & CS Foundations", "#80cbc4", "📐")
     mod = load_foundations()
     mod.main_foundations()
+    render_notes('Math & CS Foundations', 'foundations')
 
 elif page == "continuous":
     show_back_bar("Continuous Control: DDPG & TD3", "#81d4fa", "🎯")
     mod = load_continuous()
     mod.main_continuous()
+    render_notes('Continuous Control: DDPG & TD3', 'continuous_control_ddpg_td3')
 
 elif page == "imitation":
     show_back_bar("Imitation Learning", "#f48fb1", "🎓")
     mod = load_imitation()
     mod.main_imitation()
+    render_notes('Imitation Learning', 'imitation_learning')
 
 elif page == "transfer":
     show_back_bar("Transfer, Multi-Task & Modern Training", "#ffcc80", "🔄")
     mod = load_transfer()
     mod.main_transfer()
+    render_notes('Transfer, Multi-Task & Modern Training', 'transfer_multi_task_modern_training')
 
 elif page == "ac":
     show_back_bar("Actor-Critic & Policy Gradient", "#ce93d8", "🎭")
     mod = load_ac()
     mod.main_ac()
+    render_notes('Actor-Critic & Policy Gradient', 'actor_critic_policy_gradient')
 
 elif page == "vbrl":
     show_back_bar("Value-Based Deep RL", "#90caf9", "🎮")
     mod = load_vbrl()
     mod.main_vbrl()
+    render_notes('Value-Based Deep RL', 'value_based_deep_rl')
 
 elif page == "prereq":
     show_back_bar("Deep Learning Prerequisites", "#80cbc4", "🧬")
     mod = load_prereq()
     mod.main_prereq()
+    render_notes('Deep Learning Prerequisites', 'deep_learning_prerequisites')
 
 elif page == "dp":
     show_back_bar("Dynamic Programming", "#ce93d8", "🧮")
     mod = load_dp()
     mod.main_dp()
+    render_notes('Dynamic Programming', 'dynamic_programming')
 
 elif page == "mc":
     show_back_bar("Monte Carlo Methods", "#b39ddb", "🎲")
     mod = load_mc()
     mod.main_mc()
+    render_notes('Monte Carlo Methods', 'monte_carlo_methods')
 
 elif page == "td":
     show_back_bar("Temporal-Difference Learning", "#ffb74d", "⚡")
     mod = load_td()
     mod.main_td()
+    render_notes('Temporal-Difference Learning', 'temporal_difference_learning')
 
 elif page == "mbrl":
     show_back_bar("Model-Based RL", "#ff7043", "🏗️")
     mod = load_mbrl()
     mod.main_mbrl()
+    render_notes('Model-Based RL', 'model_based_rl')
 
 elif page == "offline":
     show_back_bar("Offline / Batch RL", "#80cbc4", "📦")
     mod = load_offline()
     mod.main_offline()
+    render_notes('Offline / Batch RL', 'offline_batch_rl')
 
 elif page == "explore":
     show_back_bar("Exploration Methods", "#ffd54f", "🔍")
     mod = load_explore()
     mod.main_explore()
+    render_notes('Exploration Methods', 'exploration_methods')
 
 elif page == "advanced":
     show_back_bar("Advanced Specialisations", "#b39ddb", "🚀")
     mod = load_advanced()
     mod.main_advanced()
+    render_notes('Advanced Specialisations', 'advanced_specialisations')
 
 elif page == "engineering":
     show_back_bar("Practical RL Engineering", "#90a4ae", "🔧")
     mod = load_engineering()
     mod.main_engineering()
+    render_notes('Practical RL Engineering', 'practical_rl_engineering')
 
 elif page == "frontier":
     show_back_bar("Frontier RL Research", "#f48fb1", "🔬")
     mod = load_frontier()
     mod.main_frontier()
+    render_notes('Frontier RL Research', 'frontier_rl_research')
 
 else:
     go("home")
