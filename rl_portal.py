@@ -132,6 +132,13 @@ div[data-testid="stMarkdownContainer"] h4 {
 }
 /* Hide auto-generated anchor link icon on all headings */
 a.anchor-link { display: none !important; }
+
+/* ── Proof / bordered containers ── */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #0a1a2e !important;
+    border-color: #1a3a5e !important;
+    border-radius: 10px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 

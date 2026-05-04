@@ -399,22 +399,20 @@ def main_ac():
         $p_\theta(\tau)$, which involves $p(s_0)$ and $p(s_{t+1}|s_t,a_t)$ — the environment
         dynamics that we do not know and cannot differentiate through.
         """)
-        st.markdown(_proof_box("The Log-Derivative Trick (REINFORCE gradient)",
-            """We start from the definition of J(θ) as an integral:<br>
-            J(θ) = ∫ p_θ(τ) r(τ) dτ<br><br>
-            Taking the gradient with respect to θ:<br>
-            ∇_θ J(θ) = ∫ ∇_θ p_θ(τ) r(τ) dτ<br><br>
-            Key identity: ∇_θ p_θ(τ) = p_θ(τ) · ∇_θ log p_θ(τ)<br>
-            (This follows from the chain rule: d/dθ log f(θ) = f'(θ)/f(θ), so f'(θ) = f(θ)·d/dθ log f(θ))<br><br>
-            Substituting:<br>
-            ∇_θ J(θ) = ∫ p_θ(τ) · ∇_θ log p_θ(τ) · r(τ) dτ = E_τ[∇_θ log p_θ(τ) · r(τ)]<br><br>
-            Now expand log p_θ(τ):<br>
-            log p_θ(τ) = log p(s_0) + Σ_t log π_θ(a_t|s_t) + Σ_t log p(s_{t+1}|s_t,a_t)<br><br>
-            Critical step: ∂/∂θ [log p(s_0)] = 0 (no θ dependence)<br>
-            Critical step: ∂/∂θ [log p(s_{t+1}|s_t,a_t)] = 0 (dynamics have no θ)<br><br>
-            Therefore: ∇_θ log p_θ(τ) = Σ_t ∇_θ log π_θ(a_t|s_t)<br><br>
-            FINAL RESULT: ∇_θ J(θ) = E_τ[Σ_t ∇_θ log π_θ(a_t|s_t) · Σ_t r(s_t,a_t)]"""),
-            unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**📐 Proof: The Log-Derivative Trick (REINFORCE gradient)**")
+            st.markdown(r"We start from the definition of $J(\theta)$ as an integral:")
+            st.latex(r"J(\theta) = \int p_\theta(\tau)\,r(\tau)\,d\tau")
+            st.markdown(r"Taking the gradient with respect to $\theta$:")
+            st.latex(r"\nabla_\theta J(\theta) = \int \nabla_\theta p_\theta(\tau)\,r(\tau)\,d\tau")
+            st.markdown(r"**Key identity:** $\nabla_\theta p_\theta(\tau) = p_\theta(\tau)\cdot\nabla_\theta\log p_\theta(\tau)$  (from $\frac{d}{d\theta}\log f = \frac{f'}{f}$, so $f' = f\cdot\frac{d}{d\theta}\log f$)")
+            st.markdown(r"**Substituting:**")
+            st.latex(r"\nabla_\theta J(\theta) = \int p_\theta(\tau)\cdot\nabla_\theta\log p_\theta(\tau)\cdot r(\tau)\,d\tau = \mathbb{E}_\tau\!\left[\nabla_\theta\log p_\theta(\tau)\cdot r(\tau)\right]")
+            st.markdown(r"**Expand $\log p_\theta(\tau)$:**")
+            st.latex(r"\log p_\theta(\tau) = \log p(s_0)+\sum_t\log\pi_\theta(a_t|s_t)+\sum_t\log p(s_{t+1}|s_t,a_t)")
+            st.markdown(r"**Critical steps:** $\frac{\partial}{\partial\theta}[\log p(s_0)]=0$ (no $\theta$) and $\frac{\partial}{\partial\theta}[\log p(s_{t+1}|s_t,a_t)]=0$ (dynamics have no $\theta$)")
+            st.markdown(r"**Therefore:** $\nabla_\theta\log p_\theta(\tau)=\sum_t\nabla_\theta\log\pi_\theta(a_t|s_t)$  — **FINAL RESULT:**")
+            st.latex(r"\nabla_\theta J(\theta)=\mathbb{E}_\tau\!\left[\sum_t\nabla_\theta\log\pi_\theta(a_t|s_t)\cdot\sum_t r(s_t,a_t)\right]")
 
         st.latex(r"\boxed{\nabla_\theta J(\theta) = \mathbb{E}_\tau\!\left[\sum_t \nabla_\theta\log\pi_\theta(a_t|s_t) \cdot \sum_t r(s_t,a_t)\right]}")
         st.markdown(r"""
@@ -514,20 +512,14 @@ def main_ac():
         A baseline $b(s_t)$ is any function of the state (not the action). We can subtract it
         from $G_t$ without changing the expected gradient. Here is the full proof:
         """)
-        st.markdown(_proof_box("Baseline Does Not Bias the Gradient",
-            """We need to show: E_τ[∇_θ log π_θ(a|s) · b(s)] = 0<br><br>
-            Expand the expectation over actions (the state s is fixed):<br>
-            E_{a∼π}[∇_θ log π_θ(a|s) · b(s)]<br>
-            = b(s) · E_{a∼π}[∇_θ log π_θ(a|s)]   (b(s) is constant w.r.t. action a)<br>
-            = b(s) · Σ_a π_θ(a|s) · ∇_θ log π_θ(a|s)<br>
-            = b(s) · Σ_a π_θ(a|s) · ∇_θπ_θ(a|s) / π_θ(a|s)   (definition of log derivative)<br>
-            = b(s) · Σ_a ∇_θπ_θ(a|s)   (cancel π_θ(a|s))<br>
-            = b(s) · ∇_θ Σ_a π_θ(a|s)   (swap sum and gradient, valid for finite actions)<br>
-            = b(s) · ∇_θ 1   (probabilities always sum to 1)<br>
-            = b(s) · 0 = 0 ✓<br><br>
-            Since adding b(s) to the gradient formula contributes zero in expectation,
-            the gradient is unchanged. But variance IS reduced because b(s) centres the
-            return signal around zero rather than its mean."""), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**📐 Proof: Baseline Does Not Bias the Gradient**")
+            st.markdown(r"Need to show: $\mathbb{E}_\tau[\nabla_\theta\log\pi_\theta(a|s)\cdot b(s)]=0$")
+            st.markdown(r"Expand the expectation over actions (state $s$ is fixed):")
+            st.latex(r"\mathbb{E}_{a\sim\pi}[\nabla_\theta\log\pi_\theta(a|s)\cdot b(s)] = b(s)\cdot\mathbb{E}_{a\sim\pi}[\nabla_\theta\log\pi_\theta(a|s)]")
+            st.latex(r"= b(s)\cdot\sum_a\pi_\theta(a|s)\cdot\frac{\nabla_\theta\pi_\theta(a|s)}{\pi_\theta(a|s)} = b(s)\cdot\sum_a\nabla_\theta\pi_\theta(a|s)")
+            st.latex(r"= b(s)\cdot\nabla_\theta\underbrace{\sum_a\pi_\theta(a|s)}_{=\;1} = b(s)\cdot 0 = 0\;\checkmark")
+            st.markdown(r"Since $b(s)$ contributes zero in expectation, the gradient is unchanged — but variance **is** reduced by centring the return signal.")
 
         st.markdown(r"""
         **With optimal baseline $b^*(s_t) = \mathbb{E}[G_t | s_t]$ (average return from this state):**
@@ -970,25 +962,23 @@ def main_ac():
         The n-step return can be written as a sum of TD errors:
         """)
         st.latex(r"R_t^{(n)} - V(s_t) = \sum_{k=0}^{n-1}\gamma^k\delta_{t+k}")
-        st.markdown(_proof_box("n-step return = sum of TD errors",
-            """R_t^(n) - V(s_t)<br>
-            = r_t + γr_{t+1} + ... + γ^{n-1}r_{t+n-1} + γ^n V(s_{t+n}) - V(s_t)<br>
-            = [r_t + γV(s_{t+1}) - V(s_t)] + γ[r_{t+1} + γV(s_{t+2}) - V(s_{t+1})] + ... + γ^{n-1}[...]<br>
-            = δ_t + γδ_{t+1} + γ²δ_{t+2} + ... + γ^{n-1}δ_{t+n-1}<br>
-            = Σ_{k=0}^{n-1} γ^k δ_{t+k}  ✓"""), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**📐 Proof: n-step return = sum of TD errors**")
+            st.latex(r"R_t^{(n)}-V(s_t)=r_t+\gamma r_{t+1}+\cdots+\gamma^{n-1}r_{t+n-1}+\gamma^n V(s_{t+n})-V(s_t)")
+            st.latex(r"=\underbrace{[r_t+\gamma V(s_{t+1})-V(s_t)]}_{\delta_t}+\gamma\underbrace{[r_{t+1}+\gamma V(s_{t+2})-V(s_{t+1})]}_{\delta_{t+1}}+\cdots+\gamma^{n-1}\delta_{t+n-1}")
+            st.latex(r"=\sum_{k=0}^{n-1}\gamma^k\delta_{t+k}\;\checkmark")
 
         st.markdown(r"""
         **GAE takes a weighted average of ALL n-step advantages:**
         """)
         st.latex(r"\hat A_t^{\text{GAE}(\gamma,\lambda)} = (1-\lambda)\sum_{n=1}^\infty \lambda^{n-1}\hat A_t^{(n)}")
-        st.markdown(_proof_box("GAE simplifies to sum of decayed TD errors",
-            """Expand the weighted sum: (1-λ)Σ_{n=1}^∞ λ^{n-1} Σ_{k=0}^{n-1} γ^k δ_{t+k}<br>
-            Swap the order of summation (each δ_{t+k} appears in all n > k terms):<br>
-            = (1-λ) Σ_{k=0}^∞ δ_{t+k} γ^k Σ_{n=k+1}^∞ λ^{n-1}<br>
-            = (1-λ) Σ_{k=0}^∞ δ_{t+k} γ^k · λ^k/(1-λ)   (geometric series)<br>
-            = Σ_{k=0}^∞ (γλ)^k δ_{t+k}<br><br>
-            FINAL: Â_t^GAE(γ,λ) = Σ_{k=0}^∞ (γλ)^k δ_{t+k} = δ_t + γλδ_{t+1} + (γλ)²δ_{t+2} + ..."""),
-            unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**📐 Proof: GAE simplifies to sum of decayed TD errors**")
+            st.markdown(r"Expand the weighted sum:")
+            st.latex(r"(1-\lambda)\sum_{n=1}^\infty\lambda^{n-1}\sum_{k=0}^{n-1}\gamma^k\delta_{t+k}")
+            st.markdown(r"Swap order of summation (each $\delta_{t+k}$ appears in all $n>k$ terms):")
+            st.latex(r"=(1-\lambda)\sum_{k=0}^\infty\delta_{t+k}\,\gamma^k\sum_{n=k+1}^\infty\lambda^{n-1} =(1-\lambda)\sum_{k=0}^\infty\delta_{t+k}\,\gamma^k\cdot\frac{\lambda^k}{1-\lambda}\quad\text{(geometric series)}")
+            st.latex(r"=\sum_{k=0}^\infty(\gamma\lambda)^k\delta_{t+k}=\delta_t+\gamma\lambda\delta_{t+1}+(\gamma\lambda)^2\delta_{t+2}+\cdots\;\checkmark")
 
         st.latex(r"\boxed{\hat A_t^{\text{GAE}(\gamma,\lambda)} = \sum_{k=0}^\infty(\gamma\lambda)^k\delta_{t+k}}")
         col1, col2 = st.columns(2)
@@ -1034,16 +1024,14 @@ def main_ac():
         **PPO clips** the ratio to prevent this:
         """)
         st.latex(r"L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\left(r_t(\theta)\hat A_t,\;\underbrace{\text{clip}(r_t(\theta),\,1-\varepsilon,\,1+\varepsilon)}_{\text{restricted to }[1-\varepsilon,1+\varepsilon]}\cdot\hat A_t\right)\right]")
-        st.markdown(_proof_box("Why min() gives a pessimistic lower bound",
-            """Case 1 — Positive advantage (A > 0): action is good, want to increase probability.<br>
-            If r_t > 1+ε: unclipped = r_t·A > (1+ε)·A, clipped = (1+ε)·A<br>
-            min() selects the CLIPPED (smaller) value — prevents over-reinforcing<br>
-            If r_t < 1+ε: unclipped = clipped → min selects either → no clipping<br><br>
-            Case 2 — Negative advantage (A < 0): action is bad, want to decrease probability.<br>
-            If r_t < 1-ε: unclipped = r_t·A < (1-ε)·A (less negative), clipped = (1-ε)·A<br>
-            min() selects the CLIPPED (smaller/more negative) value — prevents over-penalising<br><br>
-            Result: the gradient can never benefit from moving r_t outside [1-ε, 1+ε].
-            The policy is implicitly constrained to a trust region around π_ref."""), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**📐 Proof: Why min() gives a pessimistic lower bound**")
+            st.markdown(r"**Case 1 — $\hat{A}>0$ (good action):** want to increase probability.")
+            st.markdown(r"- $r_t>1+\varepsilon$: unclipped $=r_t\hat{A}>(1+\varepsilon)\hat{A}$, clipped $=(1+\varepsilon)\hat{A}$ → $\min$ picks **clipped** (prevents over-reinforcing)")
+            st.markdown(r"- $r_t\leq 1+\varepsilon$: both equal → no clipping")
+            st.markdown(r"**Case 2 — $\hat{A}<0$ (bad action):** want to decrease probability.")
+            st.markdown(r"- $r_t<1-\varepsilon$: clipped value is more negative → $\min$ picks **clipped** (prevents over-penalising)")
+            st.markdown(r"**Result:** gradient is zero whenever $r_t\notin[1-\varepsilon,\,1+\varepsilon]$ — the policy is implicitly constrained to a trust region around $\pi_\mathrm{ref}$.")
 
         # Interactive clip visualisation
         eps_v = st.slider("ε (clip range)", 0.05, 0.5, 0.2, 0.05, key="ppo2_eps")
@@ -1131,14 +1119,14 @@ def main_ac():
 
             st.markdown("**TRPO constrained optimisation:**")
             st.latex(r"\max_\theta\;L^{\text{PG}}(\theta) \quad\text{s.t.}\quad \overline{D}_\text{KL}(\pi_\theta\|\pi_\text{old})\leq\delta")
-            st.markdown(_proof_box("Monotonic Improvement Theorem",
-                """Define surrogate L^π(π') = J(π) + E_{s∼d^π}[E_{a∼π'}[A^π(s,a)]]<br>
-                Then: J(π') ≥ L^π(π') - C·max_s D_KL(π'||π)<br>
-                where C = 4γε/(1-γ)², ε = max|A^π(s,a)|<br><br>
-                If D_KL is bounded by δ, then J(π') is bounded below by L^π(π') - C·δ.<br>
-                Maximising L^π(π') while keeping D_KL ≤ δ guarantees improvement in J(π').<br>
-                This is the theoretical justification for trust regions — and for PPO's clip."""),
-                unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("**📐 Proof sketch: Monotonic Improvement Theorem (Kakade & Langford 2002)**")
+                st.markdown(r"Define the surrogate objective:")
+                st.latex(r"L^{\pi}(\pi')=J(\pi)+\mathbb{E}_{s\sim d^\pi}\!\left[\mathbb{E}_{a\sim\pi'}[A^\pi(s,a)]\right]")
+                st.markdown(r"Then for any policy $\pi'$:")
+                st.latex(r"J(\pi')\geq L^{\pi}(\pi')-C\cdot\max_s D_\mathrm{KL}(\pi'\|\pi)")
+                st.markdown(r"where $C=\dfrac{4\gamma\varepsilon}{(1-\gamma)^2}$, $\;\varepsilon=\max_{s,a}|A^\pi(s,a)|$")
+                st.markdown(r"Bounding $D_\mathrm{KL}\leq\delta$ guarantees improvement in $J(\pi')$. This is the theoretical basis for trust regions — and PPO's clip.")
 
             st.latex(r"J(\pi_\text{new}) \geq J(\pi_\text{old}) - \frac{4\gamma\varepsilon}{(1-\gamma)^2}\overline{D}_\text{KL}(\pi_\text{new}\|\pi_\text{old})")
 
