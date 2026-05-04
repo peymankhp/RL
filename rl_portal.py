@@ -100,22 +100,38 @@ div[data-testid="stMarkdownContainer"] code {
     padding: 1px 5px;
 }
 
-/* ── Headings (st.subheader / st.header / st.title) ── */
-[data-testid="stHeading"] {
+/* ── Headings — every source: st.subheader/header/title + st.markdown(###) ── */
+[data-testid="stHeading"],
+[data-testid="stHeadingWithActionElements"] {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
+    box-shadow: none !important;
 }
 [data-testid="stHeading"] h1,
 [data-testid="stHeading"] h2,
 [data-testid="stHeading"] h3,
-[data-testid="stHeading"] h4 {
+[data-testid="stHeading"] h4,
+[data-testid="stHeadingWithActionElements"] h1,
+[data-testid="stHeadingWithActionElements"] h2,
+[data-testid="stHeadingWithActionElements"] h3,
+[data-testid="stHeadingWithActionElements"] h4 {
     color: #e8e8f8 !important;
     background: transparent !important;
     border-bottom: none !important;
     padding-bottom: .2rem !important;
 }
-[data-testid="stHeading"] a.anchor-link { display: none !important; }
+/* Markdown ### headings inside stMarkdownContainer */
+div[data-testid="stMarkdownContainer"] h1,
+div[data-testid="stMarkdownContainer"] h2,
+div[data-testid="stMarkdownContainer"] h3,
+div[data-testid="stMarkdownContainer"] h4 {
+    color: #e8e8f8 !important;
+    background: transparent !important;
+    border-bottom: none !important;
+}
+/* Hide auto-generated anchor link icon on all headings */
+a.anchor-link { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
