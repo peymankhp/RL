@@ -68,6 +68,37 @@ div[data-testid="metric-container"] {
 /* ── Hide default Streamlit menu on landing ── */
 #MainMenu { visibility: hidden; }
 footer    { visibility: hidden; }
+
+/* ── LaTeX / KaTeX on dark background ── */
+div[data-testid="stLatex"] {
+    background: transparent !important;
+    padding: .4rem 0;
+}
+.katex, .katex-display { color: #e8e8f8 !important; }
+.katex-display { margin: .6rem 0 !important; }
+
+/* ── Prose markdown text contrast ── */
+div[data-testid="stMarkdownContainer"] p {
+    color: #d0d0e8 !important;
+    line-height: 1.75 !important;
+    font-size: .95rem;
+}
+div[data-testid="stMarkdownContainer"] li {
+    color: #d0d0e8 !important;
+    line-height: 1.7 !important;
+}
+/* Keep bold/strong readable */
+div[data-testid="stMarkdownContainer"] strong,
+div[data-testid="stMarkdownContainer"] b {
+    color: #f0f0ff !important;
+}
+/* Keep inline code legible */
+div[data-testid="stMarkdownContainer"] code {
+    background: #1e1e3a !important;
+    color: #82b1ff !important;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
 </style>
 """, unsafe_allow_html=True)
 
