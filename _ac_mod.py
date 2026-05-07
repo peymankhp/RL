@@ -55,6 +55,11 @@ def render_prerequisites_html() -> None:
     html_path = Path(__file__).resolve().parent / "portal_data" / "rl_methods_reference.html"
     components.html(html_path.read_text(encoding="utf-8"), height=900, scrolling=True)
 
+
+def render_policy_gradient_nutshell_html() -> None:
+    html_path = Path(__file__).resolve().parent / "portal_data" / "policy_gradient_deep_dive.html"
+    components.html(html_path.read_text(encoding="utf-8"), height=900, scrolling=True)
+
 # ── CartPole (no gym dependency) ──────────────────────────────────────────
 class CartPole:
     g=9.8; mc=1.0; mp=0.1; l=0.5; dt=0.02
@@ -370,9 +375,10 @@ def main_ac():
         "🔐 PPO",
         "🏛️ TRPO & SAC",
         "📈 Dashboard",
+        "Policy Gradient in a nutshell",
         "📚 Study Plan",
     ])
-    tab_pre, tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_plan = tabs
+    tab_pre, tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_pg_nutshell, tab_plan = tabs
 
     # ══════════════════════════════════════════════════════════════════
     # TAB 0 — OVERVIEW
@@ -1267,6 +1273,9 @@ def main_ac():
     # TAB 7 — STUDY PLAN
     # ══════════════════════════════════════════════════════════════════
         render_ac_notes("Dashboard", "actor_critic_policy_gradient_dashboard")
+
+    with tab_pg_nutshell:
+        render_policy_gradient_nutshell_html()
 
     with tab_plan:
         st.subheader("📚 4-Week Policy Gradient Mastery Plan")

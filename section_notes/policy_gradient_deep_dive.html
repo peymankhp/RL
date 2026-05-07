@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Policy Gradient: From First Principles to PPO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #13161e;
+    --bg3: #1a1e2a;
+    --border: #252a38;
+    --gold: #c9a84c;
+    --gold-dim: #8a6f30;
+    --amber: #e8b55a;
+    --text: #d4cfc8;
+    --text-dim: #8a8680;
+    --text-bright: #ece8e0;
+    --red: #c0392b;
+    --green: #27ae60;
+    --blue: #2980b9;
+    --teal: #1abc9c;
+    --purple: #8e44ad;
+    --sidebar-w: 260px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 19px;
+    line-height: 1.8;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────── */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 100;
+  }
+
+  #sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #sidebar-header .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  #sidebar-header h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-bright);
+    line-height: 1.3;
+  }
+
+  #toc { padding: 12px 0; }
+
+  .toc-section {
+    padding: 2px 0;
+  }
+
+  .toc-section-label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    padding: 10px 20px 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .toc-link {
+    display: block;
+    padding: 5px 20px 5px 28px;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-family: 'Crimson Pro', serif;
+    transition: all 0.2s;
+    border-left: 2px solid transparent;
+    position: relative;
+  }
+
+  .toc-link:hover { color: var(--gold); border-left-color: var(--gold); }
+  .toc-link.active { color: var(--amber); border-left-color: var(--amber); background: rgba(201,168,76,0.06); }
+
+  .toc-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--gold-dim);
+    margin-right: 6px;
+  }
+
+  /* ── MAIN CONTENT ─────────────────────────── */
+  #main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    max-width: 860px;
+    padding: 60px 64px 120px;
+  }
+
+  /* ── HERO ───────────────────────────────── */
+  #hero {
+    margin-bottom: 80px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  #hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: -64px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .eyebrow::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--gold-dim), transparent);
+    max-width: 120px;
+  }
+
+  h1.title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 52px;
+    font-weight: 300;
+    color: var(--text-bright);
+    line-height: 1.1;
+    margin-bottom: 24px;
+    letter-spacing: -1px;
+  }
+
+  h1.title em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .hero-desc {
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  /* ── CHAPTERS ───────────────────────────── */
+  .chapter {
+    margin-bottom: 72px;
+    scroll-margin-top: 32px;
+  }
+
+  .chapter-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .chapter-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    padding-top: 10px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    min-width: 28px;
+  }
+
+  h2.chapter-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 34px;
+    font-weight: 600;
+    color: var(--text-bright);
+    line-height: 1.15;
+  }
+
+  h3.section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--gold);
+    margin: 40px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h4.sub-title {
+    font-family: 'Crimson Pro', serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--amber);
+    margin: 28px 0 10px;
+    letter-spacing: 0.3px;
+  }
+
+  p {
+    margin-bottom: 16px;
+  }
+
+  strong { color: var(--text-bright); font-weight: 600; }
+  em { font-style: italic; color: var(--amber); }
+
+  /* ── MATH BLOCKS ─────────────────────────── */
+  .math-block {
+    margin: 28px 0;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 6px;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .math-block-inner {
+    padding: 20px 28px;
+    font-size: 16px;
+  }
+
+  .math-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    padding: 6px 12px;
+    background: rgba(201,168,76,0.06);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .math-block.derivation { border-left-color: var(--teal); }
+  .math-block.derivation .math-label { color: var(--teal); background: rgba(26,188,156,0.06); }
+
+  .math-block.critical { border-left-color: var(--red); }
+  .math-block.critical .math-label { color: var(--red); background: rgba(192,57,43,0.06); }
+
+  .math-block.result { border-left-color: var(--amber); background: rgba(232,181,90,0.04); }
+  .math-block.result .math-label { color: var(--amber); background: rgba(232,181,90,0.08); }
+
+  /* ── CALLOUTS ────────────────────────────── */
+  .callout {
+    margin: 24px 0;
+    padding: 16px 20px;
+    border-radius: 6px;
+    font-size: 17px;
+    line-height: 1.7;
+    border: 1px solid;
+  }
+
+  .callout-intuition {
+    background: rgba(41,128,185,0.07);
+    border-color: rgba(41,128,185,0.3);
+  }
+
+  .callout-intuition .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+
+  .callout-warning {
+    background: rgba(192,57,43,0.07);
+    border-color: rgba(192,57,43,0.3);
+  }
+
+  .callout-warning .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .callout-insight {
+    background: rgba(201,168,76,0.06);
+    border-color: rgba(201,168,76,0.25);
+  }
+
+  .callout-insight .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .callout-proof {
+    background: rgba(26,188,156,0.06);
+    border-color: rgba(26,188,156,0.25);
+  }
+
+  .callout-proof .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--teal);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  /* ── TERM DEFINITIONS ───────────────────── */
+  .term-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .term-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+
+  .term-symbol {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+    margin-bottom: 6px;
+  }
+
+  .term-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+
+  .term-desc {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ── DERIVATION STEPS ───────────────────── */
+  .deriv-chain {
+    margin: 28px 0;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .deriv-step {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .deriv-step:last-child { border-bottom: none; }
+
+  .deriv-math {
+    padding: 16px 20px;
+    border-right: 1px solid var(--border);
+    font-size: 15px;
+    overflow-x: auto;
+    display: flex;
+    align-items: center;
+  }
+
+  .deriv-why {
+    padding: 16px 18px;
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+  }
+
+  .deriv-why strong { color: var(--gold); font-size: 13px; }
+
+  .step-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(201,168,76,0.15);
+    color: var(--gold);
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  /* ── ALGORITHM BOX ───────────────────────── */
+  .algorithm-box {
+    margin: 28px 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .algorithm-header {
+    background: rgba(201,168,76,0.1);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+
+  .algorithm-body {
+    padding: 18px 22px;
+  }
+
+  .algorithm-step {
+    display: flex;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .algorithm-step:last-child { border-bottom: none; }
+
+  .step-n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold-dim);
+    min-width: 24px;
+    padding-top: 3px;
+  }
+
+  /* ── COMPARISON TABLE ─────────────────────── */
+  .cmp-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 15px;
+  }
+
+  .cmp-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-bottom: 2px solid var(--gold-dim);
+    text-align: left;
+  }
+
+  .cmp-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .cmp-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+
+  .badge-red { background: rgba(192,57,43,0.2); color: #e74c3c; }
+  .badge-green { background: rgba(39,174,96,0.2); color: #2ecc71; }
+  .badge-amber { background: rgba(232,181,90,0.2); color: var(--amber); }
+  .badge-blue { background: rgba(41,128,185,0.2); color: #3498db; }
+
+  /* ── DIVIDER ─────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 56px 0;
+  }
+
+  /* ── HIGHLIGHT INLINE ─────────────────────── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    background: rgba(255,255,255,0.07);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--amber);
+  }
+
+  /* ── PROGRESS ────────────────────────────── */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    background: linear-gradient(to right, var(--gold), var(--amber));
+    z-index: 999;
+    transition: width 0.1s;
+  }
+
+  /* ── SCROLLBAR ───────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── HIGHLIGHT BOX ─────────────────────── */
+  .highlight-box {
+    background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(232,181,90,0.04));
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 24px 0;
+  }
+
+  .highlight-box h4 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+
+  /* ── SPINE DECORATION ─────────────────── */
+  .section-spine {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 48px 0 24px;
+  }
+
+  .spine-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--gold-dim), transparent);
+  }
+
+  .spine-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+  }
+
+  /* ── EQUATION ANNOTATION ──────────────── */
+  .eq-annotated {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 16px 20px;
+    margin: 20px 0;
+    align-items: start;
+  }
+
+  .eq-term {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+
+  .eq-meaning {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .eq-meaning strong { color: var(--text-bright); }
+
+  @media (max-width: 900px) {
+    #sidebar { display: none; }
+    #main { margin-left: 0; padding: 32px 24px; }
+    .term-grid { grid-template-columns: 1fr; }
+    .deriv-step { grid-template-columns: 1fr; }
+    .deriv-math { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- ══ SIDEBAR ══ -->
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <div class="logo">Deep RL</div>
+    <h2>Policy Gradient: First Principles to PPO</h2>
+  </div>
+  <div id="toc">
+    <div class="toc-section">
+      <div class="toc-section-label">Foundations</div>
+      <a class="toc-link" href="#ch1"><span class="toc-num">01</span>MDP & First Principles</a>
+      <a class="toc-link" href="#ch2"><span class="toc-num">02</span>Trajectory Probability</a>
+      <a class="toc-link" href="#ch3"><span class="toc-num">03</span>Objective Function J(θ)</a>
+    </div>
+    <div class="toc-section">
+      <div class="toc-section-label">The Gradient</div>
+      <a class="toc-link" href="#ch4"><span class="toc-num">04</span>Log-Derivative Trick</a>
+      <a class="toc-link" href="#ch5"><span class="toc-num">05</span>Simplifying ∇log p(τ)</a>
+      <a class="toc-link" href="#ch6"><span class="toc-num">06</span>REINFORCE Gradient</a>
+    </div>
+    <div class="toc-section">
+      <div class="toc-section-label">Algorithm & Analysis</div>
+      <a class="toc-link" href="#ch7"><span class="toc-num">07</span>REINFORCE Algorithm</a>
+      <a class="toc-link" href="#ch8"><span class="toc-num">08</span>High Variance Problem</a>
+      <a class="toc-link" href="#ch9"><span class="toc-num">09</span>Causality & Reward-to-Go</a>
+      <a class="toc-link" href="#ch10"><span class="toc-num">10</span>Baselines & Advantage</a>
+    </div>
+    <div class="toc-section">
+      <div class="toc-section-label">Extensions</div>
+      <a class="toc-link" href="#ch11"><span class="toc-num">11</span>Off-Policy via IS</a>
+      <a class="toc-link" href="#ch12"><span class="toc-num">12</span>Actor-Critic</a>
+      <a class="toc-link" href="#ch13"><span class="toc-num">13</span>A2C & Entropy</a>
+      <a class="toc-link" href="#ch14"><span class="toc-num">14</span>GAE & PPO</a>
+      <a class="toc-link" href="#ch15"><span class="toc-num">15</span>TRPO & SAC</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ MAIN ══ -->
+<main id="main">
+
+  <!-- HERO -->
+  <div id="hero">
+    <div class="eyebrow">Reinforcement Learning · Master Class</div>
+    <h1 class="title">Policy Gradient<br><em>from First Principles</em></h1>
+    <p class="hero-desc">A line-by-line derivation from the definition of an MDP through REINFORCE, variance reduction, Actor-Critic, and PPO — built so you can teach every step.</p>
+  </div>
+
+
+  <!-- ══ CHAPTER 1 ══ -->
+  <section class="chapter" id="ch1">
+    <div class="chapter-header">
+      <div class="chapter-num">01</div>
+      <h2 class="chapter-title">MDP & First Principles</h2>
+    </div>
+
+    <p>Before we can optimize anything, we need to be precise about what world we are operating in. That world is a <strong>Markov Decision Process</strong>.</p>
+
+    <h3 class="section-title">1.1 The Markov Decision Process</h3>
+
+    <p>A Markov Decision Process is a mathematical framework for sequential decision-making under uncertainty. It is defined by a tuple \(\mathcal{M} = (\mathcal{S}, \mathcal{A}, p, r, \gamma)\):</p>
+
+    <div class="term-grid">
+      <div class="term-item">
+        <div class="term-symbol">\(\mathcal{S}\)</div>
+        <div class="term-name">State space</div>
+        <div class="term-desc">The set of all possible situations the agent can find itself in. Could be discrete (chess positions) or continuous (robot joint angles).</div>
+      </div>
+      <div class="term-item">
+        <div class="term-symbol">\(\mathcal{A}\)</div>
+        <div class="term-name">Action space</div>
+        <div class="term-desc">The set of all actions the agent can choose. Again, discrete (up/down/left/right) or continuous (torque values).</div>
+      </div>
+      <div class="term-item">
+        <div class="term-symbol">\(p(s'|s,a)\)</div>
+        <div class="term-name">Transition dynamics</div>
+        <div class="term-desc">The probability of landing in state \(s'\) when taking action \(a\) in state \(s\). This encodes the physics of the world.</div>
+      </div>
+      <div class="term-item">
+        <div class="term-symbol">\(r(s,a)\)</div>
+        <div class="term-name">Reward function</div>
+        <div class="term-desc">The scalar feedback signal: how desirable is taking action \(a\) in state \(s\)? This encodes what we want the agent to do.</div>
+      </div>
+      <div class="term-item">
+        <div class="term-symbol">\(\gamma \in [0,1)\)</div>
+        <div class="term-name">Discount factor</div>
+        <div class="term-desc">How much the agent values future rewards relative to immediate ones. \(\gamma=0\): only care about now. \(\gamma \to 1\): plan infinitely far ahead.</div>
+      </div>
+      <div class="term-item">
+        <div class="term-symbol">\(p(s_1)\)</div>
+        <div class="term-name">Initial state distribution</div>
+        <div class="term-desc">Probability distribution over starting states. The agent has no control over this — it's part of the environment.</div>
+      </div>
+    </div>
+
+    <p>The crucial word is <em>Markov</em>: the probability of the next state depends <em>only</em> on the current state and action, not on any history. This is written:</p>
+
+    <div class="math-block">
+      <div class="math-label">Markov Property</div>
+      <div class="math-block-inner">\[ p(s_{t+1} | s_t, a_t, s_{t-1}, a_{t-1}, \ldots, s_1, a_1) = p(s_{t+1} | s_t, a_t) \]</div>
+    </div>
+
+    <div class="callout callout-intuition">
+      <div class="callout-title">Intuition</div>
+      The state must be a <em>sufficient statistic</em> of the past. For chess, the board position is the entire relevant history — you don't need to know how you arrived there. For a robot arm, joint positions and velocities form the state because Newton's laws only depend on current configuration, not history. If your state representation satisfies the Markov property, the MDP framework is exact. If not, it is an approximation.
+    </div>
+
+    <h3 class="section-title">1.2 What is a Policy?</h3>
+
+    <p>The agent's behavior is described by a <strong>policy</strong> \(\pi\). A policy is a mapping from states to actions — it answers the question: <em>given where I am, what should I do?</em></p>
+
+    <p>Policies can be deterministic: \(\pi: \mathcal{S} \to \mathcal{A}\), meaning a single action is selected with certainty. But for our purposes we work with <strong>stochastic policies</strong>:</p>
+
+    <div class="math-block">
+      <div class="math-label">Stochastic Policy</div>
+      <div class="math-block-inner">\[ \pi_\theta(a | s) = \Pr(A_t = a \mid S_t = s;\, \theta) \]</div>
+    </div>
+
+    <p>Here \(\theta\) are the parameters of the policy — think of the weights of a neural network that takes state \(s\) as input and outputs a probability distribution over actions. We want to <em>find the best \(\theta\)</em>.</p>
+
+    <div class="callout callout-insight">
+      <div class="callout-title">Why stochastic?</div>
+      A deterministic policy is a special case. But stochastic policies have advantages: (1) they naturally model exploration — the agent might occasionally try suboptimal actions and discover they're actually better; (2) in partially observable or adversarial environments, mixing actions prevents the opponent from predicting you; (3) the gradient of a stochastic policy with respect to \(\theta\) is well-defined and non-zero everywhere, which is essential for gradient-based optimization.
+    </div>
+
+    <h3 class="section-title">1.3 Return and Expectation</h3>
+
+    <p>A single interaction produces a <strong>trajectory</strong> \(\tau\): a sequence of states, actions, and rewards over time.</p>
+
+    <div class="math-block">
+      <div class="math-label">Trajectory</div>
+      <div class="math-block-inner">\[ \tau = (s_1, a_1, r_1, s_2, a_2, r_2, \ldots, s_T, a_T, r_T) \]</div>
+    </div>
+
+    <p>The <strong>return</strong> \(G(\tau)\) is the total accumulated (discounted) reward along a trajectory:</p>
+
+    <div class="math-block">
+      <div class="math-label">Discounted Return</div>
+      <div class="math-block-inner">\[ G(\tau) = \sum_{t=1}^{T} \gamma^{t-1} r(s_t, a_t) \]</div>
+    </div>
+
+    <p>The discount \(\gamma^{t-1}\) makes rewards further in the future count for less. This is both mathematically convenient (it ensures the sum is finite in infinite-horizon problems) and economically natural (a reward now is generally worth more than the same reward later, because of uncertainty about what happens between now and then).</p>
+
+    <p>Since trajectories are random — the initial state is drawn from \(p(s_1)\), actions are sampled from \(\pi_\theta(a|s)\), and next states from \(p(s'|s,a)\) — the return \(G(\tau)\) is a <em>random variable</em>. We care about its expected value:</p>
+
+    <div class="math-block result">
+      <div class="math-label">Expected Return — the thing we want to maximize</div>
+      <div class="math-block-inner">\[ J(\theta) = \mathbb{E}_{\tau \sim p_\theta(\tau)}\bigl[G(\tau)\bigr] \]</div>
+    </div>
+
+    <p>The expectation \(\mathbb{E}\) is taken over all possible trajectories, weighted by how likely each trajectory is under our policy \(\pi_\theta\). This is the central object of all policy gradient methods.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 2 ══ -->
+  <section class="chapter" id="ch2">
+    <div class="chapter-header">
+      <div class="chapter-num">02</div>
+      <h2 class="chapter-title">Trajectory Probability</h2>
+    </div>
+
+    <p>To compute the expectation in \(J(\theta)\), we need an explicit expression for how likely any given trajectory is. Let us build it from scratch.</p>
+
+    <h3 class="section-title">2.1 Factoring the Joint Probability</h3>
+
+    <p>A trajectory \(\tau = (s_1, a_1, s_2, a_2, \ldots, s_T, a_T)\) occurs through a chain of events. Using the chain rule of probability and the Markov property:</p>
+
+    <div class="deriv-chain">
+      <div class="deriv-step">
+        <div class="deriv-math">\(p_\theta(\tau) = p(s_1, a_1, s_2, a_2, \ldots, s_T, a_T)\)</div>
+        <div class="deriv-why"><strong>Start:</strong> joint probability of the entire sequence</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(= p(s_1) \cdot \pi_\theta(a_1|s_1) \cdot p(s_2|s_1,a_1) \cdots\)</div>
+        <div class="deriv-why"><strong>Chain rule:</strong> factor each event given the previous ones. The Markov property makes \(p(s_{t+1})\) depend only on \((s_t, a_t)\).</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(= p(s_1) \prod_{t=1}^{T} \pi_\theta(a_t|s_t)\, p(s_{t+1}|s_t, a_t)\)</div>
+        <div class="deriv-why"><strong>Compact form:</strong> the product structure reflects that each timestep is conditionally independent given the previous one.</div>
+      </div>
+    </div>
+
+    <div class="math-block result">
+      <div class="math-label">Trajectory Distribution (key formula)</div>
+      <div class="math-block-inner">\[ p_\theta(\tau) = p(s_1) \prod_{t=1}^{T} \pi_\theta(a_t|s_t)\, p(s_{t+1}|s_t, a_t) \]</div>
+    </div>
+
+    <p>This decomposition has a critical structure: the factors split into three groups.</p>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(p(s_1)\)</div>
+      <div class="eq-meaning"><strong>Initial state distribution</strong> — entirely outside our control. We cannot optimize this with \(\theta\).</div>
+      <div class="eq-term">\(\pi_\theta(a_t|s_t)\)</div>
+      <div class="eq-meaning"><strong>Policy's action probabilities</strong> — the only factor that depends on \(\theta\). This is where our learning happens.</div>
+      <div class="eq-term">\(p(s_{t+1}|s_t,a_t)\)</div>
+      <div class="eq-meaning"><strong>Environment dynamics</strong> — also outside our control. We typically don't know this distribution explicitly (it's the physics/simulator).</div>
+    </div>
+
+    <div class="callout callout-insight">
+      <div class="callout-title">The Key Insight</div>
+      Only the policy terms \(\pi_\theta(a_t|s_t)\) depend on \(\theta\). The initial distribution \(p(s_1)\) and dynamics \(p(s_{t+1}|s_t,a_t)\) are properties of the environment, not the agent. This observation is what enables the entire derivation — and it's why the log-derivative trick will eliminate the terms we don't know.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 3 ══ -->
+  <section class="chapter" id="ch3">
+    <div class="chapter-header">
+      <div class="chapter-num">03</div>
+      <h2 class="chapter-title">The Objective Function J(θ)</h2>
+    </div>
+
+    <h3 class="section-title">3.1 What Are We Maximizing?</h3>
+
+    <p>We can now write the full objective in explicit integral form:</p>
+
+    <div class="math-block">
+      <div class="math-label">Objective — integral form</div>
+      <div class="math-block-inner">\[ J(\theta) = \mathbb{E}_{\tau \sim p_\theta(\tau)}[r(\tau)] = \int p_\theta(\tau)\, r(\tau)\, d\tau \]</div>
+    </div>
+
+    <p>where we use shorthand \(r(\tau) = \sum_{t=1}^T r(s_t, a_t)\) for the undiscounted return along trajectory \(\tau\). (In practice one adds \(\gamma\), but we follow the convention in the notes where \(\gamma\) is absorbed or treated as \(\approx 1\) for derivation clarity.)</p>
+
+    <h3 class="section-title">3.2 Why This is the Right Objective</h3>
+
+    <p>You might ask: why <em>expectation</em>? Why not maximize the return of the single best trajectory?</p>
+
+    <p>The answer is that we want a <em>policy</em> — a consistent decision rule — not a lucky sequence. Maximizing expected return forces the policy to be good <em>on average</em> across all possible starting states and all possible random outcomes in the environment. A policy that gets lucky once but fails in general is not what we want.</p>
+
+    <p>Furthermore, we can equivalently write:</p>
+
+    <div class="math-block">
+      <div class="math-label">Alternative form — sum over timesteps</div>
+      <div class="math-block-inner">\[ \theta^* = \arg\max_\theta \sum_{t=1}^T \mathbb{E}_{(s_t, a_t) \sim p_\theta(s_t, a_t)}\bigl[r(s_t, a_t)\bigr] \]</div>
+    </div>
+
+    <p>This form shows that maximizing total expected return is equivalent to maximizing expected reward at <em>every</em> timestep simultaneously. The marginal distributions \(p_\theta(s_t, a_t)\) depend on \(\theta\) because the policy determines which states are visited.</p>
+
+    <h3 class="section-title">3.3 Monte Carlo Approximation</h3>
+
+    <p>The integral \(\int p_\theta(\tau) r(\tau) d\tau\) is intractable in general — the space of all trajectories is astronomically large. In practice, we estimate it by sampling \(N\) trajectories:</p>
+
+    <div class="math-block">
+      <div class="math-label">Monte Carlo Estimator of J(θ)</div>
+      <div class="math-block-inner">\[ J(\theta) \approx \frac{1}{N} \sum_{i=1}^N \sum_{t=1}^T r(s_{i,t},\, a_{i,t}) \]</div>
+    </div>
+
+    <p>This is an unbiased estimator: its expected value is exactly \(J(\theta)\). But it can have high variance when individual trajectories vary a lot in their returns — a problem we'll address later.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 4 ══ -->
+  <section class="chapter" id="ch4">
+    <div class="chapter-header">
+      <div class="chapter-num">04</div>
+      <h2 class="chapter-title">The Log-Derivative Trick</h2>
+    </div>
+
+    <p>We want to <em>maximize</em> \(J(\theta)\), which means we need its gradient \(\nabla_\theta J(\theta)\). Let us compute it.</p>
+
+    <h3 class="section-title">4.1 The Problem</h3>
+
+    <p>The naive approach: differentiate inside the integral.</p>
+
+    <div class="math-block">
+      <div class="math-label">Starting point</div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) = \nabla_\theta \int p_\theta(\tau)\, r(\tau)\, d\tau = \int \nabla_\theta p_\theta(\tau)\, r(\tau)\, d\tau \]</div>
+    </div>
+
+    <p>(We are allowed to move the gradient inside the integral under mild regularity conditions, which we assume hold.)</p>
+
+    <p>Now we have \(\nabla_\theta p_\theta(\tau)\). The trouble: we cannot sample from \(\nabla_\theta p_\theta(\tau)\) — it is not a probability distribution (it can be negative!). We need to convert this into an <em>expectation</em> so we can estimate it with samples.</p>
+
+    <h3 class="section-title">4.2 The Trick: Log-Derivative Identity</h3>
+
+    <p>There is a beautiful calculus identity that saves us. For any differentiable function \(f(\theta) > 0\):</p>
+
+    <div class="math-block derivation">
+      <div class="math-label">Log-Derivative Identity</div>
+      <div class="math-block-inner">\[ \nabla_\theta \log f(\theta) = \frac{\nabla_\theta f(\theta)}{f(\theta)} \quad \Longleftrightarrow \quad \nabla_\theta f(\theta) = f(\theta)\, \nabla_\theta \log f(\theta) \]</div>
+    </div>
+
+    <p>This is nothing but the chain rule: \(\frac{d}{d\theta} \log f = \frac{1}{f} \cdot f'\). It is trivial as calculus, but extraordinarily useful here.</p>
+
+    <h3 class="section-title">4.3 Applying the Trick</h3>
+
+    <p>We apply the identity \(\nabla_\theta p_\theta(\tau) = p_\theta(\tau) \cdot \nabla_\theta \log p_\theta(\tau)\) inside our integral. Let's go step by step:</p>
+
+    <div class="deriv-chain">
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle \int \nabla_\theta p_\theta(\tau)\, r(\tau)\, d\tau\)</div>
+        <div class="deriv-why"><strong>Where we are:</strong> gradient of p, not sampleable.</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle = \int p_\theta(\tau) \cdot \frac{\nabla_\theta p_\theta(\tau)}{p_\theta(\tau)} \cdot r(\tau)\, d\tau\)</div>
+        <div class="deriv-why"><strong>Multiply and divide</strong> by \(p_\theta(\tau)\). Legal because \(p_\theta(\tau) > 0\) everywhere (under continuous distributions).</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle = \int p_\theta(\tau) \cdot \nabla_\theta \log p_\theta(\tau) \cdot r(\tau)\, d\tau\)</div>
+        <div class="deriv-why"><strong>Apply log-derivative identity:</strong> \(\frac{\nabla_\theta p_\theta(\tau)}{p_\theta(\tau)} = \nabla_\theta \log p_\theta(\tau)\)</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle = \mathbb{E}_{\tau \sim p_\theta(\tau)}\bigl[\nabla_\theta \log p_\theta(\tau) \cdot r(\tau)\bigr]\)</div>
+        <div class="deriv-why"><strong>Recognize as expectation:</strong> \(\int p_\theta(\tau)(\cdot)\,d\tau = \mathbb{E}_{p_\theta}[\cdot]\). Now sampleable!</div>
+      </div>
+    </div>
+
+    <div class="math-block result">
+      <div class="math-label">Policy Gradient (general form)</div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim p_\theta(\tau)}\bigl[\nabla_\theta \log p_\theta(\tau) \cdot r(\tau)\bigr] \]</div>
+    </div>
+
+    <h3 class="section-title">4.4 Why This Trick Is Profound</h3>
+
+    <p>Before the trick, we had a quantity we could not estimate with samples. After the trick, we have an <em>expectation</em> under \(p_\theta\) — which we estimate simply by running the policy and averaging. Specifically:</p>
+
+    <div class="callout callout-intuition">
+      <div class="callout-title">What we gained</div>
+      <p><strong>Before:</strong> \(\int \nabla_\theta p_\theta(\tau) r(\tau) d\tau\) — not an expectation under \(p_\theta\). Cannot be estimated by sampling trajectories.</p>
+      <p style="margin-top:8px;"><strong>After:</strong> \(\mathbb{E}_{p_\theta}[\nabla_\theta \log p_\theta(\tau) \cdot r(\tau)]\) — <em>is</em> an expectation under \(p_\theta\). Estimate by: sample trajectories from \(\pi_\theta\), compute \(\nabla_\theta \log p_\theta(\tau) \cdot r(\tau)\) for each, average them. Done.</p>
+    </div>
+
+    <p>This is also known as the <strong>likelihood ratio estimator</strong> or the <strong>score function estimator</strong>. The quantity \(\nabla_\theta \log p_\theta(\tau)\) is the <em>score function</em> of the trajectory distribution — a standard object in statistics.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 5 ══ -->
+  <section class="chapter" id="ch5">
+    <div class="chapter-header">
+      <div class="chapter-num">05</div>
+      <h2 class="chapter-title">Simplifying \(\nabla_\theta \log p_\theta(\tau)\)</h2>
+    </div>
+
+    <p>We now expand \(\nabla_\theta \log p_\theta(\tau)\) using the explicit form of \(p_\theta(\tau)\) derived in Chapter 2. This is where the unknown environment terms vanish.</p>
+
+    <h3 class="section-title">5.1 Taking the Log</h3>
+
+    <p>Recall \(p_\theta(\tau) = p(s_1) \prod_{t=1}^{T} \pi_\theta(a_t|s_t)\, p(s_{t+1}|s_t, a_t)\). The logarithm converts products to sums:</p>
+
+    <div class="math-block derivation">
+      <div class="math-label">Expanding the log</div>
+      <div class="math-block-inner">\[ \log p_\theta(\tau) = \log p(s_1) + \sum_{t=1}^{T} \log \pi_\theta(a_t|s_t) + \sum_{t=1}^{T} \log p(s_{t+1}|s_t, a_t) \]</div>
+    </div>
+
+    <h3 class="section-title">5.2 Taking the Gradient w.r.t. θ</h3>
+
+    <p>Now we differentiate with respect to \(\theta\). This is the beautiful step:</p>
+
+    <div class="deriv-chain">
+      <div class="deriv-step">
+        <div class="deriv-math">\(\nabla_\theta \log p_\theta(\tau) = \nabla_\theta \log p(s_1) + \nabla_\theta \sum_t \log \pi_\theta(a_t|s_t) + \nabla_\theta \sum_t \log p(s_{t+1}|s_t,a_t)\)</div>
+        <div class="deriv-why"><strong>Linearity of gradient:</strong> gradient of a sum is the sum of gradients.</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(= \;0\; + \;\sum_{t=1}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t)\; + \;0\)</div>
+        <div class="deriv-why"><strong>Key cancellation:</strong> \(p(s_1)\) and \(p(s_{t+1}|s_t,a_t)\) do not depend on \(\theta\), so their gradients are zero!</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(= \sum_{t=1}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t)\)</div>
+        <div class="deriv-why"><strong>Result:</strong> only the policy terms survive. The environment is gone entirely.</div>
+      </div>
+    </div>
+
+    <div class="math-block result">
+      <div class="math-label">Score of the trajectory — environment-free</div>
+      <div class="math-block-inner">\[ \nabla_\theta \log p_\theta(\tau) = \sum_{t=1}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t) \]</div>
+    </div>
+
+    <div class="callout callout-insight">
+      <div class="callout-title">Why this is remarkable</div>
+      We started with the trajectory distribution \(p_\theta(\tau)\), which includes the unknown dynamics \(p(s_{t+1}|s_t,a_t)\) and the unknown initial distribution \(p(s_1)\). After taking the log-gradient, <em>both unknown terms vanish</em>. Only the policy terms remain — and crucially, these are functions of \(\theta\) that we can compute directly! This is why model-free policy gradient methods can work without knowing the dynamics of the environment.
+    </div>
+
+    <h3 class="section-title">5.3 Intuition for the Score Function</h3>
+
+    <p>What does \(\nabla_\theta \log \pi_\theta(a_t|s_t)\) mean intuitively? It is the direction in parameter space that <em>increases the probability of action \(a_t\) in state \(s_t\)</em>. Think of it as a "voting signal": this quantity points in the direction "make action \(a_t\) more likely when in state \(s_t\)."</p>
+
+    <p>The policy gradient will take this score and weight it by the return \(r(\tau)\). So the final rule is: <em>make an action more likely if the trajectory that contained it had high return; make it less likely if the return was low.</em></p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 6 ══ -->
+  <section class="chapter" id="ch6">
+    <div class="chapter-header">
+      <div class="chapter-num">06</div>
+      <h2 class="chapter-title">The REINFORCE Gradient</h2>
+    </div>
+
+    <h3 class="section-title">6.1 Plugging In</h3>
+
+    <p>We now substitute our simplified score function back into the general policy gradient formula from Chapter 4:</p>
+
+    <div class="math-block result">
+      <div class="math-label">Policy Gradient Theorem (REINFORCE form)</div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim p_\theta(\tau)}\!\left[\left(\sum_{t=1}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t)\right)\!\left(\sum_{t=1}^{T} r(s_t, a_t)\right)\right] \]</div>
+    </div>
+
+    <p>Let us decode each factor:</p>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t)\)</div>
+      <div class="eq-meaning"><strong>Total score of the trajectory.</strong> This is the direction to move \(\theta\) to make this entire sequence of actions more probable. Each term tells you: "shift \(\theta\) to make action \(a_t\) more likely in state \(s_t\)."</div>
+      <div class="eq-term">\(\sum_t r(s_t, a_t)\)</div>
+      <div class="eq-meaning"><strong>Total return of the trajectory.</strong> This acts as a scalar weight. If the trajectory was good (positive total reward), the score is added. If bad, it is subtracted. This is reinforcement learning in its purest form.</div>
+    </div>
+
+    <h3 class="section-title">6.2 Monte Carlo Estimator</h3>
+
+    <p>The expectation is estimated by collecting \(N\) trajectories:</p>
+
+    <div class="math-block">
+      <div class="math-label">Practical Gradient Estimator</div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) \approx \frac{1}{N} \sum_{i=1}^{N} \left(\sum_{t=1}^{T} \nabla_\theta \log \pi_\theta(a_{i,t}|s_{i,t})\right)\!\left(\sum_{t=1}^{T} r(s_{i,t}, a_{i,t})\right) \]</div>
+    </div>
+
+    <p>Subscript \(i\) indexes over trajectories, subscript \(t\) indexes over time within a trajectory. For trajectory \(i\), we compute the total score and total return, multiply them, and average across all \(N\) trajectories.</p>
+
+    <h3 class="section-title">6.3 The Connection to Supervised Learning</h3>
+
+    <div class="callout callout-intuition">
+      <div class="callout-title">Analogy with supervised learning</div>
+      In supervised learning, we maximize log-likelihood: \(\nabla_\theta \sum_i \log p_\theta(y_i|x_i)\). The policy gradient looks almost the same: \(\nabla_\theta \sum_i \log \pi_\theta(a_i|s_i) \cdot R_i\). The difference is the weight \(R_i\): instead of treating every action equally (as supervised learning does), policy gradient <em>weights each action by how good the trajectory was</em>. Good trajectories get reinforced; bad ones get suppressed. This is precisely the "trial and error" nature of reinforcement learning.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 7 ══ -->
+  <section class="chapter" id="ch7">
+    <div class="chapter-header">
+      <div class="chapter-num">07</div>
+      <h2 class="chapter-title">The REINFORCE Algorithm</h2>
+    </div>
+
+    <div class="algorithm-box">
+      <div class="algorithm-header">Algorithm: REINFORCE (Williams, 1992)</div>
+      <div class="algorithm-body">
+        <div class="algorithm-step">
+          <div class="step-n">1.</div>
+          <div><strong>Initialize</strong> policy parameters \(\theta\) randomly.</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">2.</div>
+          <div><strong>Sample</strong> \(N\) trajectories \(\{\tau_i\}_{i=1}^N\) by running \(\pi_\theta\) in the environment. Each trajectory: start in \(s_1 \sim p(s_1)\), then repeatedly sample \(a_t \sim \pi_\theta(\cdot|s_t)\), observe \(s_{t+1} \sim p(\cdot|s_t, a_t)\), receive \(r_t = r(s_t, a_t)\), until episode ends.</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">3.</div>
+          <div><strong>Estimate the gradient:</strong>
+            \[ \widehat{\nabla_\theta J} = \frac{1}{N}\sum_{i=1}^N \left(\sum_t \nabla_\theta \log \pi_\theta(a_{i,t}|s_{i,t})\right)\!\left(\sum_t r(s_{i,t}, a_{i,t})\right) \]
+          </div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">4.</div>
+          <div><strong>Update parameters</strong> via gradient ascent:
+            \[ \theta \leftarrow \theta + \alpha\, \widehat{\nabla_\theta J} \]
+          </div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">5.</div>
+          <div><strong>Repeat</strong> from step 2 until convergence.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section-title">7.1 An Important Extension: Partial Observability</h3>
+
+    <p>Notice that throughout the derivation, we only required the Markov property to factor the trajectory probability. But after taking the log and gradient, the result is simply:</p>
+
+    <div class="math-block">
+      <div class="math-label"></div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) = \mathbb{E}\!\left[\sum_t \nabla_\theta \log \pi_\theta(a_t|o_t) \cdot R\right] \]</div>
+    </div>
+
+    <p>where \(o_t\) is the observation (possibly partial). For partially observable MDPs (POMDPs), simply replace \(s_t\) with \(o_t\). The algorithm works identically — without requiring the environment to be Markovian! This is because we never used the Markov property in the gradient computation itself; only in writing down \(p_\theta(\tau)\), and those terms cancelled out anyway.</p>
+
+    <div class="callout callout-insight">
+      <div class="callout-title">REINFORCE works beyond MDPs</div>
+      This is a remarkable result: the REINFORCE gradient estimator is valid even when the problem is not Markovian. The agent might observe only part of the state (a camera image instead of full robot state), and the gradient formula remains correct — as long as the policy maps observations to action probabilities.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 8 ══ -->
+  <section class="chapter" id="ch8">
+    <div class="chapter-header">
+      <div class="chapter-num">08</div>
+      <h2 class="chapter-title">The High Variance Problem</h2>
+    </div>
+
+    <h3 class="section-title">8.1 Where Variance Comes From</h3>
+
+    <p>REINFORCE is an <em>unbiased</em> estimator of the policy gradient — its expected value is exactly \(\nabla_\theta J(\theta)\). But it can have catastrophically <em>high variance</em>. Let us understand why.</p>
+
+    <p>Consider two trajectories in a robot navigation task. Both took the same action in state \(s_5\). Trajectory A ended successfully (total return = +100). Trajectory B failed (total return = −10). REINFORCE multiplies the score of every action by the <em>total</em> return — so action \(a_5\) gets gradient weight +100 in trajectory A and −10 in trajectory B, even though the action at step 5 may have had nothing to do with what happened at step 50.</p>
+
+    <div class="callout callout-warning">
+      <div class="callout-title">Root Cause of High Variance</div>
+      The return \(\sum_t r(s_t, a_t)\) includes rewards from <em>all</em> timesteps — including those that happened before action \(a_t\) was taken, and those far in the future that are determined by randomness in the environment, not by the quality of \(a_t\). Each additional random reward term added to the sum increases the variance of the estimator. For a trajectory of length \(T\), we are summing \(T\) random variables, each with its own variance.
+    </div>
+
+    <h3 class="section-title">8.2 Mathematical Analysis of Variance</h3>
+
+    <p>The variance of the REINFORCE gradient estimator grows with:</p>
+
+    <div class="term-grid">
+      <div class="term-item">
+        <div class="term-name">Trajectory length T</div>
+        <div class="term-desc">Each additional timestep adds another random variable to the return sum. Variance scales roughly as \(O(T)\) for uncorrelated rewards.</div>
+      </div>
+      <div class="term-item">
+        <div class="term-name">Reward magnitude</div>
+        <div class="term-desc">Larger rewards mean larger fluctuations in the return, directly inflating gradient variance.</div>
+      </div>
+      <div class="term-item">
+        <div class="term-name">Environment stochasticity</div>
+        <div class="term-desc">Random transitions cause the same (state, action) to lead to very different future rewards across rollouts.</div>
+      </div>
+      <div class="term-item">
+        <div class="term-name">Sample size N</div>
+        <div class="term-desc">Variance of the Monte Carlo estimate decreases as \(1/N\). Reducing variance requires \(N^2\times\) as many samples — prohibitively expensive.</div>
+      </div>
+    </div>
+
+    <p>High variance means: the gradient estimate points in a very different direction each time you compute it. Gradient ascent with such noisy estimates is slow and unstable — it may take thousands of iterations to converge on a problem where a lower-variance method would converge in hundreds.</p>
+
+    <p>The practical question: <em>how do we reduce variance while keeping the estimator unbiased?</em> Two complementary techniques address this directly.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 9 ══ -->
+  <section class="chapter" id="ch9">
+    <div class="chapter-header">
+      <div class="chapter-num">09</div>
+      <h2 class="chapter-title">Causality & Reward-to-Go</h2>
+    </div>
+
+    <h3 class="section-title">9.1 The Principle of Causality</h3>
+
+    <p>There is a fundamental temporal structure in MDPs: causes precede effects. The action taken at time \(t\) <em>cannot affect</em> rewards that occurred at times \(t' < t\) — those are already in the past.</p>
+
+    <p>Yet REINFORCE multiplies the score at time \(t\) by the <em>full</em> return \(\sum_{t'=1}^T r_{t'}\), which includes past rewards. These past rewards add noise without adding any useful gradient signal.</p>
+
+    <div class="callout callout-proof">
+      <div class="callout-title">Formal Justification</div>
+      We can show that for \(t' < t\), the contribution of \(r_{t'}\) to the gradient is zero in expectation:
+      \[\mathbb{E}\left[\nabla_\theta \log \pi_\theta(a_t|s_t) \cdot r(s_{t'}, a_{t'})\right] = 0 \quad \text{for } t' < t\]
+      This follows from the conditional independence structure of the MDP: the score function \(\nabla_\theta \log \pi_\theta(a_t|s_t)\) is mean-zero given the past (a property of score functions), and past rewards \(r_{t'}\) are independent of future policy decisions. The proof involves careful conditioning on the information available at time \(t\).
+    </div>
+
+    <h3 class="section-title">9.2 Reward-to-Go</h3>
+
+    <p>Since past rewards contribute zero in expectation but add variance in practice, we simply drop them:</p>
+
+    <div class="math-block">
+      <div class="math-label">Step 1 — Rewrite as double sum</div>
+      <div class="math-block-inner">\[ \nabla_\theta J \approx \frac{1}{N}\sum_i \sum_{t=1}^T \nabla_\theta \log \pi_\theta(a_{i,t}|s_{i,t}) \underbrace{\left(\sum_{t'=1}^T r(s_{i,t'}, a_{i,t'})\right)}_{\text{full return (includes past)}} \]</div>
+    </div>
+
+    <div class="math-block result">
+      <div class="math-label">Step 2 — Apply causality: drop past rewards</div>
+      <div class="math-block-inner">\[ \nabla_\theta J \approx \frac{1}{N}\sum_i \sum_{t=1}^T \nabla_\theta \log \pi_\theta(a_{i,t}|s_{i,t}) \underbrace{\left(\sum_{t'=t}^T r(s_{i,t'}, a_{i,t'})\right)}_{\hat{Q}_{i,t} \text{ — reward-to-go}} \]</div>
+    </div>
+
+    <p>The quantity \(\hat{Q}_{i,t} = \sum_{t'=t}^T r(s_{i,t'}, a_{i,t'})\) is called the <strong>reward-to-go</strong> (or empirical Q-value). It is the total return from timestep \(t\) onward. For a trajectory of length \(T\), this sum averages roughly \(T/2\) fewer terms than the full return — a substantial variance reduction, especially for long episodes.</p>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(\hat{Q}_{i,t}\)</div>
+      <div class="eq-meaning"><strong>Reward-to-go:</strong> empirical estimate of "how much total reward will I receive from this point forward?" This is a sample estimate of the true Q-function \(Q^\pi(s_t, a_t)\). It answers: "given that I took action \(a_t\) in state \(s_t\), what was the eventual total reward?"</div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 10 ══ -->
+  <section class="chapter" id="ch10">
+    <div class="chapter-header">
+      <div class="chapter-num">10</div>
+      <h2 class="chapter-title">Baselines & the Advantage Function</h2>
+    </div>
+
+    <h3 class="section-title">10.1 The Baseline Trick</h3>
+
+    <p>We can further reduce variance by subtracting a <strong>baseline</strong> \(b(s_t)\) from the reward-to-go, as long as the baseline does not depend on the action \(a_t\).</p>
+
+    <div class="callout callout-proof">
+      <div class="callout-title">Proof that baseline doesn't introduce bias</div>
+      We need to show \(\mathbb{E}[\nabla_\theta \log \pi_\theta(a_t|s_t) \cdot b(s_t)] = 0\). Expanding:
+      \[\mathbb{E}_{a_t \sim \pi_\theta(\cdot|s_t)}\!\left[\nabla_\theta \log \pi_\theta(a_t|s_t) \cdot b(s_t)\right] = b(s_t) \underbrace{\mathbb{E}_{a_t}\!\left[\nabla_\theta \log \pi_\theta(a_t|s_t)\right]}_{= 0}\]
+      The expectation of the score function is always zero: \(\mathbb{E}_a[\nabla_\theta \log \pi_\theta(a|s)] = \nabla_\theta \int \pi_\theta(a|s)\,da = \nabla_\theta 1 = 0\). Therefore, subtracting <em>any</em> function \(b(s_t)\) that doesn't depend on \(a_t\) leaves the gradient unbiased.
+    </div>
+
+    <h3 class="section-title">10.2 Optimal Baseline</h3>
+
+    <p>Not all baselines reduce variance equally. The optimal baseline (minimizing gradient variance) can be shown to be approximately equal to the <strong>value function</strong>:</p>
+
+    <div class="math-block">
+      <div class="math-label">Value function as baseline</div>
+      <div class="math-block-inner">\[ b(s_t) = V^\pi(s_t) = \mathbb{E}_{\tau \sim \pi_\theta, \tau \ni s_t}\!\left[\sum_{t'=t}^T r(s_{t'}, a_{t'})\right] \]</div>
+    </div>
+
+    <p>The value function \(V^\pi(s_t)\) is the <em>expected</em> reward-to-go from state \(s_t\) when following policy \(\pi\). It answers: "on average, how much reward do I get from state \(s_t\) onward?" This is the perfect baseline: it removes the average part of the return, leaving only the deviation from average — which is the genuinely informative signal.</p>
+
+    <h3 class="section-title">10.3 The Advantage Function</h3>
+
+    <p>With this baseline, the weight on each gradient term becomes:</p>
+
+    <div class="math-block result">
+      <div class="math-label">Advantage Function</div>
+      <div class="math-block-inner">\[ A^\pi(s_t, a_t) = Q^\pi(s_t, a_t) - V^\pi(s_t) \]</div>
+    </div>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(Q^\pi(s_t, a_t)\)</div>
+      <div class="eq-meaning"><strong>Q-function:</strong> expected return when taking action \(a_t\) in state \(s_t\), then following \(\pi\). "How good is this specific action from here?"</div>
+      <div class="eq-term">\(V^\pi(s_t)\)</div>
+      <div class="eq-meaning"><strong>Value function:</strong> expected return from state \(s_t\) under \(\pi\), averaged over all actions. "How good is this state on average?"</div>
+      <div class="eq-term">\(A^\pi(s_t, a_t)\)</div>
+      <div class="eq-meaning"><strong>Advantage:</strong> how much better is action \(a_t\) compared to the average action in state \(s_t\)? Positive advantage means "this action was better than average, reinforce it." Negative advantage means "this action was worse than average, suppress it."</div>
+    </div>
+
+    <p>The final policy gradient with the advantage function:</p>
+
+    <div class="math-block result">
+      <div class="math-label">Policy Gradient with Advantage (optimal form)</div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) \approx \frac{1}{N}\sum_i \sum_{t=1}^T \nabla_\theta \log \pi_\theta(a_{i,t}|s_{i,t}) \cdot A_{i,t} \]</div>
+    </div>
+
+    <p>In practice, \(A_{i,t} = \hat{Q}_{i,t} - V_\omega(s_{i,t})\), where \(\hat{Q}_{i,t}\) is the empirical reward-to-go and \(V_\omega\) is a learned value function (the critic). The advantage captures <em>relative</em> quality: not just "was this trajectory good?" but "was this specific action, in this specific state, better than what we'd normally expect?"</p>
+
+    <div class="callout callout-intuition">
+      <div class="callout-title">Intuition for variance reduction</div>
+      The total return \(\hat{Q}_{i,t}\) fluctuates wildly because it includes large, random variations in how good the current state is — even if the action was perfectly chosen. The value function \(V^\pi(s_t)\) subtracts this "state quality" component. What remains — the advantage — is driven primarily by the quality of the action choice, not by the random goodness of the state. This is a much lower-variance signal, because we have factored out the dominant source of randomness.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 11 ══ -->
+  <section class="chapter" id="ch11">
+    <div class="chapter-header">
+      <div class="chapter-num">11</div>
+      <h2 class="chapter-title">Off-Policy Learning via Importance Sampling</h2>
+    </div>
+
+    <p>REINFORCE is <strong>on-policy</strong>: it requires fresh trajectories from the current policy \(\pi_\theta\) for each gradient update. After updating \(\theta\), all previously collected data becomes invalid. This is sample-inefficient.</p>
+
+    <h3 class="section-title">11.1 Importance Sampling Setup</h3>
+
+    <p>Suppose we have trajectories collected from a <em>reference policy</em> \(\bar{\pi}\) (possibly an older version of \(\pi_\theta\)). We want to evaluate \(J(\theta)\) using these old trajectories. We use the importance sampling identity:</p>
+
+    <div class="deriv-chain">
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle J(\theta) = \int p_\theta(\tau)\, r(\tau)\, d\tau\)</div>
+        <div class="deriv-why">Original objective</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle = \int \bar{p}(\tau)\, \frac{p_\theta(\tau)}{\bar{p}(\tau)}\, r(\tau)\, d\tau\)</div>
+        <div class="deriv-why"><strong>Multiply and divide</strong> by \(\bar{p}(\tau)\): the reference distribution.</div>
+      </div>
+      <div class="deriv-step">
+        <div class="deriv-math">\(\displaystyle = \mathbb{E}_{\tau \sim \bar{p}(\tau)}\!\left[\frac{p_\theta(\tau)}{\bar{p}(\tau)}\, r(\tau)\right]\)</div>
+        <div class="deriv-why"><strong>Now an expectation</strong> under \(\bar{p}\) — estimable from old trajectories!</div>
+      </div>
+    </div>
+
+    <h3 class="section-title">11.2 The Importance Weight</h3>
+
+    <p>The ratio \(p_\theta(\tau) / \bar{p}(\tau)\) simplifies beautifully using the trajectory factorization:</p>
+
+    <div class="math-block">
+      <div class="math-label">Importance Weight — environment terms cancel</div>
+      <div class="math-block-inner">\[ \frac{p_\theta(\tau)}{\bar{p}(\tau)} = \frac{p(s_1)\prod_t \pi_\theta(a_t|s_t)\, p(s_{t+1}|s_t,a_t)}{p(s_1)\prod_t \bar{\pi}(a_t|s_t)\, p(s_{t+1}|s_t,a_t)} = \frac{\prod_{t=1}^T \pi_\theta(a_t|s_t)}{\prod_{t=1}^T \bar{\pi}(a_t|s_t)} \]</div>
+    </div>
+
+    <p>Again, the environment terms \(p(s_1)\) and \(p(s_{t+1}|s_t,a_t)\) cancel — they are the same under both policies. Only the policy action probabilities differ.</p>
+
+    <h3 class="section-title">11.3 Off-Policy Gradient</h3>
+
+    <div class="math-block result">
+      <div class="math-label">Off-Policy Policy Gradient</div>
+      <div class="math-block-inner">\[ \nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim \bar{p}(\tau)}\!\left[\left(\prod_{t=1}^T \frac{\pi_\theta(a_t|s_t)}{\bar{\pi}(a_t|s_t)}\right)\!\left(\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t)\right)\!\left(\sum_t r(s_t,a_t)\right)\right] \]</div>
+    </div>
+
+    <div class="callout callout-warning">
+      <div class="callout-title">The Exponential Weight Problem</div>
+      The importance weight is a <em>product</em> of \(T\) ratios. For long trajectories, this product can be astronomically large or vanishingly small — exponential in \(T\). This is the fundamental challenge of off-policy learning. PPO addresses this by restricting how far \(\pi_\theta\) can deviate from \(\bar{\pi}\), keeping the importance weights well-behaved.
+    </div>
+
+    <p>Applying causality and the baseline to the off-policy gradient brings us to the per-timestep formulation that PPO uses, where the importance weight at timestep \(t\) is just the ratio of action probabilities at that step: \(\pi_\theta(a_t|s_t) / \bar{\pi}(a_t|s_t)\).</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 12 ══ -->
+  <section class="chapter" id="ch12">
+    <div class="chapter-header">
+      <div class="chapter-num">12</div>
+      <h2 class="chapter-title">Actor-Critic: Online TD-Based Policy Gradient</h2>
+    </div>
+
+    <p>REINFORCE has two serious remaining problems. Actor-Critic fixes them simultaneously.</p>
+
+    <h3 class="section-title">12.1 Problems with REINFORCE</h3>
+
+    <table class="cmp-table">
+      <tr>
+        <th>Problem</th>
+        <th>Root Cause</th>
+        <th>Consequence</th>
+      </tr>
+      <tr>
+        <td><strong>High variance</strong></td>
+        <td>Return \(G_t = \sum_{t'=t}^T r_{t'}\) sums up to \(T-t\) random variables</td>
+        <td>Gradient estimates are noisy; requires many samples to converge</td>
+      </tr>
+      <tr>
+        <td><strong>Episode-based updates</strong></td>
+        <td>Must observe the <em>entire</em> episode before computing \(G_t\)</td>
+        <td>Cannot update online; inefficient for long episodes or continuing tasks</td>
+      </tr>
+    </table>
+
+    <h3 class="section-title">12.2 The Actor-Critic Architecture</h3>
+
+    <p>Actor-Critic introduces a second learner — the <strong>Critic</strong> — that estimates the value function \(V^\omega(s)\). This allows us to replace the noisy Monte Carlo return with a lower-variance bootstrap estimate.</p>
+
+    <div class="highlight-box">
+      <h4>Actor: \(\pi_\theta(a|s)\)</h4>
+      <p>A policy network parameterized by \(\theta\). Takes state \(s\), outputs action distribution. Learns via gradient ascent weighted by advantage. The "decision maker."</p>
+      <p style="margin-top:10px;"><strong>Update rule:</strong> \(\theta \leftarrow \theta + \alpha_\pi \cdot \delta_t \cdot \nabla_\theta \log \pi_\theta(a_t|s_t)\)</p>
+    </div>
+
+    <div class="highlight-box" style="border-color: rgba(26,188,156,0.3); background: linear-gradient(135deg, rgba(26,188,156,0.06), rgba(26,188,156,0.02));">
+      <h4 style="color: var(--teal);">Critic: \(V_\omega(s)\)</h4>
+      <p>A value network parameterized by \(\omega\). Takes state \(s\), outputs a scalar — the expected return from \(s\). Learns by minimizing TD error squared. The "evaluator."</p>
+      <p style="margin-top:10px;"><strong>Update rule:</strong> \(\omega \leftarrow \omega - \alpha_V \cdot \delta_t \cdot \nabla_\omega V_\omega(s_t)\)</p>
+    </div>
+
+    <h3 class="section-title">12.3 The TD Error as Advantage Estimate</h3>
+
+    <p>At each timestep, after observing the transition \((s_t, a_t, r_t, s_{t+1})\), we compute the TD error:</p>
+
+    <div class="math-block result">
+      <div class="math-label">TD Error = 1-step Advantage Estimate</div>
+      <div class="math-block-inner">\[ \delta_t = r_t + \gamma V_\omega(s_{t+1}) - V_\omega(s_t) \]</div>
+    </div>
+
+    <p>Why does this equal the advantage? Apply the Bellman equation \(Q^\pi(s_t,a_t) = r_t + \gamma V^\pi(s_{t+1})\):</p>
+
+    <div class="math-block derivation">
+      <div class="math-label">Derivation</div>
+      <div class="math-block-inner">\[ A^\pi(s_t,a_t) = Q^\pi(s_t,a_t) - V^\pi(s_t) = \underbrace{r_t + \gamma V^\pi(s_{t+1})}_{\text{Bellman equation for }Q^\pi} - V^\pi(s_t) = \delta_t \]</div>
+    </div>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(V_\omega(s_t)\)</div>
+      <div class="eq-meaning">"Before this step, I expected to earn this much total reward from \(s_t\)."</div>
+      <div class="eq-term">\(r_t + \gamma V_\omega(s_{t+1})\)</div>
+      <div class="eq-meaning">"I actually got \(r_t\) now, plus the discounted value of where I ended up."</div>
+      <div class="eq-term">\(\delta_t > 0\)</div>
+      <div class="eq-meaning">Outcome was <em>better</em> than expected → reinforce action \(a_t\).</div>
+      <div class="eq-term">\(\delta_t < 0\)</div>
+      <div class="eq-meaning">Outcome was <em>worse</em> than expected → suppress action \(a_t\).</div>
+      <div class="eq-term">\(\delta_t = 0\)</div>
+      <div class="eq-meaning">Exactly as expected → no gradient signal, no update needed.</div>
+    </div>
+
+    <div class="callout callout-intuition">
+      <div class="callout-title">The Neuroscience Connection</div>
+      This TD error signal is strikingly similar to dopamine prediction error in the brain. Dopamine neurons fire more strongly than baseline when reward is better than predicted, less strongly when worse, and at baseline when exactly as predicted. The brain appears to implement temporal difference learning — one of the deepest connections between neuroscience and RL theory.
+    </div>
+
+    <h3 class="section-title">12.4 Bias-Variance Tradeoff</h3>
+
+    <p>The TD error has dramatically lower variance than the Monte Carlo return, but introduces <em>bias</em> — because \(V_\omega\) is imperfect, especially early in training. This is the fundamental tradeoff:</p>
+
+    <table class="cmp-table">
+      <tr>
+        <th>Method</th>
+        <th>Bias</th>
+        <th>Variance</th>
+        <th>When to use</th>
+      </tr>
+      <tr>
+        <td><strong>REINFORCE</strong> (\(G_t\))</td>
+        <td><span class="badge badge-green">Zero</span></td>
+        <td><span class="badge badge-red">Very High</span></td>
+        <td>Short episodes, simple environments</td>
+      </tr>
+      <tr>
+        <td><strong>1-step TD</strong> (\(\delta_t\))</td>
+        <td><span class="badge badge-amber">Some</span></td>
+        <td><span class="badge badge-green">Low</span></td>
+        <td>Online learning, long episodes</td>
+      </tr>
+      <tr>
+        <td><strong>n-step TD</strong> (\(R_t^{(n)}\))</td>
+        <td><span class="badge badge-amber">Moderate</span></td>
+        <td><span class="badge badge-amber">Moderate</span></td>
+        <td>Intermediate (A2C default n=5)</td>
+      </tr>
+      <tr>
+        <td><strong>GAE</strong> (\(\hat{A}_t^\text{GAE}\))</td>
+        <td><span class="badge badge-blue">Tunable (\(\lambda\))</span></td>
+        <td><span class="badge badge-blue">Tunable (\(\lambda\))</span></td>
+        <td>PPO (λ=0.95 is standard)</td>
+      </tr>
+    </table>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 13 ══ -->
+  <section class="chapter" id="ch13">
+    <div class="chapter-header">
+      <div class="chapter-num">13</div>
+      <h2 class="chapter-title">A2C: Advantage Actor-Critic & Entropy</h2>
+    </div>
+
+    <h3 class="section-title">13.1 n-step Returns</h3>
+
+    <p>A2C collects \(n\) steps before updating. The n-step return provides less bias than 1-step TD while staying lower variance than Monte Carlo:</p>
+
+    <div class="math-block">
+      <div class="math-label">n-step Return</div>
+      <div class="math-block-inner">\[ R_t^{(n)} = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \cdots + \gamma^{n-1} r_{t+n-1} + \gamma^n V_\omega(s_{t+n}) \]</div>
+    </div>
+
+    <p>The bias from bootstrapping is discounted by \(\gamma^n\): as \(n\) increases, the imperfect critic's estimate counts for less, reducing bias. Variance increases because more real random rewards are included. Typical A2C uses \(n = 5\).</p>
+
+    <h3 class="section-title">13.2 Entropy Bonus: Preventing Collapse</h3>
+
+    <p>A critical practical problem: without regularization, policies often <em>collapse</em> early in training — one action gets probability near 1, all others near 0. If this action is suboptimal, the agent can never recover.</p>
+
+    <p>Shannon entropy of the policy distribution measures randomness:</p>
+
+    <div class="math-block">
+      <div class="math-label">Policy Entropy</div>
+      <div class="math-block-inner">\[ H(\pi(\cdot|s)) = -\sum_a \pi(a|s) \log \pi(a|s) \]</div>
+    </div>
+
+    <p>Maximum entropy: uniform distribution (maximum exploration). Zero entropy: deterministic policy (no exploration).</p>
+
+    <p>We add entropy as a bonus to the objective, encouraging the policy to remain uncertain and exploratory:</p>
+
+    <div class="math-block result">
+      <div class="math-label">A2C Full Joint Loss (minimize)</div>
+      <div class="math-block-inner">\[ \mathcal{L}(\theta, \omega) = \underbrace{-\frac{1}{T}\sum_t \log \pi_\theta(a_t|s_t)\hat{A}_t}_{\text{policy loss (actor)}} + \underbrace{c_1 \frac{1}{T}\sum_t (V_\omega(s_t) - R_t^{(n)})^2}_{\text{value loss (critic)}} - \underbrace{c_2 \frac{1}{T}\sum_t H(\pi_\theta(\cdot|s_t))}_{\text{entropy bonus}} \]</div>
+    </div>
+
+    <div class="eq-annotated">
+      <div class="eq-term">Policy loss</div>
+      <div class="eq-meaning">Negative because we minimize this loss function but want to maximize \(J(\theta)\). Gradient ascent on \(J\) = gradient descent on \(-J\).</div>
+      <div class="eq-term">Value loss</div>
+      <div class="eq-meaning">MSE between critic's prediction \(V_\omega(s_t)\) and the n-step return target. Trains the critic to be accurate.</div>
+      <div class="eq-term">Entropy bonus</div>
+      <div class="eq-meaning">Negative sign because we minimize the loss but <em>maximize</em> entropy. Higher entropy = more exploration = better. \(c_2 \approx 0.01\).</div>
+      <div class="eq-term">\(c_1 \approx 0.5\)</div>
+      <div class="eq-meaning">Value loss coefficient. Critic learns at half the effective rate to prevent it from dominating the actor's gradient.</div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 14 ══ -->
+  <section class="chapter" id="ch14">
+    <div class="chapter-header">
+      <div class="chapter-num">14</div>
+      <h2 class="chapter-title">GAE & PPO</h2>
+    </div>
+
+    <h3 class="section-title">14.1 Generalized Advantage Estimation (GAE)</h3>
+
+    <p>PPO uses GAE — a principled way to continuously interpolate between 1-step TD (low variance, high bias) and Monte Carlo (high variance, zero bias) using a single parameter \(\lambda\).</p>
+
+    <p>Start with the 1-step TD error: \(\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)\).</p>
+
+    <p>Note that the n-step return minus baseline equals a sum of discounted TD errors:</p>
+
+    <div class="math-block derivation">
+      <div class="math-label">Proof: n-step advantage = sum of TD errors</div>
+      <div class="math-block-inner">\[\begin{aligned}
+      R_t^{(n)} - V(s_t) &= r_t + \gamma r_{t+1} + \cdots + \gamma^{n-1}r_{t+n-1} + \gamma^n V(s_{t+n}) - V(s_t) \\
+      &= [r_t + \gamma V(s_{t+1}) - V(s_t)] \\
+      &\quad + \gamma[r_{t+1} + \gamma V(s_{t+2}) - V(s_{t+1})] \\
+      &\quad + \cdots \\
+      &= \sum_{k=0}^{n-1} \gamma^k \delta_{t+k}
+      \end{aligned}\]</div>
+    </div>
+
+    <p>GAE takes a \(\lambda\)-weighted average of <em>all</em> n-step advantages:</p>
+
+    <div class="math-block">
+      <div class="math-label">GAE definition</div>
+      <div class="math-block-inner">\[ \hat{A}_t^{\text{GAE}(\lambda)} = (1-\lambda)\sum_{n=1}^\infty \lambda^{n-1} \hat{A}_t^{(n)} \]</div>
+    </div>
+
+    <p>This simplifies to a remarkable closed form:</p>
+
+    <div class="math-block result">
+      <div class="math-label">GAE — closed form</div>
+      <div class="math-block-inner">\[ \hat{A}_t^{\text{GAE}(\gamma,\lambda)} = \sum_{k=0}^\infty (\gamma\lambda)^k \delta_{t+k} = \delta_t + \gamma\lambda\,\delta_{t+1} + (\gamma\lambda)^2\delta_{t+2} + \cdots \]</div>
+    </div>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(\lambda = 0\)</div>
+      <div class="eq-meaning">Only \(\delta_t\) survives: pure 1-step TD. \(\hat{A}_t = r_t + \gamma V(s_{t+1}) - V(s_t)\). High bias (V must be accurate), low variance.</div>
+      <div class="eq-term">\(\lambda = 1\)</div>
+      <div class="eq-meaning">Sum of all TD errors = Monte Carlo advantage \(G_t - V(s_t)\). Zero bias, high variance.</div>
+      <div class="eq-term">\(\lambda = 0.95\)</div>
+      <div class="eq-meaning">PPO default. Effective lookback \(\approx 1/(1-\lambda) = 20\) steps. Good balance in practice.</div>
+    </div>
+
+    <p>GAE is computable in \(O(T)\) by working backwards: \(\hat{A}_T = \delta_T\), then \(\hat{A}_t = \delta_t + \gamma\lambda\,\hat{A}_{t+1}\).</p>
+
+    <h3 class="section-title">14.2 The Training Instability Problem</h3>
+
+    <p>With the advantage in hand, A2C updates using importance sampling when running multiple gradient steps on the same batch. The ratio:</p>
+
+    <div class="math-block">
+      <div class="math-label">Probability ratio</div>
+      <div class="math-block-inner">\[ r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\text{ref}}(a_t|s_t)} \]</div>
+    </div>
+
+    <p>The unclipped surrogate objective \(L^{\text{PG}} = \mathbb{E}[r_t(\theta)\hat{A}_t]\) has a critical flaw: when \(\hat{A}_t > 0\), it incentivizes making \(r_t(\theta)\) as large as possible — pushing the new policy arbitrarily far from the old one. A catastrophically bad new policy generates bad data, which makes the next update even worse. Performance can collapse permanently.</p>
+
+    <h3 class="section-title">14.3 PPO: The Clipped Surrogate Objective</h3>
+
+    <p>PPO's solution: clip the ratio \(r_t(\theta)\) to stay within \([1-\varepsilon, 1+\varepsilon]\), where \(\varepsilon \approx 0.2\).</p>
+
+    <div class="math-block result">
+      <div class="math-label">PPO Clipped Objective</div>
+      <div class="math-block-inner">\[ L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\left(r_t(\theta)\hat{A}_t,\; \text{clip}(r_t(\theta), 1-\varepsilon, 1+\varepsilon)\cdot\hat{A}_t\right)\right] \]</div>
+    </div>
+
+    <div class="callout callout-proof">
+      <div class="callout-title">Why min() is the right choice — case analysis</div>
+      <p><strong>Case 1: \(\hat{A}_t > 0\)</strong> (action was good, want to reinforce it).</p>
+      <p>If \(r_t > 1+\varepsilon\): unclipped \(= r_t \hat{A}_t > (1+\varepsilon)\hat{A}_t\) = clipped. \(\min\) selects <em>clipped</em> — prevents over-reinforcing.</p>
+      <p>If \(r_t \leq 1+\varepsilon\): both equal, clip has no effect.</p>
+      <p style="margin-top:10px;"><strong>Case 2: \(\hat{A}_t < 0\)</strong> (action was bad, want to suppress it).</p>
+      <p>If \(r_t < 1-\varepsilon\): unclipped \(= r_t \hat{A}_t\) (less negative), clipped \(= (1-\varepsilon)\hat{A}_t\) (more negative). \(\min\) selects <em>clipped</em> — prevents over-penalizing.</p>
+      <p style="margin-top:10px;"><strong>Result:</strong> In both cases, the gradient can never benefit from moving \(r_t\) outside \([1-\varepsilon, 1+\varepsilon]\). The policy is implicitly constrained to a trust region around \(\pi_{\text{ref}}\). No second-order optimization required.
+    </div>
+
+    <h3 class="section-title">14.4 Complete PPO Objective</h3>
+
+    <div class="math-block result">
+      <div class="math-label">PPO Full Loss</div>
+      <div class="math-block-inner">\[ \mathcal{L}(\theta) = \mathbb{E}_t\!\left[L_t^{\text{CLIP}}(\theta) - c_1\underbrace{(V_\theta(s_t) - R_t)^2}_{\text{critic loss}} + c_2\underbrace{H(\pi_\theta(\cdot|s_t))}_{\text{entropy}}\right] \]</div>
+    </div>
+
+    <p>where \(R_t = \hat{A}_t + V(s_t)\) is the return target, and \(c_1 \approx 0.5\), \(c_2 \approx 0.01\).</p>
+
+    <div class="algorithm-box">
+      <div class="algorithm-header">Algorithm: PPO (Schulman et al. 2017)</div>
+      <div class="algorithm-body">
+        <div class="algorithm-step">
+          <div class="step-n">1.</div>
+          <div>Collect \(T\) timesteps using current policy \(\pi_\theta\), storing \((s_t, a_t, r_t, s_{t+1})\).</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">2.</div>
+          <div>Compute TD errors \(\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)\).</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">3.</div>
+          <div>Compute GAE advantages: \(\hat{A}_t = \sum_k (\gamma\lambda)^k \delta_{t+k}\) (backward pass).</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">4.</div>
+          <div>Compute return targets: \(R_t = \hat{A}_t + V(s_t)\).</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">5.</div>
+          <div>For \(K\) epochs, mini-batch SGD on the full PPO loss \(\mathcal{L}(\theta)\) with clipped ratio. The reference policy \(\pi_{\text{ref}}\) is the policy that collected the data (fixed for all \(K\) epochs).</div>
+        </div>
+        <div class="algorithm-step">
+          <div class="step-n">6.</div>
+          <div>Return to step 1 with updated \(\theta\).</div>
+        </div>
+      </div>
+    </div>
+
+    <p>PPO is currently the dominant RL algorithm in production: it powers RLHF training for ChatGPT and Claude alignment, OpenAI Five, robotics locomotion, and most large-scale RL applications. Its success comes from combining sample efficiency (multiple gradient steps per batch) with training stability (clipping) and simplicity (first-order optimization only).</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══ CHAPTER 15 ══ -->
+  <section class="chapter" id="ch15">
+    <div class="chapter-header">
+      <div class="chapter-num">15</div>
+      <h2 class="chapter-title">TRPO & SAC: Advanced Methods</h2>
+    </div>
+
+    <h3 class="section-title">15.1 TRPO: The Theoretical Foundation</h3>
+
+    <p>TRPO (Trust Region Policy Optimization, Schulman et al. 2015) is PPO's theoretical predecessor. It proved that you can guarantee monotonic improvement by solving a constrained optimization at each step:</p>
+
+    <div class="math-block">
+      <div class="math-label">TRPO Constrained Problem</div>
+      <div class="math-block-inner">\[ \max_\theta\; L^{\text{PG}}(\theta) \quad \text{subject to} \quad \overline{D}_{\text{KL}}(\pi_\theta \| \pi_{\text{old}}) \leq \delta \]</div>
+    </div>
+
+    <div class="callout callout-proof">
+      <div class="callout-title">Monotonic Improvement Theorem (sketch)</div>
+      <p>Define the surrogate: \(\hat{L}^{\pi}(\pi') = J(\pi) + \mathbb{E}_{s \sim d^\pi}\mathbb{E}_{a \sim \pi'}[A^\pi(s,a)]\)</p>
+      <p style="margin-top:8px;">Then: \(J(\pi') \geq \hat{L}^\pi(\pi') - C \cdot \max_s D_{\text{KL}}(\pi'\|\pi)\)</p>
+      <p style="margin-top:8px;">where \(C = \frac{4\gamma\varepsilon}{(1-\gamma)^2}\) and \(\varepsilon = \max_{s,a}|A^\pi(s,a)|\).</p>
+      <p style="margin-top:8px;">If KL is bounded by \(\delta\), then \(J(\pi') \geq \hat{L}^\pi(\pi') - C\delta\). Maximizing \(\hat{L}^\pi(\pi')\) within the trust region guarantees \(J(\pi') \geq J(\pi)\). Every update makes things at least as good.</p>
+    </div>
+
+    <div class="math-block">
+      <div class="math-label">Monotonic Improvement Guarantee</div>
+      <div class="math-block-inner">\[ J(\pi_{\text{new}}) \geq J(\pi_{\text{old}}) - \frac{4\gamma\varepsilon}{(1-\gamma)^2} \overline{D}_{\text{KL}}(\pi_{\text{new}}\|\pi_{\text{old}}) \]</div>
+    </div>
+
+    <p>TRPO solves the constrained problem with conjugate gradient descent and backtracking line search. This requires computing the Fisher Information Matrix — expensive in practice. PPO achieves the same practical behavior with clipping, at a fraction of the computational cost.</p>
+
+    <h3 class="section-title">15.2 SAC: Maximum Entropy RL</h3>
+
+    <p>Soft Actor-Critic (SAC, Haarnoja et al. 2018) takes a fundamentally different approach: instead of just maximizing expected return, it maximizes expected return <em>plus</em> policy entropy simultaneously.</p>
+
+    <div class="math-block result">
+      <div class="math-label">SAC Maximum Entropy Objective</div>
+      <div class="math-block-inner">\[ J(\pi) = \mathbb{E}_\tau\!\left[\sum_t \gamma^t \bigl(r(s_t, a_t) + \alpha H(\pi(\cdot|s_t))\bigr)\right] \]</div>
+    </div>
+
+    <p>The temperature \(\alpha\) controls the trade-off between reward maximization and entropy maximization. Crucially, the entropy term is part of the <em>Bellman equation</em> itself — the soft Bellman backup:</p>
+
+    <div class="math-block">
+      <div class="math-label">SAC Bellman Target (twin-Q)</div>
+      <div class="math-block-inner">\[ y = r + \gamma\!\left(\min_{j=1,2} Q_{\bar\theta_j}(s', a') - \alpha \log \pi(a'|s')\right) \]</div>
+    </div>
+
+    <div class="eq-annotated">
+      <div class="eq-term">\(\min_{j=1,2} Q\)</div>
+      <div class="eq-meaning">Twin Q-networks: two critics, take the minimum. This prevents overestimation bias — a known failure mode where a single Q network develops over-optimistic values.</div>
+      <div class="eq-term">\(-\alpha \log \pi(a'|s')\)</div>
+      <div class="eq-meaning">Entropy term built into the target. The soft value of a state naturally accounts for exploration value — states with many good actions are valued higher.</div>
+      <div class="eq-term">\(\alpha\)</div>
+      <div class="eq-meaning">Temperature — can be learned automatically by solving a dual optimization that targets a desired entropy level. This eliminates a critical hyperparameter.</div>
+    </div>
+
+    <table class="cmp-table">
+      <tr>
+        <th>Property</th>
+        <th>PPO</th>
+        <th>SAC</th>
+      </tr>
+      <tr>
+        <td>Policy type</td>
+        <td>On-policy</td>
+        <td>Off-policy (replay buffer)</td>
+      </tr>
+      <tr>
+        <td>Action space</td>
+        <td>Discrete or continuous</td>
+        <td>Primarily continuous</td>
+      </tr>
+      <tr>
+        <td>Sample efficiency</td>
+        <td>Moderate</td>
+        <td><span class="badge badge-green">High (5–10× better)</span></td>
+      </tr>
+      <tr>
+        <td>Stability</td>
+        <td><span class="badge badge-green">High</span></td>
+        <td><span class="badge badge-green">High</span></td>
+      </tr>
+      <tr>
+        <td>Best use case</td>
+        <td>Discrete actions, fast simulation, RLHF</td>
+        <td>Continuous control, real robots (expensive data)</td>
+      </tr>
+      <tr>
+        <td>Key innovation</td>
+        <td>Clipped surrogate + GAE</td>
+        <td>Maximum entropy + twin Q</td>
+      </tr>
+    </table>
+
+    <div class="callout callout-insight">
+      <div class="callout-title">Choosing between PPO and SAC</div>
+      Use <strong>PPO</strong> when: you have fast simulation, discrete or mixed action spaces, or are doing RLHF/LLM alignment. Use <strong>SAC</strong> when: data collection is expensive (real robot hardware), the action space is continuous (robot joint torques), and you need maximum sample efficiency. Both algorithms are battle-tested in production systems.
+    </div>
+
+    <div class="section-spine">
+      <div class="spine-label">End of Document</div>
+      <div class="spine-line"></div>
+    </div>
+
+    <div class="highlight-box" style="text-align:center; margin-top: 0;">
+      <h4 style="font-size: 22px; margin-bottom: 12px;">The Full Chain</h4>
+      <p style="font-size: 15px; color: var(--text-dim); line-height: 2;">
+        MDP + Policy → Trajectory Distribution → Objective \(J(\theta)\)<br>
+        → Log-Derivative Trick → Score Function<br>
+        → Environment Terms Cancel → REINFORCE Gradient<br>
+        → High Variance → Causality + Reward-to-Go<br>
+        → Baseline → Advantage Function<br>
+        → Critic Network → Actor-Critic → A2C + Entropy<br>
+        → GAE → Importance Sampling → PPO Clip<br>
+        → TRPO (theory) · SAC (continuous)
+      </p>
+    </div>
+
+  </section>
+
+</main>
+
+<script>
+  // KaTeX auto-render
+  document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+      delimiters: [
+        {left: "\\[", right: "\\]", display: true},
+        {left: "\\(", right: "\\)", display: false},
+        {left: "$$", right: "$$", display: true},
+        {left: "$", right: "$", display: false}
+      ],
+      throwOnError: false
+    });
+
+    // Progress bar
+    const bar = document.getElementById('progress-bar');
+    window.addEventListener('scroll', () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.width = (scrollTop / docHeight * 100) + '%';
+    });
+
+    // Active TOC link
+    const links = document.querySelectorAll('.toc-link');
+    const sections = document.querySelectorAll('.chapter');
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const id = e.target.id;
+          links.forEach(l => {
+            l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+
+    sections.forEach(s => observer.observe(s));
+  });
+</script>
+</body>
+</html>
