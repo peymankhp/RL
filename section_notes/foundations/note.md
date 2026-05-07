@@ -4,6 +4,11 @@ Here is the comprehensive explanation of these Reinforcement Learning (RL) conce
 
 ## 1. Markov Decision Process (MDP)
 
+The Markov Property: the future depends only on the current state, not on any history before it.
+MDPs are the mathematical foundation of all RL problems — every RL algorithm implicitly assumes an MDP structure.
+The agent has no control over P; it can only influence which state-action pairs it visits.
+
+
 **The Formula:**
 $$P(s', r | s, a) = \Pr\{S_t = s', R_t = r | S_{t-1} = s, A_{t-1} = a\}$$
 
@@ -16,6 +21,8 @@ $$P(s', r | s, a) = \Pr\{S_t = s', R_t = r | S_{t-1} = s, A_{t-1} = a\}$$
 ---
 
 ## 2. Bellman Equation
+
+A recursive formula that defines the value of a state as the immediate reward plus the discounted value of the next state. It is the fundamental equation used to find the optimal value and policy in reinforcement learning.
 
 **The Formula (Value Function):**
 $$V(s) = \max_a \sum_{s', r} p(s', r | s, a) [r + \gamma V(s')]$$

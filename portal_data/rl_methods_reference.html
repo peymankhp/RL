@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RL Methods Reference</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #16161d;
+    --surface2: #1e1e28;
+    --border: #2a2a38;
+    --accent: #7c6af7;
+    --accent2: #4ecdc4;
+    --accent3: #f7b731;
+    --text: #e8e8f0;
+    --muted: #888899;
+    --tag-bg: #1e1e2e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    padding: 48px 24px;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.6rem;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #a89cf7 0%, #4ecdc4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent, var(--accent));
+    border-radius: 16px 16px 0 0;
+  }
+
+  .card:hover { border-color: #3a3a50; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .card-number {
+    background: var(--card-accent, var(--accent));
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .card-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+  }
+
+  .formula-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 18px 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+
+  .formula-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .katex { font-size: 1.15rem; }
+  .katex-display { margin: 0; }
+
+  .vars-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  @media (max-width: 560px) { .vars-grid { grid-template-columns: 1fr; } }
+
+  .var-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--tag-bg);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 0.875rem;
+  }
+
+  .var-symbol {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    background: rgba(78,205,196,0.1);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .var-desc { color: var(--muted); line-height: 1.4; }
+
+  .key-points {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .key-points-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .key-points ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .key-points li {
+    display: flex;
+    gap: 10px;
+    font-size: 0.9rem;
+    align-items: flex-start;
+  }
+
+  .key-points li::before {
+    content: '→';
+    color: var(--card-accent, var(--accent));
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .key-points strong { color: var(--text); font-weight: 500; }
+
+  /* Card accent colors */
+  .c1 { --card-accent: #7c6af7; }
+  .c2 { --card-accent: #f7b731; }
+  .c3 { --card-accent: #4ecdc4; }
+  .c4 { --card-accent: #f06292; }
+  .c5 { --card-accent: #66bb6a; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>RL Methods Reference</h1>
+    <p>Core Formulas &amp; Key Concepts</p>
+  </header>
+
+  <!-- 1. MDP -->
+  <div class="card c1">
+    <div class="card-header">
+      <div class="card-number">1</div>
+      <div class="card-title">Markov Decision Process (MDP)</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Transition Dynamics</div>
+      \[ P(s', r \mid s, a) = \Pr\{S_t = s',\; R_t = r \mid S_{t-1} = s,\; A_{t-1} = a\} \]
+    </div>
+    <div class="vars-grid">
+      <div class="var-item"><span class="var-symbol">s</span><span class="var-desc">The current state.</span></div>
+      <div class="var-item"><span class="var-symbol">a</span><span class="var-desc">The action taken by the agent.</span></div>
+      <div class="var-item"><span class="var-symbol">s'</span><span class="var-desc">The next state the agent transitions into.</span></div>
+      <div class="var-item"><span class="var-symbol">r</span><span class="var-desc">The immediate reward received after taking action <em>a</em>.</span></div>
+      <div class="var-item"><span class="var-symbol">P</span><span class="var-desc">The transition probability — the "dynamics" of the environment.</span></div>
+    </div>
+    <div class="key-points">
+      <div class="key-points-label">Key Points</div>
+      <ul>
+        <li><span><strong>Markov Property:</strong> the future depends <em>only</em> on the current state, not on any history before it.</span></li>
+        <li><span><strong>Mathematical foundation</strong> of all RL problems — every RL algorithm implicitly assumes an MDP structure.</span></li>
+        <li><span>The agent has no control over <strong>P</strong>; it can only influence which state-action pairs it visits.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 2. Bellman -->
+  <div class="card c2">
+    <div class="card-header">
+      <div class="card-number">2</div>
+      <div class="card-title">Bellman Equation</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Optimality Value Function</div>
+      \[ V(s) = \max_a \sum_{s', r} p(s', r \mid s, a)\bigl[r + \gamma\, V(s')\bigr] \]
+    </div>
+    <div class="vars-grid">
+      <div class="var-item"><span class="var-symbol">V(s)</span><span class="var-desc">The value of the current state.</span></div>
+      <div class="var-item"><span class="var-symbol">γ</span><span class="var-desc">Discount factor (0–1): how much future rewards matter vs. immediate ones.</span></div>
+      <div class="var-item"><span class="var-symbol">max<sub>a</sub></span><span class="var-desc">Choose the action yielding the highest possible total value.</span></div>
+    </div>
+    <div class="key-points">
+      <div class="key-points-label">Key Points</div>
+      <ul>
+        <li><span><strong>Recursive relationship:</strong> value of a state = best immediate reward + discounted value of the next state.</span></li>
+        <li><span>This is the <strong>Bellman Optimality Equation</strong> — it describes the value under the <em>optimal</em> policy, not just any policy.</span></li>
+        <li><span><strong>γ = 0</strong> → fully short-sighted; <strong>γ → 1</strong> → values all future rewards equally.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 3. DP -->
+  <div class="card c3">
+    <div class="card-header">
+      <div class="card-number">3</div>
+      <div class="card-title">Dynamic Programming (DP)</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Policy Evaluation Update</div>
+      \[ V_{k+1}(s) = \sum_a \pi(a \mid s) \sum_{s', r} p(s', r \mid s, a)\bigl[r + \gamma\, V_k(s')\bigr] \]
+    </div>
+    <div class="vars-grid">
+      <div class="var-item"><span class="var-symbol">V<sub>k+1</sub></span><span class="var-desc">The updated value estimate in the next iteration.</span></div>
+      <div class="var-item"><span class="var-symbol">π(a|s)</span><span class="var-desc">Policy: probability of taking action <em>a</em> given state <em>s</em>.</span></div>
+      <div class="var-item"><span class="var-symbol">V<sub>k</sub></span><span class="var-desc">The old value estimate from the previous iteration.</span></div>
+    </div>
+    <div class="key-points">
+      <div class="key-points-label">Key Points</div>
+      <ul>
+        <li><span>Requires a <strong>complete model</strong> of the environment — transition probabilities <strong>P</strong> must be fully known.</span></li>
+        <li><span>Alternates between <strong>Policy Evaluation</strong> (computing V for fixed π) and <strong>Policy Improvement</strong> (updating π greedily w.r.t. V).</span></li>
+        <li><span>Computationally expensive for large state spaces — suffers from the <strong>curse of dimensionality</strong>.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 4. MC -->
+  <div class="card c4">
+    <div class="card-header">
+      <div class="card-number">4</div>
+      <div class="card-title">Monte Carlo (MC)</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Value Update</div>
+      \[ V(S_t) \leftarrow V(S_t) + \alpha\bigl[G_t - V(S_t)\bigr] \]
+    </div>
+    <div class="vars-grid">
+      <div class="var-item"><span class="var-symbol">G<sub>t</sub></span><span class="var-desc">Actual total return (sum of all rewards) from time <em>t</em> until episode end.</span></div>
+      <div class="var-item"><span class="var-symbol">α</span><span class="var-desc">Learning rate: how much new data overwrites old belief.</span></div>
+      <div class="var-item"><span class="var-symbol">G<sub>t</sub> − V(S<sub>t</sub>)</span><span class="var-desc">The "error" — difference between expected and what actually happened.</span></div>
+    </div>
+    <div class="key-points">
+      <div class="key-points-label">Key Points</div>
+      <ul>
+        <li><span><strong>Model-free:</strong> learns purely from experience, no knowledge of environment dynamics required.</span></li>
+        <li><span>Only applies to <strong>episodic tasks</strong> — waits until the full episode ends to compute G<sub>t</sub>.</span></li>
+        <li><span><strong>High variance, zero bias</strong> — returns are real unbiased samples, but fluctuate significantly between episodes.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 5. TD -->
+  <div class="card c5">
+    <div class="card-header">
+      <div class="card-number">5</div>
+      <div class="card-title">Temporal Difference (TD) Learning</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">TD(0) Update</div>
+      \[ V(S_t) \leftarrow V(S_t) + \alpha\bigl[\underbrace{R_{t+1} + \gamma\, V(S_{t+1})}_{\text{TD Target}} - V(S_t)\bigr] \]
+    </div>
+    <div class="vars-grid">
+      <div class="var-item"><span class="var-symbol">R<sub>t+1</sub>+γV(S<sub>t+1</sub>)</span><span class="var-desc"><strong>TD Target</strong>: our new, slightly more accurate estimate of the value.</span></div>
+      <div class="var-item"><span class="var-symbol">δ<sub>t</sub></span><span class="var-desc"><strong>TD Error</strong>: the surprise felt when seeing the actual reward and next state.</span></div>
+      <div class="var-item"><span class="var-symbol">V(S<sub>t+1</sub>)</span><span class="var-desc">The estimated value of the next state just landed in.</span></div>
+    </div>
+    <div class="key-points">
+      <div class="key-points-label">Key Points</div>
+      <ul>
+        <li><span><strong>Best of both worlds:</strong> model-free like MC, but learns <em>online</em> after every single step — no need to wait for episode end.</span></li>
+        <li><span><strong>Bootstraps:</strong> updates estimates based on other estimates — introduces some bias but significantly reduces variance vs. MC.</span></li>
+        <li><span><strong>TD(0)</strong> is the simplest form; <strong>TD(λ)</strong> generalizes across a spectrum from pure TD (λ=0) to pure MC (λ=1).</span></li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+<script>
+  renderMathInElement(document.body, {
+    delimiters: [
+      {left: "\\[", right: "\\]", display: true},
+      {left: "\\(", right: "\\)", display: false}
+    ]
+  });
+</script>
+</body>
+</html>

@@ -3,7 +3,9 @@ _ac_mod.py  —  Policy Gradient & Actor-Critic Methods
 Covers: REINFORCE · Vanilla AC · A2C · A3C · PPO (with GAE) · TRPO overview · SAC overview
 Based on Sutton & Barto Ch.13, Schulman et al. 2015/2017, Haarnoja et al. 2018
 """
+from pathlib import Path
 import streamlit as st
+import streamlit.components.v1 as components
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
@@ -47,6 +49,11 @@ def smooth(a, w=10):
 
 def render_ac_notes(tab_title: str, tab_slug: str) -> None:
     render_notes(f"Actor-Critic & Policy Gradient - {tab_title}", tab_slug)
+
+
+def render_prerequisites_html() -> None:
+    html_path = Path(__file__).resolve().parent / "portal_data" / "rl_methods_reference.html"
+    components.html(html_path.read_text(encoding="utf-8"), height=900, scrolling=True)
 
 # ── CartPole (no gym dependency) ──────────────────────────────────────────
 class CartPole:
@@ -355,6 +362,7 @@ def main_ac():
         '</p></div>', unsafe_allow_html=True)
 
     tabs = st.tabs([
+        "Prerequisites",
         "🗺️ Overview & Why PG?",
         "🎲 REINFORCE",
         "🎭 Actor-Critic",
@@ -364,11 +372,14 @@ def main_ac():
         "📈 Dashboard",
         "📚 Study Plan",
     ])
-    tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_plan = tabs
+    tab_pre, tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_plan = tabs
 
     # ══════════════════════════════════════════════════════════════════
     # TAB 0 — OVERVIEW
     # ══════════════════════════════════════════════════════════════════
+    with tab_pre:
+        render_prerequisites_html()
+
     with tab_ov:
         st.markdown(_card("#7c4dff","🤔","Why Policy Gradient? The Fundamental Motivation",
             """Value-based methods (DQN, Rainbow) learn a Q-function Q(s,a) and derive a policy by
