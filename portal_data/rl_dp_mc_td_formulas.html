@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RL DP MC TD Formulas</title>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      tags: 'none'
+    },
+    options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d1a;
+    color: #c8c8e8;
+    font-family: 'Segoe UI', Inter, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 1.5rem 2rem 3rem;
+  }
+  h1 {
+    color: #fff;
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    padding-bottom: .6rem;
+    border-bottom: 2px solid #2a2a4e;
+  }
+  h2 {
+    color: #a78bfa;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 2rem 0 .8rem;
+    padding: .5rem .9rem;
+    background: #1a1a2e;
+    border-left: 4px solid #7c4dff;
+    border-radius: 0 8px 8px 0;
+  }
+  h3 {
+    color: #60a5fa;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.4rem 0 .5rem;
+  }
+  .formula-block {
+    background: #111128;
+    border: 1px solid #2a2a4e;
+    border-radius: 10px;
+    padding: 1rem 1.4rem;
+    margin: .7rem 0 1rem;
+    overflow-x: auto;
+    text-align: center;
+  }
+  .formula-block .MathJax { font-size: 1.1em !important; }
+  .label {
+    color: #94a3b8;
+    font-size: .82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .3rem;
+  }
+  .section {
+    background: #0f0f20;
+    border: 1px solid #1e1e38;
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .derivation-step {
+    background: #0a0a18;
+    border-left: 3px solid #0288d1;
+    border-radius: 0 8px 8px 0;
+    padding: .7rem 1rem;
+    margin: .5rem 0;
+    font-size: .93rem;
+    color: #b0b0cc;
+  }
+  .note {
+    background: #1a1a0a;
+    border-left: 3px solid #ffa726;
+    border-radius: 0 8px 8px 0;
+    padding: .6rem 1rem;
+    margin: .6rem 0;
+    font-size: .88rem;
+    color: #c8b080;
+  }
+  p { margin: .4rem 0; }
+</style>
+</head>
+<body>
+
+<h1>📐 RL Formulas Reference — DP · MC · TD</h1>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>1. Transition Dynamics</h2>
+<div class="section">
+  <div class="label">Transition Probability</div>
+  <div class="formula-block">
+    $$P(s', r \mid s, a) = \Pr\{S_t = s',\, R_t = r \mid S_{t-1} = s,\, A_{t-1} = a\}$$
+  </div>
+
+  <div class="label">Markov Property</div>
+  <div class="formula-block">
+    $$P(S_{t+1} \mid S_t, S_{t-1}, \ldots, S_0) = P(S_{t+1} \mid S_t)$$
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>2. Expected Return</h2>
+<div class="section">
+  <h3>Return</h3>
+  <div class="formula-block">
+    $$G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}$$
+  </div>
+
+  <h3>State-Value Function</h3>
+  <div class="formula-block">
+    $$v_\pi(s) = \mathbb{E}_\pi\!\left[G_t \mid S_t = s\right] = \mathbb{E}_\pi\!\left[\sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \;\middle|\; S_t = s\right]$$
+  </div>
+
+  <h3>Action-Value Function</h3>
+  <div class="formula-block">
+    $$q_\pi(s, a) = \mathbb{E}_\pi\!\left[G_t \mid S_t = s,\, A_t = a\right] = \mathbb{E}_\pi\!\left[\sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \;\middle|\; S_t = s,\, A_t = a\right]$$
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>3. Dynamic Programming</h2>
+<div class="section">
+  <h3>Bellman Expectation Equation</h3>
+  <div class="formula-block">
+    $$V^\pi(s) = \sum_a \pi(a \mid s) \sum_{s', r} P(s', r \mid s, a)\,\bigl[r + \gamma V^\pi(s')\bigr]$$
+  </div>
+  <div class="note">
+    ⚠️ $\pi(a \mid s)$ is the probability of taking action $a$ in state $s$ under policy $\pi$.
+  </div>
+
+  <h3>Bellman Optimality Equation</h3>
+  <div class="formula-block">
+    $$V^*(s) = \max_a \sum_{s', r} p(s', r \mid s, a)\,\bigl[r + \gamma V^*(s')\bigr]$$
+  </div>
+
+  <h3>Policy Evaluation Update</h3>
+  <div class="formula-block">
+    $$V_{k+1}(s) = \sum_a \pi(a \mid s) \sum_{s', r} p(s', r \mid s, a)\,\bigl[r + \gamma V_k(s')\bigr]$$
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>4. Monte Carlo Methods</h2>
+<div class="section">
+  <div class="note">
+    💡 MC methods require no model of the environment — only sample episodes. Uses $P(s' \mid s, a)$ implicitly through interaction.
+  </div>
+
+  <h3>Return (Monte Carlo)</h3>
+  <div class="formula-block">
+    $$G_t = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}$$
+  </div>
+
+  <h3>State Value (MC Estimate)</h3>
+  <div class="formula-block">
+    $$v_\pi(s) \approx \text{average of returns observed after visiting } s$$
+  </div>
+
+  <h3>Action Value (MC Estimate)</h3>
+  <div class="formula-block">
+    $$q_\pi(s, a) \approx \text{average return after taking action } a \text{ in state } s$$
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>5. Temporal-Difference (TD) Prediction</h2>
+<div class="section">
+  <div class="note">
+    💡 TD combines the sampling of MC with the bootstrapping of DP. Updates after every step, not every episode.
+  </div>
+
+  <h3>TD(0) Update Rule</h3>
+  <div class="formula-block">
+    $$V(S_t) \leftarrow V(S_t) + \alpha\bigl[R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\bigr]$$
+  </div>
+
+  <h3>TD Error</h3>
+  <div class="formula-block">
+    $$\delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$$
+  </div>
+  <p style="color:#94a3b8;font-size:.88rem;margin-top:.4rem">
+    The TD error $\delta_t$ measures how much the current value estimate needs to be corrected.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>6. TD Error Derivation — Connecting MC Return to TD Errors</h2>
+<div class="section">
+  <p>Starting from the MC return and the recursive definition:</p>
+
+  <div class="label">Recursive return</div>
+  <div class="formula-block">
+    $$G_t = R_{t+1} + \gamma G_{t+1}$$
+  </div>
+
+  <div class="label">Step 1 — Expand the error</div>
+  <div class="derivation-step">
+    $G_t - V(S_t)$
+  </div>
+  <div class="derivation-step">
+    $= R_{t+1} + \gamma G_{t+1} - V(S_t)$
+  </div>
+  <div class="derivation-step">
+    $= R_{t+1} + \gamma V(S_{t+1}) - V(S_t) + \gamma\bigl(G_{t+1} - V(S_{t+1})\bigr)$
+  </div>
+  <div class="derivation-step">
+    $= \delta_t + \gamma\bigl(G_{t+1} - V(S_{t+1})\bigr)$
+    &nbsp;&nbsp; where $\delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$
+  </div>
+
+  <div class="label">Step 2 — Unrolling</div>
+  <div class="derivation-step">
+    $= \delta_t + \gamma\delta_{t+1} + \gamma^2\bigl(G_{t+2} - V(S_{t+2})\bigr)$
+  </div>
+  <div class="derivation-step">
+    $= \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \cdots$
+  </div>
+
+  <div class="label">Final Result</div>
+  <div class="formula-block">
+    $$G_t - V(S_t) = \sum_{k=t}^{T-1} \gamma^{k-t}\,\delta_k$$
+  </div>
+  <div class="note">
+    ✅ This identity shows that the MC error (return minus value) equals the discounted sum of all future TD errors.
+    It is the foundation of eligibility traces and TD(λ).
+  </div>
+</div>
+
+</body>
+</html>

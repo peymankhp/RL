@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RL Methods Reference</title>
+<title>RL DP MC TD — Core Formulas</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
@@ -202,23 +202,69 @@
 
   .key-points strong { color: var(--text); font-weight: 500; }
 
+  .proof-box {
+    background: #0a1a2e;
+    border: 1px solid #1a3a5e;
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin: 18px 0;
+  }
+
+  .proof-box .proof-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: #42a5f5;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+
+  .proof-step {
+    margin: 10px 0;
+    padding-left: 16px;
+    border-left: 2px solid #1a3a5e;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+
+  .sub-formula-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 10px 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+
+  .sub-formula-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
   /* Card accent colors */
   .c1 { --card-accent: #7c6af7; }
   .c2 { --card-accent: #f7b731; }
   .c3 { --card-accent: #4ecdc4; }
   .c4 { --card-accent: #f06292; }
   .c5 { --card-accent: #66bb6a; }
+  .c6 { --card-accent: #42a5f5; }
 </style>
 </head>
 <body>
 <div class="page">
 
   <header>
-    <h1>RL Methods Reference</h1>
-    <p>Core Formulas &amp; Key Concepts</p>
+    <h1>RL DP MC TD — Core Formulas</h1>
+    <p>Complete Formula Reference — from the docx study material</p>
   </header>
 
-  <!-- 1. MDP -->
+  <!-- 1. MDP & Transition Dynamics -->
   <div class="card c1">
     <div class="card-header">
       <div class="card-number">1</div>
@@ -227,6 +273,10 @@
     <div class="formula-box">
       <div class="formula-label">Transition Dynamics</div>
       \[ P(s', r \mid s, a) = \Pr\{S_t = s',\; R_t = r \mid S_{t-1} = s,\; A_{t-1} = a\} \]
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Markov Property</div>
+      \[ P(S_{t+1} \mid S_t, S_{t-1}, \ldots, S_0) = P(S_{t+1} \mid S_t) \]
     </div>
     <div class="vars-grid">
       <div class="var-item"><span class="var-symbol">s</span><span class="var-desc">The current state.</span></div>
@@ -245,32 +295,38 @@
     </div>
   </div>
 
-  <!-- 2. Bellman -->
+  <!-- 2. Bellman Equations -->
   <div class="card c2">
     <div class="card-header">
       <div class="card-number">2</div>
-      <div class="card-title">Bellman Equation</div>
+      <div class="card-title">Bellman Equations</div>
     </div>
     <div class="formula-box">
-      <div class="formula-label">Optimality Value Function</div>
-      \[ V(s) = \max_a \sum_{s', r} p(s', r \mid s, a)\bigl[r + \gamma\, V(s')\bigr] \]
+      <div class="formula-label">Bellman Expectation Equation</div>
+      \[ V^{\pi}(s) = \sum_{a} \pi(a \mid s) \sum_{s', r} P(s', r \mid s, a) \left[ r + \gamma V^{\pi}(s') \right] \]
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Bellman Optimality Equation</div>
+      \[ V(s) = \max_a \sum_{s', r} p(s', r \mid s, a) \left[ r + \gamma V(s') \right] \]
     </div>
     <div class="vars-grid">
       <div class="var-item"><span class="var-symbol">V(s)</span><span class="var-desc">The value of the current state.</span></div>
       <div class="var-item"><span class="var-symbol">γ</span><span class="var-desc">Discount factor (0–1): how much future rewards matter vs. immediate ones.</span></div>
+      <div class="var-item"><span class="var-symbol">π(a|s)</span><span class="var-desc">Policy: probability of taking action <em>a</em> given state <em>s</em>.</span></div>
       <div class="var-item"><span class="var-symbol">max<sub>a</sub></span><span class="var-desc">Choose the action yielding the highest possible total value.</span></div>
     </div>
     <div class="key-points">
       <div class="key-points-label">Key Points</div>
       <ul>
+        <li><span><strong>Expectation form:</strong> averages over the policy π(a|s) — evaluates the value under a <em>specific</em> policy.</span></li>
+        <li><span><strong>Optimality form:</strong> takes the max over actions — describes the value under the <em>best possible</em> policy.</span></li>
         <li><span><strong>Recursive relationship:</strong> value of a state = best immediate reward + discounted value of the next state.</span></li>
-        <li><span>This is the <strong>Bellman Optimality Equation</strong> — it describes the value under the <em>optimal</em> policy, not just any policy.</span></li>
         <li><span><strong>γ = 0</strong> → fully short-sighted; <strong>γ → 1</strong> → values all future rewards equally.</span></li>
       </ul>
     </div>
   </div>
 
-  <!-- 3. DP -->
+  <!-- 3. DP — Policy Evaluation -->
   <div class="card c3">
     <div class="card-header">
       <div class="card-number">3</div>
@@ -278,11 +334,10 @@
     </div>
     <div class="formula-box">
       <div class="formula-label">Policy Evaluation Update</div>
-      \[ V_{k+1}(s) = \sum_a \pi(a \mid s) \sum_{s', r} p(s', r \mid s, a)\bigl[r + \gamma\, V_k(s')\bigr] \]
+      \[ V_{k+1}(s) = \sum_a \pi(a \mid s) \sum_{s', r} p(s', r \mid s, a) \left[ r + \gamma V_k(s') \right] \]
     </div>
     <div class="vars-grid">
       <div class="var-item"><span class="var-symbol">V<sub>k+1</sub></span><span class="var-desc">The updated value estimate in the next iteration.</span></div>
-      <div class="var-item"><span class="var-symbol">π(a|s)</span><span class="var-desc">Policy: probability of taking action <em>a</em> given state <em>s</em>.</span></div>
       <div class="var-item"><span class="var-symbol">V<sub>k</sub></span><span class="var-desc">The old value estimate from the previous iteration.</span></div>
     </div>
     <div class="key-points">
@@ -295,45 +350,95 @@
     </div>
   </div>
 
-  <!-- 4. MC -->
+  <!-- 4. Expected Return & Value Functions -->
   <div class="card c4">
     <div class="card-header">
       <div class="card-number">4</div>
-      <div class="card-title">Monte Carlo (MC)</div>
+      <div class="card-title">Expected Return & Value Functions</div>
     </div>
     <div class="formula-box">
-      <div class="formula-label">Value Update</div>
-      \[ V(S_t) \leftarrow V(S_t) + \alpha\bigl[G_t - V(S_t)\bigr] \]
+      <div class="formula-label">Return (Discounted Sum of Rewards)</div>
+      \[ G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \]
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">State-Value Function</div>
+      \[ v_{\pi}(s) = \mathbb{E}_{\pi}\!\left[ G_t \mid S_t = s \right] = \mathbb{E}_{\pi}\!\left[ \sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \mid S_t = s \right] \]
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Action-Value Function</div>
+      \[ q_{\pi}(s, a) = \mathbb{E}_{\pi}\!\left[ G_t \mid S_t = s, A_t = a \right] = \mathbb{E}_{\pi}\!\left[ \sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \mid S_t = s, A_t = a \right] \]
     </div>
     <div class="vars-grid">
-      <div class="var-item"><span class="var-symbol">G<sub>t</sub></span><span class="var-desc">Actual total return (sum of all rewards) from time <em>t</em> until episode end.</span></div>
-      <div class="var-item"><span class="var-symbol">α</span><span class="var-desc">Learning rate: how much new data overwrites old belief.</span></div>
-      <div class="var-item"><span class="var-symbol">G<sub>t</sub> − V(S<sub>t</sub>)</span><span class="var-desc">The "error" — difference between expected and what actually happened.</span></div>
+      <div class="var-item"><span class="var-symbol">G<sub>t</sub></span><span class="var-desc">Total discounted return from time step <em>t</em> onwards.</span></div>
+      <div class="var-item"><span class="var-symbol">v<sub>π</sub>(s)</span><span class="var-desc">Expected return starting from state <em>s</em> following policy π.</span></div>
+      <div class="var-item"><span class="var-symbol">q<sub>π</sub>(s,a)</span><span class="var-desc">Expected return after taking action <em>a</em> in state <em>s</em>, then following π.</span></div>
+      <div class="var-item"><span class="var-symbol">γ</span><span class="var-desc">Discount factor: controls the trade-off between immediate and future rewards.</span></div>
     </div>
     <div class="key-points">
       <div class="key-points-label">Key Points</div>
       <ul>
-        <li><span><strong>Model-free:</strong> learns purely from experience, no knowledge of environment dynamics required.</span></li>
+        <li><span><strong>v<sub>π</sub>(s)</strong> answers: "how good is it to <em>be</em> in state s?" — averaging over all actions the policy might take.</span></li>
+        <li><span><strong>q<sub>π</sub>(s,a)</strong> answers: "how good is it to <em>take action a</em> in state s?" — more informative for decision making.</span></li>
+        <li><span>The relationship: \( v_{\pi}(s) = \sum_a \pi(a|s)\, q_{\pi}(s,a) \) — the state-value is the policy-weighted average of action-values.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 5. Monte Carlo -->
+  <div class="card c5">
+    <div class="card-header">
+      <div class="card-number">5</div>
+      <div class="card-title">Monte Carlo (MC) Methods</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">MC Return</div>
+      \[ G_t = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \]
+    </div>
+    <div class="sub-formula-box">
+      <div class="sub-formula-label">State Value (MC Estimate)</div>
+      \[ v_{\pi}(s) = \text{average of returns from state } s \]
+    </div>
+    <div class="sub-formula-box">
+      <div class="sub-formula-label">Action Value (MC Estimate)</div>
+      \[ q_{\pi}(s, a) = \text{average return after taking action } a \text{ in state } s \]
+    </div>
+    <div class="vars-grid">
+      <div class="var-item"><span class="var-symbol">G<sub>t</sub></span><span class="var-desc">Actual total return (sum of all rewards) from time <em>t</em> until episode end.</span></div>
+      <div class="var-item"><span class="var-symbol">α</span><span class="var-desc">Learning rate: how much new data overwrites old belief.</span></div>
+    </div>
+    <div class="key-points">
+      <div class="key-points-label">Key Points</div>
+      <ul>
+        <li><span><strong>Model-free:</strong> learns purely from experience — does not require knowledge of transition dynamics \( P(s'|s,a) \).</span></li>
         <li><span>Only applies to <strong>episodic tasks</strong> — waits until the full episode ends to compute G<sub>t</sub>.</span></li>
         <li><span><strong>High variance, zero bias</strong> — returns are real unbiased samples, but fluctuate significantly between episodes.</span></li>
       </ul>
     </div>
   </div>
 
-  <!-- 5. TD -->
-  <div class="card c5">
+  <!-- 6. TD Learning -->
+  <div class="card c6">
     <div class="card-header">
-      <div class="card-number">5</div>
+      <div class="card-number">6</div>
       <div class="card-title">Temporal Difference (TD) Learning</div>
     </div>
     <div class="formula-box">
-      <div class="formula-label">TD(0) Update</div>
-      \[ V(S_t) \leftarrow V(S_t) + \alpha\bigl[\underbrace{R_{t+1} + \gamma\, V(S_{t+1})}_{\text{TD Target}} - V(S_t)\bigr] \]
+      <div class="formula-label">TD Prediction (Approximation)</div>
+      \[ V(s) \approx v_{\pi}(s) \]
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">TD(0) Update Rule</div>
+      \[ V(S_t) \leftarrow V(S_t) + \alpha \left[ R_{t+1} + \gamma V(S_{t+1}) - V(S_t) \right] \]
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">TD Error</div>
+      \[ \delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t) \]
     </div>
     <div class="vars-grid">
       <div class="var-item"><span class="var-symbol">R<sub>t+1</sub>+γV(S<sub>t+1</sub>)</span><span class="var-desc"><strong>TD Target</strong>: our new, slightly more accurate estimate of the value.</span></div>
       <div class="var-item"><span class="var-symbol">δ<sub>t</sub></span><span class="var-desc"><strong>TD Error</strong>: the surprise felt when seeing the actual reward and next state.</span></div>
       <div class="var-item"><span class="var-symbol">V(S<sub>t+1</sub>)</span><span class="var-desc">The estimated value of the next state just landed in.</span></div>
+      <div class="var-item"><span class="var-symbol">α</span><span class="var-desc">Learning rate: controls how much to adjust the current estimate.</span></div>
     </div>
     <div class="key-points">
       <div class="key-points-label">Key Points</div>
@@ -341,6 +446,70 @@
         <li><span><strong>Best of both worlds:</strong> model-free like MC, but learns <em>online</em> after every single step — no need to wait for episode end.</span></li>
         <li><span><strong>Bootstraps:</strong> updates estimates based on other estimates — introduces some bias but significantly reduces variance vs. MC.</span></li>
         <li><span><strong>TD(0)</strong> is the simplest form; <strong>TD(λ)</strong> generalizes across a spectrum from pure TD (λ=0) to pure MC (λ=1).</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 7. TD Error Decomposition (Proof) -->
+  <div class="card c1">
+    <div class="card-header">
+      <div class="card-number">7</div>
+      <div class="card-title">TD Error Decomposition — Full Proof</div>
+    </div>
+
+    <div class="proof-box">
+      <div class="proof-title">📐 Proof: G<sub>t</sub> − V(S<sub>t</sub>) = Σ γ<sup>k−t</sup> δ<sub>k</sub></div>
+
+      <div class="proof-step">
+        <strong>Goal:</strong> Show that the MC error decomposes into a sum of TD errors:
+        \[ G_t - V(S_t) = \sum_{k=t}^{T-1} \gamma^{k-t} \delta_k \]
+        where \( \delta_k = R_{k+1} + \gamma V(S_{k+1}) - V(S_k) \).
+      </div>
+
+      <div class="proof-step">
+        <strong>Step 1 — Expand the return recursively:</strong>
+        \[ G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots \]
+        \[ G_t = R_{t+1} + \gamma G_{t+1} \]
+      </div>
+
+      <div class="proof-step">
+        <strong>Step 2 — Subtract V(S<sub>t</sub>):</strong>
+        \[ G_t - V(S_t) = R_{t+1} + \gamma G_{t+1} - V(S_t) \]
+      </div>
+
+      <div class="proof-step">
+        <strong>Step 3 — Add and subtract γV(S<sub>t+1</sub>):</strong>
+        \[ = R_{t+1} + \gamma V(S_{t+1}) - V(S_t) + \gamma \left( G_{t+1} - V(S_{t+1}) \right) \]
+      </div>
+
+      <div class="proof-step">
+        <strong>Step 4 — Recognise the TD error:</strong>
+        \[ \delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t) \]
+        \[ G_t - V(S_t) = \delta_t + \gamma \left( G_{t+1} - V(S_{t+1}) \right) \]
+      </div>
+
+      <div class="proof-step">
+        <strong>Step 5 — Unroll recursively:</strong>
+        \[ = \delta_t + \gamma \delta_{t+1} + \gamma^2 \left( G_{t+2} - V(S_{t+2}) \right) \]
+        \[ = \delta_t + \gamma \delta_{t+1} + \gamma^2 \delta_{t+2} + \cdots \]
+      </div>
+
+      <div class="proof-step">
+        <strong>Final Result:</strong>
+      </div>
+    </div>
+
+    <div class="formula-box">
+      <div class="formula-label">MC Error = Discounted Sum of TD Errors</div>
+      \[ \boxed{G_t - V(S_t) = \sum_{k=t}^{T-1} \gamma^{k-t} \delta_k} \]
+    </div>
+
+    <div class="key-points">
+      <div class="key-points-label">Why This Matters</div>
+      <ul>
+        <li><span><strong>Bridges MC and TD:</strong> the total Monte Carlo error is simply the discounted sum of all one-step TD errors — they are two views of the same quantity.</span></li>
+        <li><span><strong>Foundation of TD(λ):</strong> this decomposition is the mathematical basis for eligibility traces and the λ-return.</span></li>
+        <li><span><strong>GAE (PPO):</strong> Generalized Advantage Estimation uses a weighted version of this decomposition to balance bias and variance in policy gradient methods.</span></li>
       </ul>
     </div>
   </div>

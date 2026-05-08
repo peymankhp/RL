@@ -91,6 +91,13 @@ $$
 r(\tau) = \sum_{t=1}^{T} r(s_t, a_t)
 $$
 
+$$
+G(\tau) = \sum_{t=1}^{T} \gamma^{t-1} r(s_t, a_t)
+$$
+
+$$
+J(\theta) = E_{\tau \sim p_\theta(\tau)} [G(\tau)]
+$$
 
 $$
 p_\theta(\tau) = p_\theta (s_1, a_1, ..., s_T, a_T) = p(s_1)\prod_{t=1}^{T} \pi_\theta(a_t|s_t)p(s_{t+1}|s_t, a_t)

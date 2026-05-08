@@ -52,7 +52,7 @@ def render_ac_notes(tab_title: str, tab_slug: str) -> None:
 
 
 def render_prerequisites_html() -> None:
-    html_path = Path(__file__).resolve().parent / "portal_data" / "rl_methods_reference.html"
+    html_path = Path(__file__).resolve().parent / "portal_data" / "rl_dp_mc_td_formulas.html"
     components.html(html_path.read_text(encoding="utf-8"), height=900, scrolling=True)
 
 
