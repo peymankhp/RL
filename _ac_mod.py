@@ -376,9 +376,10 @@ def main_ac():
         "🏛️ TRPO & SAC",
         "📈 Dashboard",
         "Policy Gradient in a nutshell",
+        "🚀 Project",
         "📚 Study Plan",
     ])
-    tab_pre, tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_pg_nutshell, tab_plan = tabs
+    tab_pre, tab_ov, tab_rf, tab_ac_t, tab_a2c, tab_ppo, tab_trpo, tab_dash, tab_pg_nutshell, tab_project, tab_plan = tabs
 
     # ══════════════════════════════════════════════════════════════════
     # TAB 0 — OVERVIEW
@@ -1276,6 +1277,205 @@ def main_ac():
 
     with tab_pg_nutshell:
         render_policy_gradient_nutshell_html()
+
+    # ══════════════════════════════════════════════════════════════════
+    # TAB — PROJECT: CleanRL PPO
+    # ══════════════════════════════════════════════════════════════════
+    with tab_project:
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#0a1a2e,#0d2137,#0a1a0e);'
+            'border:1px solid #1e3a5f;border-radius:16px;padding:2rem 2.5rem;margin-bottom:1.5rem">'
+            '<h2 style="color:white;margin:0;font-size:1.9rem">🚀 CleanRL — Build a Production PPO Agent</h2>'
+            '<p style="color:#9e9ebb;margin-top:.6rem;font-size:1rem;line-height:1.7">'
+            'Your capstone project for this section: implement, run, and benchmark a complete PPO agent '
+            'using <b style="color:#42a5f5">CleanRL</b> — the gold-standard single-file deep RL library. '
+            'Every algorithm is one self-contained Python file with zero hidden abstractions, '
+            'making it the perfect codebase to learn from and extend.'
+            '</p>'
+            '<p style="margin-top:.8rem">'
+            '<a href="https://github.com/vwxyzjn/cleanrl" target="_blank" '
+            'style="background:#1e88e5;color:white;padding:.4rem 1rem;border-radius:8px;'
+            'text-decoration:none;font-weight:700;font-size:.95rem">📦 github.com/vwxyzjn/cleanrl</a>'
+            '</p>'
+            '</div>', unsafe_allow_html=True)
+
+        # ── What methods does this project cover? ──────────────────
+        st.subheader("🎯 Methods Covered in This Project")
+        cols_m = st.columns(4)
+        methods_info = [
+            ("#7c4dff", "🎲", "REINFORCE", "Vanilla policy gradient — the baseline you'll beat"),
+            ("#0288d1", "🎭", "Actor-Critic", "TD bootstrap replaces slow Monte Carlo returns"),
+            ("#e65100", "🤝", "A2C (n-step)", "Advantage estimation with n-step TD targets"),
+            ("#2e7d32", "🔐", "PPO (CleanRL)", "Clipped surrogate + GAE — the full production algorithm"),
+        ]
+        for col, (color, icon, name, desc) in zip(cols_m, methods_info):
+            col.markdown(
+                f'<div style="background:{color}18;border:1px solid {color}44;border-radius:10px;'
+                f'padding:1rem;text-align:center">'
+                f'<div style="font-size:2rem">{icon}</div>'
+                f'<b style="color:{color};font-size:1rem">{name}</b>'
+                f'<p style="color:#9e9ebb;font-size:.8rem;margin-top:.4rem;line-height:1.5">{desc}</p>'
+                f'</div>', unsafe_allow_html=True)
+
+        st.divider()
+
+        # ── Project overview ───────────────────────────────────────
+        st.subheader("📋 Project Overview")
+        st.markdown(
+            '<div style="background:#12121f;border:1px solid #1e3a5f;border-radius:12px;'
+            'padding:1.2rem 1.6rem;margin-bottom:1rem">'
+            '<b style="color:#42a5f5;font-size:1.05rem">What you will build</b>'
+            '<p style="color:#c5c5e0;margin-top:.5rem;line-height:1.7">'
+            'You will clone CleanRL, run its PPO implementation on CartPole and LunarLander, '
+            'understand every line of <code style="color:#80cbc4">ppo.py</code> (≈ 300 lines, zero magic), '
+            'instrument it with Weights &amp; Biases for experiment tracking, and produce a '
+            'benchmark report comparing REINFORCE, A2C, and PPO on the same environment.'
+            '</p>'
+            '<b style="color:#42a5f5;font-size:1.05rem">Why CleanRL?</b>'
+            '<ul style="color:#c5c5e0;margin-top:.5rem;line-height:1.7">'
+            '<li>Single-file algorithms — you see <i>everything</i>, no base classes hiding logic</li>'
+            '<li>All 9 implementation tricks from Schulman 2017 Appendix A are included</li>'
+            '<li>Built-in W&amp;B + TensorBoard tracking with one flag</li>'
+            '<li>Benchmarked and cited in dozens of academic papers as a reproducible baseline</li>'
+            '<li>Supports Atari, MuJoCo, continuous control, and RLHF workflows</li>'
+            '</ul>'
+            '</div>', unsafe_allow_html=True)
+
+        st.divider()
+
+        # ── Step-by-step implementation guide ─────────────────────
+        st.subheader("🛠️ Step-by-Step Implementation Guide")
+
+        steps = [
+            ("1", "#1565c0", "⚙️ Environment Setup",
+             "Create an isolated Python environment to avoid dependency conflicts.",
+             [
+                 ("bash", "# Create and activate a virtual environment\npython -m venv cleanrl-env\nsource cleanrl-env/bin/activate  # Windows: cleanrl-env\\Scripts\\activate\n\n# Verify Python version (need 3.8+)\npython --version"),
+             ]),
+            ("2", "#1565c0", "📦 Clone & Install CleanRL",
+             "Clone the repository and install dependencies for your target environment.",
+             [
+                 ("bash", "# Clone the repo\ngit clone https://github.com/vwxyzjn/cleanrl.git\ncd cleanrl\n\n# Install base dependencies\npip install -r requirements/requirements.txt\n\n# For classic control (CartPole, LunarLander) — already included above\n# For Atari games:\npip install -r requirements/requirements-atari.txt\n\n# For MuJoCo (HalfCheetah, Hopper, Ant):\npip install -r requirements/requirements-mujoco.txt"),
+             ]),
+            ("3", "#e65100", "🔬 Read ppo.py Before Running",
+             "Open the file and read every section. It is ~300 lines with no abstractions.",
+             [
+                 ("bash", "# Open the core PPO file\ncat cleanrl/ppo.py\n# Or in your editor:\ncode cleanrl/ppo.py"),
+                 ("text", "Key sections to understand in ppo.py:\n  • Lines 1–60   : Argument parsing (all hyperparameters exposed)\n  • Lines 60–100 : Environment setup with SyncVectorEnv\n  • Lines 100–130: Actor-Critic network (shared trunk, two heads)\n  • Lines 130–180: Rollout collection loop (GAE computed inline)\n  • Lines 180–240: PPO update loop (K epochs, mini-batches, clip)\n  • Lines 240–300: Logging, W&B, video recording"),
+             ]),
+            ("4", "#2e7d32", "🎮 Run PPO on CartPole",
+             "Your first run — watch it solve CartPole in minutes.",
+             [
+                 ("bash", "# Basic run (TensorBoard logging by default)\npython cleanrl/ppo.py --env-id CartPole-v1\n\n# View TensorBoard\ntensorboard --logdir runs/\n# Open http://localhost:6006 in your browser"),
+             ]),
+            ("5", "#2e7d32", "📊 Run with Weights & Biases Tracking",
+             "Professional experiment tracking — log hyperparameters, curves, and videos automatically.",
+             [
+                 ("bash", "# Install W&B if not already installed\npip install wandb\nwandb login  # paste your API key from wandb.ai\n\n# Run PPO with full tracking\npython cleanrl/ppo.py \\\n    --env-id CartPole-v1 \\\n    --track \\\n    --wandb-project-name my-pg-project \\\n    --wandb-entity YOUR_USERNAME \\\n    --capture-video   # records episode videos"),
+             ]),
+            ("6", "#7b1fa2", "📈 Benchmark: Compare All Methods",
+             "Run REINFORCE, A2C, and PPO on the same env with the same seed. Produce a comparison table.",
+             [
+                 ("bash", "# Run each algorithm (same seed for fair comparison)\npython cleanrl/ppo.py \\\n    --env-id LunarLander-v2 --seed 1 --track \\\n    --wandb-project-name pg-benchmark\n\n# CleanRL also has a simple REINFORCE-style baseline:\n# Look at cleanrl/ppo.py — set num_minibatches=1, update_epochs=1,\n# clip_coef=1.0 to approximate REINFORCE with baseline"),
+                 ("bash", "# Run 5 seeds for statistical significance (professional practice)\nfor seed in 1 2 3 4 5; do\n    python cleanrl/ppo.py \\\n        --env-id LunarLander-v2 \\\n        --seed $seed \\\n        --track \\\n        --wandb-project-name pg-benchmark-5seeds\ndone\n# W&B will show mean ± std across seeds automatically"),
+             ]),
+            ("7", "#ad1457", "🧪 Key Hyperparameter Experiments",
+             "Ablate each PPO component to understand its contribution.",
+             [
+                 ("bash", "# Ablation 1: Remove clipping (set clip_coef very high)\npython cleanrl/ppo.py --env-id CartPole-v1 --clip-coef 10.0 --track \\\n    --wandb-project-name pg-ablation\n\n# Ablation 2: Remove entropy bonus\npython cleanrl/ppo.py --env-id CartPole-v1 --ent-coef 0.0 --track \\\n    --wandb-project-name pg-ablation\n\n# Ablation 3: Single epoch (like A2C)\npython cleanrl/ppo.py --env-id CartPole-v1 --update-epochs 1 --track \\\n    --wandb-project-name pg-ablation\n\n# Ablation 4: No GAE (lambda=0, equivalent to 1-step TD)\npython cleanrl/ppo.py --env-id CartPole-v1 --gae-lambda 0.0 --track \\\n    --wandb-project-name pg-ablation"),
+             ]),
+            ("8", "#558b2f", "🤖 Scale to Continuous Control (MuJoCo)",
+             "Graduate from CartPole to real continuous control — the regime where PPO dominates.",
+             [
+                 ("bash", "# Install MuJoCo dependencies first\npip install -r requirements/requirements-mujoco.txt\n\n# Run PPO on HalfCheetah (continuous actions)\npython cleanrl/ppo_continuous_action.py \\\n    --env-id HalfCheetah-v4 \\\n    --total-timesteps 2000000 \\\n    --track \\\n    --wandb-project-name mujoco-ppo\n\n# Compare with SAC (off-policy — much more sample efficient)\npython cleanrl/sac_continuous_action.py \\\n    --env-id HalfCheetah-v4 \\\n    --total-timesteps 1000000 \\\n    --track \\\n    --wandb-project-name mujoco-sac"),
+             ]),
+        ]
+
+        for step_num, color, title, description, code_blocks in steps:
+            st.markdown(
+                f'<div style="background:{color}10;border-left:4px solid {color};'
+                f'border-radius:0 10px 10px 0;padding:.8rem 1.2rem;margin:.6rem 0 .3rem">'
+                f'<b style="color:{color};font-size:1.05rem">Step {step_num}: {title}</b>'
+                f'<p style="color:#c5c5e0;font-size:.9rem;margin:.3rem 0 0;line-height:1.6">{description}</p>'
+                f'</div>', unsafe_allow_html=True)
+            for code_type, code_content in code_blocks:
+                if code_type == "bash":
+                    st.code(code_content, language="bash")
+                else:
+                    st.code(code_content, language="text")
+
+        st.divider()
+
+        # ── Key hyperparameters table ──────────────────────────────
+        st.subheader("⚙️ CleanRL PPO: Key Hyperparameters")
+        st.markdown('<p style="color:#9e9ebb;font-size:.9rem">All exposed via CLI flags — no config files needed.</p>',
+                    unsafe_allow_html=True)
+        import pandas as pd
+        st.dataframe(pd.DataFrame({
+            "Flag": ["--learning-rate", "--num-envs", "--num-steps", "--update-epochs",
+                     "--clip-coef", "--ent-coef", "--gae-lambda", "--vf-coef", "--max-grad-norm"],
+            "Default": ["2.5e-4", "4", "128", "4", "0.2", "0.01", "0.95", "0.5", "0.5"],
+            "What it controls": [
+                "Adam LR for both actor and critic",
+                "Number of parallel environments",
+                "Rollout length before each update",
+                "Number of epochs to reuse each batch",
+                "PPO clip ε — how far the policy can move",
+                "Entropy bonus weight — prevents collapse",
+                "GAE λ — bias-variance tradeoff (0=TD, 1=MC)",
+                "Value loss weight in total loss",
+                "Gradient clipping threshold",
+            ],
+            "Schulman checklist": ["✅ #7", "✅ #1", "✅ #2", "✅ #6", "✅ #5", "✅ #9", "✅ #4", "✅ #8", "✅ #3"],
+        }), use_container_width=True, hide_index=True)
+
+        st.divider()
+
+        # ── Pro tips ───────────────────────────────────────────────
+        st.subheader("💡 Pro Tips for Running CleanRL Professionally")
+        pro_tips = [
+            ("Always run ≥ 5 seeds", "A single seed result is meaningless. Use a shell loop or Python script to launch 5 seeds in parallel. W&B will compute mean ± std for you automatically."),
+            ("Use EnvPool for 10× speed", "Install requirements-envpool.txt and use ppo_atari_envpool.py. EnvPool uses C++ to run environments and delivers ~3–4× more frames/second than standard gym."),
+            ("Check the W&B public report", "CleanRL's benchmarks are public at wandb.ai/cleanrl/cleanrl.benchmark — compare your results against the official numbers to verify your setup is correct."),
+            ("Read every argument in the code", "Run python cleanrl/ppo.py --help to see all flags. The argument parser IS the documentation. Every hyperparameter is commented with its paper reference."),
+            ("Profile before optimising", "If training is slow, use torch.profiler to find bottlenecks. The rollout loop is usually the bottleneck, not the update — parallelize environments, not the model."),
+            ("Use capture-video to debug", "Add --capture-video to record the agent's behaviour every N episodes. Watching the agent fail early is often faster than reading logs."),
+        ]
+        tip_cols = st.columns(2)
+        for i, (tip_title, tip_body) in enumerate(pro_tips):
+            tip_cols[i % 2].markdown(
+                f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
+                f'padding:.8rem 1rem;margin:.3rem 0">'
+                f'<b style="color:#42a5f5">💡 {tip_title}</b>'
+                f'<br><span style="color:#9e9ebb;font-size:.86rem;line-height:1.6">{tip_body}</span>'
+                f'</div>', unsafe_allow_html=True)
+
+        st.divider()
+
+        # ── Repo & resources ───────────────────────────────────────
+        st.subheader("🔗 Repository & Key Resources")
+        resources = [
+            ("📦", "CleanRL GitHub", "github.com/vwxyzjn/cleanrl",
+             "Main repo — clone this. Read ppo.py first.", "https://github.com/vwxyzjn/cleanrl"),
+            ("📊", "CleanRL W&B Benchmarks", "wandb.ai/cleanrl/cleanrl.benchmark",
+             "Public benchmark report — all algorithms on all envs.", "https://wandb.ai/cleanrl/cleanrl.benchmark"),
+            ("📄", "CleanRL Paper (Huang et al. 2022)", "arXiv:2111.08819",
+             "The paper describing the single-file design philosophy and benchmark methodology.", "https://arxiv.org/abs/2111.08819"),
+            ("📄", "PPO Paper (Schulman 2017)", "arXiv:1707.06347",
+             "The original PPO paper. Read Appendix A — the 9 implementation tricks CleanRL implements.", "https://arxiv.org/abs/1707.06347"),
+            ("📄", "GAE Paper (Schulman 2015)", "arXiv:1506.02438",
+             "Derives the Generalised Advantage Estimator used in CleanRL's PPO implementation.", "https://arxiv.org/abs/1506.02438"),
+            ("🌐", "Weights & Biases", "wandb.ai",
+             "Free experiment tracking. Required for --track flag. Sign up and get an API key.", "https://wandb.ai"),
+        ]
+        for icon, name, url_display, desc, url in resources:
+            st.markdown(
+                f'<div style="background:#12121f;border:1px solid #2a2a3e;border-radius:8px;'
+                f'padding:.6rem 1rem;margin:.3rem 0">'
+                f'<a href="{url}" target="_blank" style="color:#42a5f5;font-weight:700">{icon} {name}</a>'
+                f' <span style="color:#4a4a6a;font-size:.82rem">— {url_display}</span>'
+                f'<br><span style="color:#9e9ebb;font-size:.86rem">{desc}</span>'
+                f'</div>', unsafe_allow_html=True)
 
     with tab_plan:
         st.subheader("📚 4-Week Policy Gradient Mastery Plan")
